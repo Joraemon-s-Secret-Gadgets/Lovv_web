@@ -110,7 +110,7 @@ function App() {
         <section
           id="onboarding"
           aria-labelledby="onboarding-title"
-          className="mx-auto grid min-h-dvh max-w-[1440px] grid-cols-[minmax(0,1fr)_360px] items-center gap-14 px-14 py-10 max-lg:grid-cols-1 max-lg:px-8 max-sm:px-5"
+          className="mx-auto grid min-h-dvh max-w-[1440px] grid-cols-[minmax(0,1fr)_360px] items-start gap-14 px-14 py-10 max-lg:grid-cols-1 max-lg:px-8 max-sm:px-5"
         >
           <div className="max-w-[860px]">
             <img src={logoImage} alt="Lovv" className="h-16 w-[116px] object-cover" />
@@ -189,7 +189,7 @@ function App() {
             </section>
           </div>
 
-          <aside className="justify-self-end rounded-[24px] border border-[#d7d3a2] bg-[#fffffa] p-6 shadow-[0_18px_50px_-28px_rgba(16,57,45,0.35)] max-lg:justify-self-start max-sm:w-full">
+          <aside className="mt-[364px] justify-self-end rounded-[24px] border border-[#d7d3a2] bg-[#fffffa] p-6 shadow-[0_18px_50px_-28px_rgba(16,57,45,0.35)] max-lg:mt-0 max-lg:justify-self-start max-sm:w-full">
             <img
               src={suitcaseImage}
               alt="손을 흔드는 초록색 캐리어 캐릭터"
