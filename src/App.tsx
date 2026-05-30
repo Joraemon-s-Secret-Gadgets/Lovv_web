@@ -439,6 +439,112 @@ function App() {
                       </div>
                     </div>
                   </div>
+
+                  <section
+                    aria-labelledby="generated-plan-title"
+                    className="overflow-hidden rounded-[18px] border border-[#d7d3a2] bg-[#fffffa] shadow-[0_12px_28px_-14px_rgba(33,46,33,0.14)]"
+                  >
+                    <div className="border-b border-[#e0d6a8] bg-[#f7f5df] px-6 py-6">
+                      <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">
+                        <div>
+                          <p className="text-sm font-semibold text-[#617566]">맞춤 일정 결과</p>
+                          <h3 id="generated-plan-title" className="mt-2 text-2xl font-bold text-[#10392d]">
+                            생성된 일정 상세
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-[#577861]">
+                            챗봇에서 정리된 조건을 바탕으로, 바로 아래에 일정 결과를 이어서 보여줍니다.
+                          </p>
+                        </div>
+                        <span className="inline-flex h-10 items-center justify-center rounded-full border border-[#d7d3a2] bg-[#ffe25a] px-5 text-[12px] font-bold text-[#10392d]">
+                          1일차
+                        </span>
+                      </div>
+
+                      <div className="mt-5 grid grid-cols-3 gap-3 max-md:grid-cols-1">
+                        {[
+                          '동선이 느슨한 일정',
+                          `${selectedPreference.tag} 중심`,
+                          selectedPreference.weakSignal,
+                        ].map((item) => (
+                          <span
+                            key={item}
+                            className="inline-flex min-h-11 items-center rounded-[14px] border border-[#bed0b1] bg-[#fffffa] px-4 text-sm font-bold text-[#10392d]"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="px-6 py-6">
+                      <div className="grid grid-cols-[1fr_auto] items-start gap-4 max-md:grid-cols-1">
+                        <div>
+                          <p className="text-sm font-bold text-[#617566]">1일차 추천 일정</p>
+                          <h4 className="mt-2 text-xl font-bold leading-7 text-[#10392d]">
+                            {selectedPreference.cityPair} 감성 1일 초안
+                          </h4>
+                          <p className="mt-2 text-sm leading-6 text-[#577861]">
+                            장소를 확정하기 전, 취향에 맞는 하루 흐름과 이동 강도를 먼저 확인하는 결과
+                            패널입니다.
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-[#bed0b1] bg-[#f0f6e9] px-4 py-2 text-[12px] font-bold text-[#10392d]">
+                          코스 3개
+                        </span>
+                      </div>
+
+                      <div className="mt-6 space-y-4">
+                        {[
+                          {
+                            time: '오전',
+                            move: '18분',
+                            title: '가볍게 도착하고 동네 감 잡기',
+                            body: selectedPreference.routeHint,
+                            reason: '첫 장소는 걷는 부담보다 여행 분위기를 잡는 데 집중합니다.',
+                          },
+                          {
+                            time: '오후',
+                            move: '24분',
+                            title: '취향에 맞는 핵심 장소 둘러보기',
+                            body: selectedPreference.description,
+                            reason: '선택한 취향이 가장 잘 드러나는 장소를 중간에 배치합니다.',
+                          },
+                          {
+                            time: '저녁',
+                            move: '15분',
+                            title: '무리하지 않는 마무리 동선',
+                            body: selectedPreference.editorialNote,
+                            reason: '마지막에는 이동을 줄이고 쉬어갈 수 있는 여백을 둡니다.',
+                          },
+                        ].map((item, index) => (
+                          <article key={item.time} className="grid grid-cols-[38px_minmax(0,1fr)] gap-4">
+                            <div className="flex flex-col items-center">
+                              <span className="flex size-9 items-center justify-center rounded-full border border-[#10392d] bg-[#ffe25a] text-sm font-black text-[#10392d]">
+                                {index + 1}
+                              </span>
+                              {index < 2 ? <span className="mt-2 h-full w-px bg-[#d7d3a2]" /> : null}
+                            </div>
+                            <div className="rounded-[18px] border border-[#bed0b1] bg-[#f0f6e9] p-5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-bold text-[#10392d]">
+                                  {item.time}
+                                </span>
+                                <span className="rounded-full border border-[#d7d3a2] bg-[#fffffa] px-3 py-1 text-[12px] font-semibold text-[#617566]">
+                                  다음 장소까지 {item.move}
+                                </span>
+                              </div>
+                              <h5 className="mt-4 text-lg font-bold leading-7 text-[#10392d]">{item.title}</h5>
+                              <p className="mt-2 text-sm leading-6 text-[#577861]">{item.body}</p>
+                              <div className="mt-4 rounded-[14px] border border-[#d7d3a2] bg-[#fffffa] px-4 py-3">
+                                <p className="text-[12px] font-bold text-[#617566]">추천 이유</p>
+                                <p className="mt-1 text-sm leading-6 text-[#10392d]">{item.reason}</p>
+                              </div>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
                 </div>
               </div>
             </section>

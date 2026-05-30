@@ -64,6 +64,16 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
 
     expect(screen.getByRole('heading', { name: 'AI 일정 챗봇' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '생성된 일정 상세' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '생성된 일정 상세' })).toBeInTheDocument()
+    expect(screen.getByText('1일차 추천 일정')).toBeInTheDocument()
+    expect(screen.getByText('오키나와 · 제주 감성 1일 초안')).toBeInTheDocument()
+    expect(screen.getByText('동선이 느슨한 일정')).toBeInTheDocument()
+    expect(screen.getAllByText('추천 이유')).toHaveLength(3)
+    expect(screen.getAllByText(/다음 장소까지/)).toHaveLength(3)
+    expect(screen.getByText('오전')).toBeInTheDocument()
+    expect(screen.getByText('오후')).toBeInTheDocument()
+    expect(screen.getByText('저녁')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '여행 지도' })).not.toBeInTheDocument()
     expect(screen.queryByText('오키나와 · 제주 기반 지도')).not.toBeInTheDocument()
     expect(
