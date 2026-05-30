@@ -26,10 +26,29 @@ describe('MVP main entry screen', () => {
     })
   })
 
-  it('renders onboarding preference choices and stores the selected preference', () => {
+  it('reveals onboarding preference choices only after clicking the AI schedule CTA', () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: '대도시 예시로 여행 취향을 가볍게 고르기' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '대도시 예시로 여행 취향을 가볍게 고르기' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'AI 일정 챗봇' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정' }))
+
+    expect(
+      screen.queryByRole('heading', { name: '대도시 예시로 여행 취향을 가볍게 고르기' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'AI 일정 챗봇' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
+
+    expect(screen.getByRole('heading', { name: 'AI 일정 챗봇' })).toBeInTheDocument()
+    expect(screen.getByTestId('onboarding-overlay')).toHaveClass('fixed')
+    expect(screen.getByTestId('onboarding-overlay')).toHaveClass('backdrop-blur-[6px]')
+    expect(
+      screen.getByRole('dialog', { name: '대도시 예시로 여행 취향을 가볍게 고르기' }),
+    ).toHaveAttribute('aria-modal', 'true')
     expect(screen.getByRole('button', { name: /교토 · 경주/ })).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(screen.getByRole('button', { name: /후쿠오카 · 부산/ }))
@@ -39,5 +58,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('link', { name: '이 느낌으로 대화 시작' }))
 
     expect(localStorage.getItem('lovv.preference')).toContain('후쿠오카 · 부산')
+    expect(screen.queryByTestId('onboarding-overlay')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'AI 일정 챗봇' })).toBeInTheDocument()
   })
 })
