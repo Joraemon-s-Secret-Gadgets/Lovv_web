@@ -143,17 +143,17 @@ function App() {
               </div>
 
               <div className="mt-10 grid grid-cols-[minmax(0,1fr)_260px] items-end gap-8 max-lg:grid-cols-1">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#617566]">
                     Lovv City Mood Journal
                   </p>
                   <h1
                     id="onboarding-title"
-                    className="mt-4 max-w-[820px] text-[56px] font-bold leading-[64px] text-[#0b3b2e] max-sm:text-[38px] max-sm:leading-[46px]"
+                    className="mt-4 max-w-[820px] break-keep text-[56px] font-bold leading-[64px] text-[#0b3b2e] max-sm:text-[34px] max-sm:leading-[42px]"
                   >
                     이번 여행의 첫 분위기를 골라주세요
                   </h1>
-                  <p className="mt-5 max-w-[680px] text-base leading-7 text-[#0b3b2e]">
+                  <p className="mt-5 max-w-[680px] break-keep text-base leading-7 text-[#0b3b2e] max-sm:text-[15px] max-sm:leading-6">
                     도시 이름을 고르는 게 아니라, 여행의 속도와 장면을 먼저 고르는 단계예요. 익숙한
                     대도시 감각을 Lovv가 한국과 일본 소도시 후보로 바꿔둘게요.
                   </p>
@@ -163,7 +163,7 @@ function App() {
                   <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#617566]">
                     Before the map
                   </p>
-                  <p className="mt-3 text-[15px] font-bold leading-6 text-[#0b3b2e]">
+                  <p className="mt-3 break-keep text-[15px] font-bold leading-6 text-[#0b3b2e] max-sm:text-sm">
                     이번 선택으로 AI 일정의 말투와 지도 후보가 먼저 정리됩니다
                   </p>
                   <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-[#0b3b2e]">
@@ -178,13 +178,13 @@ function App() {
 
               <section className="mt-9">
                 <div className="flex items-end justify-between gap-5 max-md:block">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-[#617566]">Choose your cover story</p>
-                    <h2 className="mt-2 text-[28px] font-bold leading-9 text-[#0b3b2e]">
+                    <h2 className="mt-2 break-keep text-[28px] font-bold leading-9 text-[#0b3b2e] max-sm:text-2xl max-sm:leading-8">
                       도시의 분위기로 고르는 여행 취향
                     </h2>
                   </div>
-                  <p className="max-w-[320px] text-sm leading-6 text-[#617566] max-md:mt-3">
+                  <p className="max-w-[320px] break-keep text-sm leading-6 text-[#617566] max-md:mt-3">
                     마음에 가까운 장면을 고르면, 다음 화면의 챗봇과 지도 추천이 이 톤에서 시작됩니다.
                   </p>
                 </div>
@@ -199,7 +199,7 @@ function App() {
                         type="button"
                         aria-pressed={isSelected}
                         onClick={() => setSelectedPreference(preference)}
-                        className={`flex min-h-[176px] flex-col justify-between rounded-[22px] border p-5 text-left transition hover:-translate-y-0.5 hover:border-[#10392d] hover:bg-[#f0f6e9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b3b2e] ${
+                        className={`flex min-h-[176px] min-w-0 flex-col justify-between rounded-[22px] border p-5 text-left transition hover:-translate-y-0.5 hover:border-[#10392d] hover:bg-[#f0f6e9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b3b2e] ${
                           isSelected
                             ? 'border-[#10392d] bg-[#e7f0df] shadow-[0_18px_40px_-28px_rgba(16,57,45,0.55)]'
                             : 'border-[#d7d3a2] bg-[#fffffa]'
@@ -210,7 +210,7 @@ function App() {
                             {preference.issue}
                           </span>
                           <span
-                            className={`inline-flex h-[30px] items-center rounded-full border px-3 text-[12px] font-bold text-[#0b3b2e] ${
+                            className={`inline-flex h-[30px] shrink-0 items-center rounded-full border px-3 text-[12px] font-bold text-[#0b3b2e] ${
                               isSelected ? 'border-[#d7d3a2] bg-[#ffe25a]' : 'border-[#bed0b1] bg-[#f0f6e9]'
                             }`}
                           >
@@ -218,14 +218,14 @@ function App() {
                           </span>
                         </span>
                         <span className="mt-5">
-                          <span className="block text-[23px] font-bold leading-8 text-[#0b3b2e]">
+                          <span className="block break-keep text-[23px] font-bold leading-8 text-[#0b3b2e] max-sm:text-xl max-sm:leading-7">
                             {preference.cityPair}
                           </span>
-                          <span className="mt-2 block text-sm leading-6 text-[#617566]">
+                          <span className="mt-2 block line-clamp-2 break-keep text-sm leading-6 text-[#617566]">
                             {preference.description}
                           </span>
                         </span>
-                        <span className="mt-5 block border-t border-[#d7d3a2] pt-3 text-[12px] font-semibold leading-5 text-[#0b3b2e]">
+                        <span className="mt-5 block line-clamp-2 break-keep border-t border-[#d7d3a2] pt-3 text-[12px] font-semibold leading-5 text-[#0b3b2e]">
                           {preference.routeHint}
                         </span>
                       </button>
@@ -239,7 +239,7 @@ function App() {
                       (signal, index) => (
                         <span
                           key={signal}
-                          className={`inline-flex h-[32px] items-center justify-center rounded-full border px-4 text-[12px] font-semibold text-[#0b3b2e] ${
+                          className={`inline-flex h-auto min-h-[32px] max-w-full items-center justify-center rounded-full border px-4 py-1 text-center text-[12px] font-semibold leading-5 text-[#0b3b2e] ${
                             index < 2 ? 'border-[#d7d3a2] bg-[#ffe25a]' : 'border-[#bed0b1] bg-[#f0f6e9]'
                           }`}
                         >
@@ -251,7 +251,7 @@ function App() {
                   <button
                     type="button"
                     onClick={enterMainWithPreference}
-                    className="inline-flex h-[48px] w-[220px] items-center justify-center rounded-full border border-[#d7d3a2] bg-[#ffe25a] text-sm font-semibold text-[#0b3b2e] shadow-[0_2px_3px_rgba(0,0,0,0.04)] transition hover:bg-[#ffe55f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b3b2e] max-md:w-full"
+                    className="inline-flex h-auto min-h-[48px] w-[220px] items-center justify-center rounded-full border border-[#d7d3a2] bg-[#ffe25a] px-5 text-center text-sm font-semibold leading-5 text-[#0b3b2e] shadow-[0_2px_3px_rgba(0,0,0,0.04)] transition hover:bg-[#ffe55f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b3b2e] max-md:w-full"
                   >
                     이 취향으로 Lovv 시작하기
                   </button>
@@ -278,19 +278,23 @@ function App() {
 
               <div className="px-2 pb-2 pt-5">
                 <p className="text-sm font-semibold text-[#617566]">오늘의 취향 여정</p>
-                <h2 className="mt-2 text-[34px] font-bold leading-10 text-[#0b3b2e]">
+                <h2 className="mt-2 break-keep text-[34px] font-bold leading-10 text-[#0b3b2e] max-sm:text-3xl max-sm:leading-9">
                   {selectedPreference.cityPair}
                 </h2>
-                <p className="mt-4 text-sm leading-6 text-[#0b3b2e]">{selectedPreference.editorialNote}</p>
+                <p className="mt-4 line-clamp-3 break-keep text-sm leading-6 text-[#0b3b2e]">
+                  {selectedPreference.editorialNote}
+                </p>
 
                 <div className="mt-5 rounded-[18px] border border-[#bed0b1] bg-[#fffced] p-4">
                   <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#617566]">
                     First route note
                   </p>
-                  <p className="mt-2 text-sm font-bold leading-6 text-[#0b3b2e]">{selectedPreference.routeHint}</p>
+                  <p className="mt-2 line-clamp-2 break-keep text-sm font-bold leading-6 text-[#0b3b2e]">
+                    {selectedPreference.routeHint}
+                  </p>
                 </div>
 
-                <p className="mt-5 text-[13px] leading-6 text-[#617566]">
+                <p className="mt-5 line-clamp-3 break-keep text-[13px] leading-6 text-[#617566]">
                   로그인 없이 MVP를 운영하므로 전체 채팅 로그가 아니라 여행 취향 힌트만 먼저 저장합니다.
                 </p>
               </div>
@@ -312,7 +316,7 @@ function App() {
               <a
                 href="#home"
                 onClick={goHome}
-                className="inline-flex h-8 w-[132px] items-center justify-center rounded-[10.5px] border border-[#b8c9aa] bg-[#dbe8d3] text-[10.5px] font-bold text-[#10251f] shadow-[0_3px_10.5px_rgba(16,37,31,0.05)] transition hover:border-[#ccb23d] hover:bg-[#ffe55f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10392d]"
+                className="inline-flex h-auto min-h-8 w-[132px] items-center justify-center rounded-[10.5px] border border-[#b8c9aa] bg-[#dbe8d3] px-3 text-center text-[10.5px] font-bold leading-4 text-[#10251f] shadow-[0_3px_10.5px_rgba(16,37,31,0.05)] transition hover:border-[#ccb23d] hover:bg-[#ffe55f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10392d]"
               >
                 새 여정 만들기
               </a>
@@ -327,28 +331,28 @@ function App() {
                 className="mx-auto grid min-h-[732px] max-w-[1440px] grid-cols-[minmax(0,1fr)_430px] items-start gap-20 px-[77px] pt-[145px] max-lg:grid-cols-1 max-lg:px-8 max-lg:pt-28 max-sm:px-5"
               >
                 <div className="max-w-[620px]">
-                  <p className="text-base font-semibold leading-[22px] text-[#577861]">
+                  <p className="break-keep text-base font-semibold leading-[22px] text-[#577861] max-sm:text-sm max-sm:leading-5">
                     한국과 일본 소도시 여행을 가장 쉽게 시작하는 방법
                   </p>
                   <h1
                     id="main-entry-title"
                     aria-label="나만 아는 여행 앱, Lovv"
-                    className="mt-3 text-[58px] font-bold leading-[68px] tracking-normal text-[#10392d] max-sm:text-[42px] max-sm:leading-[50px]"
+                    className="mt-3 break-keep text-[58px] font-bold leading-[68px] tracking-normal text-[#10392d] max-sm:text-[36px] max-sm:leading-[44px]"
                   >
                     <span className="block">나만 아는</span>
                     <span className="block">여행 앱, Lovv</span>
                   </h1>
-                  <p className="mt-7 inline-flex min-h-[36px] items-center rounded-full border border-[#d7d3a2] bg-[#fffced] px-5 text-sm font-semibold text-[#10392d]">
+                  <p className="mt-7 inline-flex max-w-full min-h-[36px] items-center rounded-full border border-[#d7d3a2] bg-[#fffced] px-5 py-2 break-keep text-center text-sm font-semibold leading-5 text-[#10392d] max-sm:text-[13px]">
                     {selectedPreference.cityPair} 감성으로 시작합니다
                   </p>
-                  <p className="mt-8 max-w-[600px] text-lg leading-[31px] text-[#10392d] max-sm:mt-7 max-sm:text-base max-sm:leading-7">
+                  <p className="mt-8 max-w-[600px] break-keep text-lg leading-[31px] text-[#10392d] max-sm:mt-7 max-sm:text-base max-sm:leading-7">
                     여행 조건을 길게 입력하지 않아도 괜찮아요. <br />
                     한국과 일본의 작은 도시를 기준으로 취향에 맞는 여행 흐름을 먼저 제안합니다.
                   </p>
                   <a
                     href="#chat"
                     onClick={openChat}
-                    className="mt-7 inline-flex h-[52px] w-[178px] items-center justify-center rounded-[18px] border border-[#b8c9aa] bg-[#dbe8d3] text-sm font-semibold text-[#10392d] shadow-[0_12px_28px_-14px_rgba(33,46,33,0.1)] transition hover:-translate-y-0.5 hover:border-[#ccb23d] hover:bg-[#ffe55f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10392d]"
+                    className="mt-7 inline-flex h-[52px] w-[178px] items-center justify-center rounded-[18px] border border-[#b8c9aa] bg-[#dbe8d3] px-5 text-center text-sm font-semibold leading-5 text-[#10392d] shadow-[0_12px_28px_-14px_rgba(33,46,33,0.1)] transition hover:-translate-y-0.5 hover:border-[#ccb23d] hover:bg-[#ffe55f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10392d] max-sm:h-auto max-sm:min-h-[48px] max-sm:w-full max-sm:whitespace-normal"
                   >
                     AI 일정 짜기
                   </a>
@@ -366,10 +370,10 @@ function App() {
               <section className="mx-auto max-w-[1440px] px-[55px] pb-10 max-sm:px-5">
                 <div className="grid min-h-[126px] grid-cols-[1fr_auto] items-center gap-8 rounded-3xl border border-[#e0d6a8] bg-white/80 px-[31px] py-7 shadow-[0_12px_28px_-14px_rgba(33,46,33,0.1)] max-lg:grid-cols-1">
                   <div>
-                    <h2 className="text-[22px] font-semibold leading-7 text-[#10392d]">
+                    <h2 className="break-keep text-[22px] font-semibold leading-7 text-[#10392d] max-sm:text-xl">
                       처음엔 작게, 추천은 정확하게
                     </h2>
-                    <p className="mt-2 text-sm leading-5 text-[#577861]">
+                    <p className="mt-2 break-keep text-sm leading-5 text-[#577861]">
                       한국과 일본 소도시부터 검증하고, 사용자의 테마 선택으로 일정 추천 품질을 높입니다.
                     </p>
                   </div>
@@ -379,7 +383,7 @@ function App() {
                         <a
                           href={item === '소도시 보기' ? '#home' : '#chat'}
                           onClick={item === '소도시 보기' ? goHome : openChat}
-                          className={`inline-flex h-[34px] items-center justify-center rounded-full border border-[#b8c9aa] bg-[#dbe8d3] px-8 text-xs text-[#10392d] transition hover:border-[#ccb23d] hover:bg-[#ffe55f] ${
+                          className={`inline-flex h-[34px] items-center justify-center rounded-full border border-[#b8c9aa] bg-[#dbe8d3] px-8 text-center text-xs leading-4 text-[#10392d] transition hover:border-[#ccb23d] hover:bg-[#ffe55f] max-sm:h-auto max-sm:min-h-[34px] max-sm:px-4 max-sm:whitespace-normal ${
                             index === 0 ? 'font-semibold' : 'font-medium'
                           }`}
                         >
@@ -400,17 +404,20 @@ function App() {
               <div className="grid min-h-[660px] grid-cols-[300px_minmax(0,1fr)] gap-6 max-lg:grid-cols-1">
                 <aside className="rounded-[18px] border border-[#d7d3a2] bg-[#fffffa] p-6 shadow-[0_12px_28px_-14px_rgba(33,46,33,0.14)]">
                   <p className="text-sm font-semibold text-[#617566]">Lovv AI Planner</p>
-                  <h2 id="chat-title" className="mt-3 text-[30px] font-bold leading-9 text-[#10392d]">
+                  <h2
+                    id="chat-title"
+                    className="mt-3 break-keep text-[30px] font-bold leading-9 text-[#10392d] max-sm:text-2xl max-sm:leading-8"
+                  >
                     AI 일정 챗봇
                   </h2>
-                  <p className="mt-4 text-sm leading-6 text-[#577861]">
+                  <p className="mt-4 break-keep text-sm leading-6 text-[#577861]">
                     {selectedPreference.cityPair} 감성을 기준으로 여행 조건을 대화로 정리합니다.
                   </p>
                   <div className="mt-8 space-y-3">
                     {['취향 반영 완료', '소도시 후보 탐색', '일정 초안 구성'].map((item) => (
                       <div
                         key={item}
-                        className="rounded-[14px] border border-[#bed0b1] bg-[#f0f6e9] px-4 py-3 text-sm font-semibold text-[#10392d]"
+                        className="rounded-[14px] border border-[#bed0b1] bg-[#f0f6e9] px-4 py-3 text-sm font-semibold leading-5 text-[#10392d]"
                       >
                         {item}
                       </div>
@@ -422,19 +429,21 @@ function App() {
                   <div className="flex min-h-[660px] flex-1 flex-col rounded-[18px] border border-[#d7d3a2] bg-[#fffffa] shadow-[0_12px_28px_-14px_rgba(33,46,33,0.14)]">
                     <div className="border-b border-[#e0d6a8] px-6 py-5">
                       <p className="text-sm font-semibold text-[#617566]">AI 일정 짜기</p>
-                      <h3 className="mt-2 text-2xl font-bold text-[#10392d]">여행 조건을 대화로 정리하기</h3>
+                      <h3 className="mt-2 break-keep text-2xl font-bold leading-8 text-[#10392d] max-sm:text-xl max-sm:leading-7">
+                        여행 조건을 대화로 정리하기
+                      </h3>
                     </div>
                     <div className="flex-1 space-y-4 px-6 py-6">
-                      <div className="max-w-[560px] rounded-[18px] border border-[#bed0b1] bg-[#f0f6e9] px-5 py-4 text-sm leading-6 text-[#10392d]">
+                      <div className="max-w-[560px] break-keep rounded-[18px] border border-[#bed0b1] bg-[#f0f6e9] px-5 py-4 text-sm leading-6 text-[#10392d] max-sm:text-[13px] max-sm:leading-6">
                         {selectedPreference.cityPair} 감성에 맞춰 시작할게요. 여행 기간, 동행, 걷는 양을
                         알려주면 어울리는 소도시와 일정 흐름을 먼저 정리할게요.
                       </div>
-                      <div className="ml-auto max-w-[520px] rounded-[18px] border border-[#d7d3a2] bg-[#ffe25a] px-5 py-4 text-sm font-semibold leading-6 text-[#10392d]">
+                      <div className="ml-auto max-w-[520px] break-keep rounded-[18px] border border-[#d7d3a2] bg-[#ffe25a] px-5 py-4 text-sm font-semibold leading-6 text-[#10392d] max-sm:text-[13px] max-sm:leading-6">
                         대화로 먼저 여행 조건을 좁혀보고 싶어요.
                       </div>
                     </div>
                     <div className="border-t border-[#e0d6a8] p-5">
-                      <div className="flex min-h-12 items-center rounded-full border border-[#bed0b1] bg-[#f7f5df] px-5 text-sm text-[#617566]">
+                      <div className="flex min-h-12 items-center rounded-full border border-[#bed0b1] bg-[#f7f5df] px-5 py-2 break-keep text-sm leading-5 text-[#617566] max-sm:text-[13px]">
                         여행 기간, 동행, 관심사를 입력해 주세요
                       </div>
                     </div>
@@ -448,10 +457,13 @@ function App() {
                       <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">
                         <div>
                           <p className="text-sm font-semibold text-[#617566]">맞춤 일정 결과</p>
-                          <h3 id="generated-plan-title" className="mt-2 text-2xl font-bold text-[#10392d]">
+                          <h3
+                            id="generated-plan-title"
+                            className="mt-2 break-keep text-2xl font-bold leading-8 text-[#10392d] max-sm:text-xl max-sm:leading-7"
+                          >
                             생성된 일정 상세
                           </h3>
-                          <p className="mt-2 text-sm leading-6 text-[#577861]">
+                          <p className="mt-2 line-clamp-2 break-keep text-sm leading-6 text-[#577861] max-sm:text-[13px]">
                             챗봇에서 정리된 조건을 바탕으로, 바로 아래에 일정 결과를 이어서 보여줍니다.
                           </p>
                         </div>
@@ -468,7 +480,7 @@ function App() {
                         ].map((item) => (
                           <span
                             key={item}
-                            className="inline-flex min-h-11 items-center rounded-[14px] border border-[#bed0b1] bg-[#fffffa] px-4 text-sm font-bold text-[#10392d]"
+                            className="inline-flex min-h-11 min-w-0 items-center rounded-[14px] border border-[#bed0b1] bg-[#fffffa] px-4 py-2 break-keep text-sm font-bold leading-5 text-[#10392d] max-sm:text-[13px]"
                           >
                             {item}
                           </span>
@@ -480,10 +492,10 @@ function App() {
                       <div className="grid grid-cols-[1fr_auto] items-start gap-4 max-md:grid-cols-1">
                         <div>
                           <p className="text-sm font-bold text-[#617566]">1일차 추천 일정</p>
-                          <h4 className="mt-2 text-xl font-bold leading-7 text-[#10392d]">
+                          <h4 className="mt-2 break-keep text-xl font-bold leading-7 text-[#10392d] max-sm:text-lg max-sm:leading-6">
                             {selectedPreference.cityPair} 감성 1일 초안
                           </h4>
-                          <p className="mt-2 text-sm leading-6 text-[#577861]">
+                          <p className="mt-2 line-clamp-2 break-keep text-sm leading-6 text-[#577861] max-sm:text-[13px]">
                             장소를 확정하기 전, 취향에 맞는 하루 흐름과 이동 강도를 먼저 확인하는 결과
                             패널입니다.
                           </p>
@@ -524,20 +536,26 @@ function App() {
                               </span>
                               {index < 2 ? <span className="mt-2 h-full w-px bg-[#d7d3a2]" /> : null}
                             </div>
-                            <div className="rounded-[18px] border border-[#bed0b1] bg-[#f0f6e9] p-5">
+                            <div className="min-w-0 rounded-[18px] border border-[#bed0b1] bg-[#f0f6e9] p-5">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-bold text-[#10392d]">
+                                <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-bold leading-4 text-[#10392d]">
                                   {item.time}
                                 </span>
-                                <span className="rounded-full border border-[#d7d3a2] bg-[#fffffa] px-3 py-1 text-[12px] font-semibold text-[#617566]">
+                                <span className="rounded-full border border-[#d7d3a2] bg-[#fffffa] px-3 py-1 text-[12px] font-semibold leading-4 text-[#617566]">
                                   다음 장소까지 {item.move}
                                 </span>
                               </div>
-                              <h5 className="mt-4 text-lg font-bold leading-7 text-[#10392d]">{item.title}</h5>
-                              <p className="mt-2 text-sm leading-6 text-[#577861]">{item.body}</p>
+                              <h5 className="mt-4 break-keep text-lg font-bold leading-7 text-[#10392d] max-sm:text-base max-sm:leading-6">
+                                {item.title}
+                              </h5>
+                              <p className="mt-2 line-clamp-2 break-keep text-sm leading-6 text-[#577861] max-sm:text-[13px]">
+                                {item.body}
+                              </p>
                               <div className="mt-4 rounded-[14px] border border-[#d7d3a2] bg-[#fffffa] px-4 py-3">
                                 <p className="text-[12px] font-bold text-[#617566]">추천 이유</p>
-                                <p className="mt-1 text-sm leading-6 text-[#10392d]">{item.reason}</p>
+                                <p className="mt-1 line-clamp-2 break-keep text-sm leading-6 text-[#10392d] max-sm:text-[13px]">
+                                  {item.reason}
+                                </p>
                               </div>
                             </div>
                           </article>

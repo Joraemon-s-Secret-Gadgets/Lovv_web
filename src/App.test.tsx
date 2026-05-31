@@ -32,6 +32,41 @@ describe('MVP main entry screen', () => {
     })
   })
 
+  it('keeps dense text responsive on narrow screens', () => {
+    seedPreference('오키나와 · 제주')
+    render(<App />)
+
+    expect(screen.getByRole('heading', { name: /나만 아는 여행 앱, Lovv/i })).toHaveClass(
+      'break-keep',
+      'max-sm:text-[36px]',
+      'max-sm:leading-[44px]',
+    )
+    expect(screen.getByText('오키나와 · 제주 감성으로 시작합니다')).toHaveClass(
+      'max-w-full',
+      'break-keep',
+      'max-sm:text-[13px]',
+    )
+    expect(screen.getByRole('link', { name: 'AI 일정 짜기' })).toHaveClass(
+      'max-sm:w-full',
+      'max-sm:min-h-[48px]',
+      'max-sm:whitespace-normal',
+    )
+
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
+
+    expect(screen.getByRole('heading', { name: '여행 조건을 대화로 정리하기' })).toHaveClass(
+      'break-keep',
+      'max-sm:text-xl',
+      'max-sm:leading-7',
+    )
+    expect(screen.getByRole('heading', { name: '오키나와 · 제주 감성 1일 초안' })).toHaveClass(
+      'break-keep',
+      'max-sm:text-lg',
+      'max-sm:leading-6',
+    )
+    expect(screen.getByText(/장소를 확정하기 전/)).toHaveClass('line-clamp-2', 'max-sm:text-[13px]')
+  })
+
   it('shows onboarding before the main screen on first entry', () => {
     render(<App />)
 
