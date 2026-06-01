@@ -148,6 +148,31 @@ describe('MVP main entry screen', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('asks whether to include festivals when the chat starts', () => {
+    seedPreference('후쿠오카 · 부산')
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
+
+    expect(screen.getByText(/축제를 일정 테마에 포함할까요/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '축제 포함' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '축제 제외' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '축제 포함' }))
+
+    const chatLog = screen.getByRole('log', { name: 'AI 일정 대화' })
+
+    expect(within(chatLog).getAllByText('축제 포함')[0]).toBeInTheDocument()
+    expect(screen.getByText('축제 포함 반영')).toBeInTheDocument()
+    expect(screen.getByText(/지역 축제나 시즌 행사가 있으면 일정 후보에 함께 넣습니다/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '축제 제외' }))
+
+    expect(within(chatLog).getAllByText('축제 제외')[0]).toBeInTheDocument()
+    expect(screen.getByText('축제 제외 반영')).toBeInTheDocument()
+    expect(screen.getByText(/축제보다 식당과 동네 산책을 우선합니다/)).toBeInTheDocument()
+  })
+
   it('turns a chat message into an assistant response and updated itinerary detail', () => {
     seedPreference('도쿄 · 서울')
     render(<App />)

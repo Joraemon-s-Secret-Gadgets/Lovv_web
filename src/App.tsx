@@ -19,6 +19,8 @@ type CityCoverImage = {
   image: string
 }
 
+type FestivalThemeChoice = 'undecided' | 'include' | 'exclude'
+
 type Preference = {
   cityPair: string
   description: string
@@ -48,6 +50,7 @@ type PlanStop = {
 type PlanDraft = {
   durationLabel: string
   intensityLabel: string
+  festivalThemeLabel: string
   summary: string
   stops: PlanStop[]
 }
@@ -144,6 +147,10 @@ const preferences: Preference[] = [
 type View = 'onboarding' | 'home' | 'chat'
 
 const durationGuidePrompts = ['당일치기', '1박 2일', '2박 3일', '3박 4일', '4박 5일']
+const festivalThemePrompts: { label: string; choice: FestivalThemeChoice }[] = [
+  { label: '축제 포함', choice: 'include' },
+  { label: '축제 제외', choice: 'exclude' },
+]
 
 const readStoredPreference = () => {
   try {
@@ -200,19 +207,64 @@ const getDurationLabel = (message: string) => {
 
 const wantsLessWalking = (message: string) => /덜\s*걷|적게\s*걷|동선|천천|여유|혼자/.test(message)
 
-const createPlanDraft = (preference: Preference, message = ''): PlanDraft => {
+const resolveFestivalThemeChoice = (
+  message: string,
+  currentChoice: FestivalThemeChoice,
+): FestivalThemeChoice => {
+  if (/축제\s*포함|축제.*넣|축제.*같이|행사.*포함/.test(message)) {
+    return 'include'
+  }
+
+  if (/축제\s*제외|축제.*빼|축제.*없이|행사.*제외/.test(message)) {
+    return 'exclude'
+  }
+
+  return currentChoice
+}
+
+const getFestivalThemeSummary = (choice: FestivalThemeChoice) => {
+  if (choice === 'include') {
+    return '지역 축제나 시즌 행사가 있으면 일정 후보에 함께 넣습니다.'
+  }
+
+  if (choice === 'exclude') {
+    return '축제보다 식당과 동네 산책을 우선합니다.'
+  }
+
+  return '축제 포함 여부는 대화 초반에 먼저 확인합니다.'
+}
+
+const getFestivalThemeLabel = (choice: FestivalThemeChoice) => {
+  if (choice === 'include') {
+    return '축제 포함'
+  }
+
+  if (choice === 'exclude') {
+    return '축제 제외'
+  }
+
+  return '축제 미정'
+}
+
+const createPlanDraft = (
+  preference: Preference,
+  message = '',
+  festivalThemeChoice: FestivalThemeChoice = 'undecided',
+): PlanDraft => {
   const durationLabel = getDurationLabel(message)
   const isLessWalking = wantsLessWalking(message)
   const isArtFocused = preference.tag === '예술' || /전시|편집숍|쇼핑|예술/.test(message)
   const intensityLabel = isLessWalking ? '덜 걷는 일정' : '동선이 느슨한 일정'
-  const summary = isArtFocused
+  const baseSummary = isArtFocused
     ? '전시와 편집숍 사이 이동을 줄이는 쪽으로, 저녁에는 동네 산책보다 휴식 여백을 먼저 둡니다.'
     : `${preference.routeHint} 흐름을 기준으로 이동 부담을 낮추고, ${preference.tag} 취향이 잘 보이는 장면을 앞에 둡니다.`
+  const festivalThemeSummary = getFestivalThemeSummary(festivalThemeChoice)
 
   return {
     durationLabel,
     intensityLabel,
-    summary,
+    festivalThemeLabel: getFestivalThemeLabel(festivalThemeChoice),
+    summary: `${baseSummary} ${festivalThemeSummary}`,
     stops: [
       {
         time: '오전',
@@ -245,7 +297,7 @@ const createInitialChatMessages = (preference: Preference): ChatMessage[] => [
   {
     id: createMessageId('assistant', 0),
     role: 'assistant',
-    content: `${preference.cityPair} 감성에 맞춰 시작할게요. 여행 기간, 동행, 걷는 양을 알려주면 어울리는 소도시와 일정 흐름을 먼저 정리할게요.`,
+    content: `${preference.cityPair} 감성에 맞춰 시작할게요. 축제를 일정 테마에 포함할까요? 여행 기간, 동행, 걷는 양도 알려주면 어울리는 소도시와 일정 흐름을 먼저 정리할게요.`,
   },
   {
     id: createMessageId('user', 1),
@@ -263,6 +315,7 @@ function App() {
   const [activeView, setActiveView] = useState<View>(() => (readStoredPreference() ? 'home' : 'onboarding'))
   const [coverImageIndex, setCoverImageIndex] = useState(0)
   const [hasSelectedCover, setHasSelectedCover] = useState(false)
+  const [festivalThemeChoice, setFestivalThemeChoice] = useState<FestivalThemeChoice>('undecided')
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
     createInitialChatMessages(selectedPreference),
@@ -279,6 +332,7 @@ function App() {
   const openChat = (event?: React.MouseEvent<HTMLAnchorElement>) => {
     event?.preventDefault()
     setChatInput('')
+    setFestivalThemeChoice('undecided')
     setChatMessages(createInitialChatMessages(selectedPreference))
     setPlanDraft(createPlanDraft(selectedPreference))
     setActiveView('chat')
@@ -315,7 +369,8 @@ function App() {
       return
     }
 
-    const nextDraft = createPlanDraft(selectedPreference, trimmedMessage)
+    const nextFestivalThemeChoice = resolveFestivalThemeChoice(trimmedMessage, festivalThemeChoice)
+    const nextDraft = createPlanDraft(selectedPreference, trimmedMessage, nextFestivalThemeChoice)
 
     setChatMessages((currentMessages) => [
       ...currentMessages,
@@ -330,6 +385,7 @@ function App() {
         content: createAssistantReply(selectedPreference, nextDraft),
       },
     ])
+    setFestivalThemeChoice(nextFestivalThemeChoice)
     setPlanDraft(nextDraft)
     setChatInput('')
   }
@@ -696,6 +752,28 @@ function App() {
                     </div>
                     <div className="border-t border-[#e0d6a8] p-5">
                       <p className="mb-2 break-keep text-[12px] font-bold text-[#617566]">
+                        축제 테마를 일정에 포함할까요?
+                      </p>
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {festivalThemePrompts.map((prompt) => {
+                          const isSelected = festivalThemeChoice === prompt.choice
+
+                          return (
+                            <button
+                              key={prompt.choice}
+                              type="button"
+                              aria-pressed={isSelected}
+                              onClick={() => submitChatMessage(prompt.label)}
+                              className={`inline-flex min-h-[34px] items-center rounded-full border px-4 py-1 text-[12px] font-bold leading-4 text-[#10392d] transition hover:border-[#ccb23d] hover:bg-[#ffe55f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10392d] ${
+                                isSelected ? 'border-[#d7d3a2] bg-[#ffe25a]' : 'border-[#bed0b1] bg-[#f0f6e9]'
+                              }`}
+                            >
+                              {prompt.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <p className="mb-2 break-keep text-[12px] font-bold text-[#617566]">
                         일정 기간을 먼저 골라주세요
                       </p>
                       <div className="mb-3 flex flex-wrap gap-2">
@@ -757,8 +835,11 @@ function App() {
                         {[
                           planDraft.intensityLabel,
                           `${selectedPreference.tag} 중심`,
+                          planDraft.festivalThemeLabel !== '축제 미정'
+                            ? `${planDraft.festivalThemeLabel} 반영`
+                            : null,
                           selectedPreference.weakSignal,
-                        ].map((item) => (
+                        ].filter(Boolean).map((item) => (
                           <span
                             key={item}
                             className="inline-flex min-h-11 min-w-0 items-center rounded-[14px] border border-[#bed0b1] bg-[#fffffa] px-4 py-2 break-keep text-sm font-bold leading-5 text-[#10392d] max-sm:text-[13px]"
