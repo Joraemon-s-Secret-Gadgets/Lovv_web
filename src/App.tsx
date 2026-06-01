@@ -413,7 +413,7 @@ function App() {
                 <img src={logoImage} alt="Lovv" className="h-16 w-[116px] object-cover" />
               </div>
 
-              <div className="mt-10 grid grid-cols-[minmax(0,1fr)_260px] items-end gap-8 max-lg:grid-cols-1">
+              <div className="mt-10">
                 <div className="min-w-0">
                   <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#617566]">
                     Lovv City Mood Journal
@@ -425,22 +425,8 @@ function App() {
                     이번 여행의 첫 분위기를 골라주세요
                   </h1>
                   <p className="mt-5 max-w-[680px] break-keep text-base leading-7 text-[#0b3b2e] max-sm:text-[15px] max-sm:leading-6">
-                    도시 이름을 고르는 게 아니라, 여행의 속도와 장면을 먼저 고르는 단계예요. 익숙한
-                    대도시 감각을 Lovv가 한국과 일본 소도시 후보로 바꿔둘게요.
+                    익숙한 대도시 감각을 Lovv가 한국과 일본 소도시 후보로 바꿔둘게요.
                   </p>
-                </div>
-
-                <div className="rounded-[22px] border border-[#d7d3a2] bg-[#fffffa] p-5 shadow-[0_18px_50px_-32px_rgba(16,57,45,0.28)]">
-                  <p className="break-keep text-[15px] font-bold leading-6 text-[#0b3b2e] max-sm:text-sm">
-                    이번 선택으로 AI 일정의 말투와 지도 후보가 먼저 정리됩니다
-                  </p>
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-[#0b3b2e]">
-                    {['취향', '도시', '동선'].map((step) => (
-                      <span key={step} className="rounded-full border border-[#bed0b1] bg-[#f0f6e9] px-3 py-2">
-                        {step}
-                      </span>
-                    ))}
-                  </div>
                 </div>
               </div>
 
