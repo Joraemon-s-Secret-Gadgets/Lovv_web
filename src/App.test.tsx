@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
 
-const seedPreference = (cityPair = '교토 · 경주') => {
+const seedPreference = (cityPair = '경주 · 교토') => {
   localStorage.setItem('lovv.preference', JSON.stringify({ cityPair }))
 }
 
@@ -33,7 +33,7 @@ describe('MVP main entry screen', () => {
   })
 
   it('keeps dense text responsive on narrow screens', () => {
-    seedPreference('오키나와 · 제주')
+    seedPreference('제주 · 오키나와')
     render(<App />)
 
     expect(screen.getByRole('heading', { name: /나만 아는 여행 앱, Lovv/i })).toHaveClass(
@@ -41,7 +41,7 @@ describe('MVP main entry screen', () => {
       'max-sm:text-[36px]',
       'max-sm:leading-[44px]',
     )
-    expect(screen.getByText('오키나와 · 제주 감성으로 시작합니다')).toHaveClass(
+    expect(screen.getByText('제주 · 오키나와 감성으로 시작합니다')).toHaveClass(
       'max-w-full',
       'break-keep',
       'max-sm:text-[13px]',
@@ -59,7 +59,7 @@ describe('MVP main entry screen', () => {
       'max-sm:text-xl',
       'max-sm:leading-7',
     )
-    expect(screen.getByRole('heading', { name: '오키나와 · 제주 감성 1일 초안' })).toHaveClass(
+    expect(screen.getByRole('heading', { name: '제주 · 오키나와 감성 1일 초안' })).toHaveClass(
       'break-keep',
       'max-sm:text-lg',
       'max-sm:leading-6',
@@ -81,54 +81,54 @@ describe('MVP main entry screen', () => {
     expect(screen.queryByText('Before the map')).not.toBeInTheDocument()
     expect(screen.queryByText(/마음에 가까운 장면을 고르면/)).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /후쿠오카 · 부산/ }))
+    fireEvent.click(screen.getByRole('button', { name: /부산 · 후쿠오카/ }))
     fireEvent.click(screen.getByRole('button', { name: '이 취향으로 Lovv 시작하기' }))
 
-    expect(localStorage.getItem('lovv.preference')).toContain('후쿠오카 · 부산')
+    expect(localStorage.getItem('lovv.preference')).toContain('부산 · 후쿠오카')
     expect(
       screen.queryByRole('heading', { name: '여행의 분위기를 골라주세요' }),
     ).not.toBeInTheDocument()
     expect(screen.getByRole('banner')).toBeInTheDocument()
-    expect(screen.getByText('후쿠오카 · 부산 감성으로 시작합니다')).toBeInTheDocument()
+    expect(screen.getByText('부산 · 후쿠오카 감성으로 시작합니다')).toBeInTheDocument()
   })
 
   it('shows and cycles the selected cover only after a preference card is clicked', () => {
     render(<App />)
 
     expect(screen.queryByText('Selected Cover')).not.toBeInTheDocument()
-    expect(screen.queryByRole('img', { name: '교토 대표 이미지' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /교토 · 경주/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('img', { name: '경주 대표 이미지' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /경주 · 교토/ })).toHaveAttribute('aria-pressed', 'false')
 
-    fireEvent.click(screen.getByRole('button', { name: /교토 · 경주/ }))
+    fireEvent.click(screen.getByRole('button', { name: /경주 · 교토/ }))
 
-    expect(screen.getByRole('button', { name: /교토 · 경주/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('img', { name: '교토 대표 이미지' })).toBeInTheDocument()
-    expect(screen.getByText('현재 표시: 교토')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: '다음 도시 이미지 보기' }))
-
+    expect(screen.getByRole('button', { name: /경주 · 교토/ })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('img', { name: '경주 대표 이미지' })).toBeInTheDocument()
     expect(screen.getByText('현재 표시: 경주')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /후쿠오카 · 부산/ }))
-
-    expect(screen.getByRole('img', { name: '후쿠오카 대표 이미지' })).toBeInTheDocument()
-    expect(screen.getByText('현재 표시: 후쿠오카')).toBeInTheDocument()
-
     fireEvent.click(screen.getByRole('button', { name: '다음 도시 이미지 보기' }))
+
+    expect(screen.getByRole('img', { name: '교토 대표 이미지' })).toBeInTheDocument()
+    expect(screen.getByText('현재 표시: 교토')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /부산 · 후쿠오카/ }))
 
     expect(screen.getByRole('img', { name: '부산 대표 이미지' })).toBeInTheDocument()
     expect(screen.getByText('현재 표시: 부산')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '다음 도시 이미지 보기' }))
+
+    expect(screen.getByRole('img', { name: '후쿠오카 대표 이미지' })).toBeInTheDocument()
+    expect(screen.getByText('현재 표시: 후쿠오카')).toBeInTheDocument()
   })
 
   it('skips onboarding for returning users and opens the chat workspace without a map', () => {
-    seedPreference('오키나와 · 제주')
+    seedPreference('제주 · 오키나와')
     render(<App />)
 
     expect(
       screen.queryByRole('heading', { name: '여행의 분위기를 골라주세요' }),
     ).not.toBeInTheDocument()
-    expect(screen.getByText('오키나와 · 제주 감성으로 시작합니다')).toBeInTheDocument()
+    expect(screen.getByText('제주 · 오키나와 감성으로 시작합니다')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
 
@@ -136,7 +136,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByRole('region', { name: '생성된 일정 상세' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '생성된 일정 상세' })).toBeInTheDocument()
     expect(screen.getByText('1일차 추천 일정')).toBeInTheDocument()
-    expect(screen.getByText('오키나와 · 제주 감성 1일 초안')).toBeInTheDocument()
+    expect(screen.getByText('제주 · 오키나와 감성 1일 초안')).toBeInTheDocument()
     expect(screen.getByText('동선이 느슨한 일정')).toBeInTheDocument()
     expect(screen.getAllByText('추천 이유')).toHaveLength(3)
     expect(screen.getAllByText(/다음 장소까지/)).toHaveLength(3)
@@ -144,14 +144,24 @@ describe('MVP main entry screen', () => {
     expect(screen.getByText('오후')).toBeInTheDocument()
     expect(screen.getByText('저녁')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '여행 지도' })).not.toBeInTheDocument()
-    expect(screen.queryByText('오키나와 · 제주 기반 지도')).not.toBeInTheDocument()
+    expect(screen.queryByText('제주 · 오키나와 기반 지도')).not.toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: '여행의 분위기를 골라주세요' }),
     ).not.toBeInTheDocument()
   })
 
+  it('maps legacy Japan-first stored preference to the Korea-first display order', () => {
+    seedPreference('오키나와 · 제주')
+    render(<App />)
+
+    expect(
+      screen.queryByRole('heading', { name: '여행의 분위기를 골라주세요' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('제주 · 오키나와 감성으로 시작합니다')).toBeInTheDocument()
+  })
+
   it('asks whether to include festivals when the chat starts', () => {
-    seedPreference('후쿠오카 · 부산')
+    seedPreference('부산 · 후쿠오카')
     render(<App />)
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
@@ -176,7 +186,7 @@ describe('MVP main entry screen', () => {
   })
 
   it('turns a chat message into an assistant response and updated itinerary detail', () => {
-    seedPreference('도쿄 · 서울')
+    seedPreference('서울 · 도쿄')
     render(<App />)
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
@@ -193,14 +203,14 @@ describe('MVP main entry screen', () => {
 
     expect(input).toHaveValue('')
     expect(screen.getByText('2박 3일, 전시랑 편집숍 위주로 덜 걷고 싶어요')).toBeInTheDocument()
-    expect(screen.getByText(/도쿄 · 서울 감성으로 2박 3일 흐름을 잡아볼게요/)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '도쿄 · 서울 감성 2박 3일 초안' })).toBeInTheDocument()
+    expect(screen.getByText(/서울 · 도쿄 감성으로 2박 3일 흐름을 잡아볼게요/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '서울 · 도쿄 감성 2박 3일 초안' })).toBeInTheDocument()
     expect(screen.getByText('덜 걷는 일정')).toBeInTheDocument()
     expect(screen.getByText(/전시와 편집숍 사이 이동을 줄이는 쪽/)).toBeInTheDocument()
   })
 
   it('submits a duration guide chip without storing the full chat transcript', () => {
-    seedPreference('벳푸 · 온양')
+    seedPreference('온양 · 벳푸')
     render(<App />)
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
@@ -209,13 +219,13 @@ describe('MVP main entry screen', () => {
     const chatLog = screen.getByRole('log', { name: 'AI 일정 대화' })
 
     expect(within(chatLog).getAllByText('1박 2일')[0]).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '벳푸 · 온양 감성 1박 2일 초안' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '온양 · 벳푸 감성 1박 2일 초안' })).toBeInTheDocument()
     expect(localStorage.getItem('lovv.chat')).toBeNull()
     expect(localStorage.getItem('lovv.messages')).toBeNull()
   })
 
   it('accepts free duration text from day trip through four nights five days', () => {
-    seedPreference('교토 · 경주')
+    seedPreference('경주 · 교토')
     render(<App />)
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
@@ -225,15 +235,15 @@ describe('MVP main entry screen', () => {
 
     fireEvent.change(input, { target: { value: '당일치기로 역사 산책 위주' } })
     fireEvent.click(sendButton)
-    expect(screen.getByRole('heading', { name: '교토 · 경주 감성 당일치기 초안' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '경주 · 교토 감성 당일치기 초안' })).toBeInTheDocument()
 
     fireEvent.change(input, { target: { value: '3박4일로 여유 있게 골목 산책하고 싶어요' } })
     fireEvent.click(sendButton)
-    expect(screen.getByRole('heading', { name: '교토 · 경주 감성 3박 4일 초안' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '경주 · 교토 감성 3박 4일 초안' })).toBeInTheDocument()
 
     fireEvent.change(input, { target: { value: '4박 5일까지 가능하고 카페도 넣어줘' } })
     fireEvent.click(sendButton)
-    expect(screen.getByRole('heading', { name: '교토 · 경주 감성 4박 5일 초안' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '경주 · 교토 감성 4박 5일 초안' })).toBeInTheDocument()
     expect(screen.getByText('일정 기간을 먼저 골라주세요')).toBeInTheDocument()
     ;['당일치기', '1박 2일', '2박 3일', '3박 4일', '4박 5일'].forEach((duration) => {
       expect(screen.getByRole('button', { name: duration })).toBeInTheDocument()

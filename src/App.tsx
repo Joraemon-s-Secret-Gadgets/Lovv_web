@@ -23,6 +23,7 @@ type FestivalThemeChoice = 'undecided' | 'include' | 'exclude'
 
 type Preference = {
   cityPair: string
+  legacyCityPair?: string
   description: string
   tag: string
   signals: string[]
@@ -59,7 +60,8 @@ const preferenceStorageKey = 'lovv.preference'
 
 const preferences: Preference[] = [
   {
-    cityPair: '교토 · 경주',
+    cityPair: '경주 · 교토',
+    legacyCityPair: '교토 · 경주',
     description: '역사, 전통문화, 산책',
     tag: '역사',
     signals: ['역사 +2', '산책 +1', '혼잡 회피 +1', '로컬 미식 +1'],
@@ -68,12 +70,13 @@ const preferences: Preference[] = [
     editorialNote: '오래된 골목, 낮은 담장, 천천히 머무는 하루에 가까워요.',
     routeHint: '전통 거리 · 찻집 · 야경 산책',
     coverImages: [
-      { city: '교토', image: kyotoImage },
       { city: '경주', image: gyeongjuImage },
+      { city: '교토', image: kyotoImage },
     ],
   },
   {
-    cityPair: '후쿠오카 · 부산',
+    cityPair: '부산 · 후쿠오카',
+    legacyCityPair: '후쿠오카 · 부산',
     description: '미식, 로컬 시장, 축제',
     tag: '미식',
     signals: ['미식 +2', '시장 +1', '축제 +1', '로컬 미식 +1'],
@@ -82,12 +85,13 @@ const preferences: Preference[] = [
     editorialNote: '시장과 포장마차, 바다 가까운 식탁을 따라 움직이는 여행이에요.',
     routeHint: '시장 탐방 · 로컬 식당 · 항구 산책',
     coverImages: [
-      { city: '후쿠오카', image: fukuokaImage },
       { city: '부산', image: busanImage },
+      { city: '후쿠오카', image: fukuokaImage },
     ],
   },
   {
-    cityPair: '오키나와 · 제주',
+    cityPair: '제주 · 오키나와',
+    legacyCityPair: '오키나와 · 제주',
     description: '바다, 자연, 휴식',
     tag: '바다',
     signals: ['바다 +2', '휴식 +1', '자연 +1', '카페 산책 +1'],
@@ -96,12 +100,13 @@ const preferences: Preference[] = [
     editorialNote: '바다와 바람을 오래 바라보고, 일정 사이에 여백을 두는 쪽이에요.',
     routeHint: '해변 드라이브 · 자연 전망 · 느린 카페',
     coverImages: [
-      { city: '오키나와', image: okinawaImage },
       { city: '제주', image: jejuImage },
+      { city: '오키나와', image: okinawaImage },
     ],
   },
   {
-    cityPair: '벳푸 · 온양',
+    cityPair: '온양 · 벳푸',
+    legacyCityPair: '벳푸 · 온양',
     description: '온천, 힐링, 여유',
     tag: '온천',
     signals: ['온천 +2', '힐링 +1', '느린 일정 +1', '숙소 체류 +1'],
@@ -110,12 +115,13 @@ const preferences: Preference[] = [
     editorialNote: '많이 보기보다 잘 쉬는 여행, 숙소와 동네의 리듬을 중시해요.',
     routeHint: '온천 거리 · 로컬 식사 · 숙소 휴식',
     coverImages: [
-      { city: '벳푸', image: beppuImage },
       { city: '온양', image: onyangImage },
+      { city: '벳푸', image: beppuImage },
     ],
   },
   {
-    cityPair: '삿포로 · 강원',
+    cityPair: '강원 · 삿포로',
+    legacyCityPair: '삿포로 · 강원',
     description: '자연, 계절감, 겨울',
     tag: '자연',
     signals: ['자연 +2', '계절감 +1', '전망 +1', '로컬 음식 +1'],
@@ -124,12 +130,13 @@ const preferences: Preference[] = [
     editorialNote: '계절의 색이 선명한 풍경과 전망 좋은 동선을 먼저 떠올려요.',
     routeHint: '전망 포인트 · 계절 식당 · 숲길',
     coverImages: [
-      { city: '삿포로', image: sapporoImage },
       { city: '강원', image: gangwonImage },
+      { city: '삿포로', image: sapporoImage },
     ],
   },
   {
-    cityPair: '도쿄 · 서울',
+    cityPair: '서울 · 도쿄',
+    legacyCityPair: '도쿄 · 서울',
     description: '전시, 쇼핑, 예술, 트렌드',
     tag: '예술',
     signals: ['예술 +2', '전시 +1', '쇼핑 +1', '트렌드 +1'],
@@ -138,8 +145,8 @@ const preferences: Preference[] = [
     editorialNote: '전시와 편집숍, 새로운 동네의 감각을 촘촘히 따라가요.',
     routeHint: '전시 공간 · 편집숍 · 밤 산책',
     coverImages: [
-      { city: '도쿄', image: tokyoImage },
       { city: '서울', image: seoulImage },
+      { city: '도쿄', image: tokyoImage },
     ],
   },
 ]
@@ -162,7 +169,13 @@ const readStoredPreference = () => {
 
     const parsedPreference = JSON.parse(rawPreference) as Partial<Preference>
 
-    return preferences.find((preference) => preference.cityPair === parsedPreference.cityPair) ?? null
+    return (
+      preferences.find(
+        (preference) =>
+          preference.cityPair === parsedPreference.cityPair ||
+          preference.legacyCityPair === parsedPreference.cityPair,
+      ) ?? null
+    )
   } catch {
     return null
   }
