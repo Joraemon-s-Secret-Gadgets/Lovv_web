@@ -13,6 +13,27 @@ type Preference = {
   routeHint: string
 }
 
+type ChatMessage = {
+  id: string
+  role: 'assistant' | 'user'
+  content: string
+}
+
+type PlanStop = {
+  time: '오전' | '오후' | '저녁'
+  move: string
+  title: string
+  body: string
+  reason: string
+}
+
+type PlanDraft = {
+  durationLabel: string
+  intensityLabel: string
+  summary: string
+  stops: PlanStop[]
+}
+
 const preferenceStorageKey = 'lovv.preference'
 
 const preferences: Preference[] = [
@@ -80,6 +101,8 @@ const preferences: Preference[] = [
 
 type View = 'onboarding' | 'home' | 'chat'
 
+const suggestionPrompts = ['혼자 1박 2일', '친구랑 2박 3일', '걷기 적은 일정', '카페와 전시 추가']
+
 const readStoredPreference = () => {
   try {
     const rawPreference = localStorage.getItem(preferenceStorageKey)
@@ -96,10 +119,92 @@ const readStoredPreference = () => {
   }
 }
 
+const createMessageId = (role: ChatMessage['role'], index: number) => `${role}-${index}`
+
+const getDurationLabel = (message: string) => {
+  if (/2\s*박\s*3\s*일/.test(message)) {
+    return '2박 3일'
+  }
+
+  if (/1\s*박\s*2\s*일/.test(message)) {
+    return '1박 2일'
+  }
+
+  if (/당일|하루|1\s*일/.test(message)) {
+    return '1일'
+  }
+
+  return '1일'
+}
+
+const wantsLessWalking = (message: string) => /덜\s*걷|적게\s*걷|동선|천천|여유|혼자/.test(message)
+
+const createPlanDraft = (preference: Preference, message = ''): PlanDraft => {
+  const durationLabel = getDurationLabel(message)
+  const isLessWalking = wantsLessWalking(message)
+  const isArtFocused = preference.tag === '예술' || /전시|편집숍|쇼핑|예술/.test(message)
+  const intensityLabel = isLessWalking ? '덜 걷는 일정' : '동선이 느슨한 일정'
+  const summary = isArtFocused
+    ? '전시와 편집숍 사이 이동을 줄이는 쪽으로, 저녁에는 동네 산책보다 휴식 여백을 먼저 둡니다.'
+    : `${preference.routeHint} 흐름을 기준으로 이동 부담을 낮추고, ${preference.tag} 취향이 잘 보이는 장면을 앞에 둡니다.`
+
+  return {
+    durationLabel,
+    intensityLabel,
+    summary,
+    stops: [
+      {
+        time: '오전',
+        move: isLessWalking ? '12분' : '18분',
+        title: isLessWalking ? '가볍게 도착하고 가까운 동네부터 보기' : '가볍게 도착하고 동네 감 잡기',
+        body: preference.routeHint,
+        reason: '첫 장소는 걷는 부담보다 여행 분위기를 잡는 데 집중합니다.',
+      },
+      {
+        time: '오후',
+        move: isLessWalking ? '16분' : '24분',
+        title: isArtFocused ? '전시와 편집숍을 한 동선 안에 묶기' : '취향에 맞는 핵심 장소 둘러보기',
+        body: isArtFocused ? '전시 공간 · 편집숍 · 쉬어가는 카페를 한 구역에 묶어 봅니다.' : preference.description,
+        reason: isArtFocused
+          ? '선택한 예술 취향이 가장 잘 드러나는 장소를 이동이 짧은 순서로 배치합니다.'
+          : '선택한 취향이 가장 잘 드러나는 장소를 중간에 배치합니다.',
+      },
+      {
+        time: '저녁',
+        move: isLessWalking ? '10분' : '15분',
+        title: '무리하지 않는 마무리 동선',
+        body: preference.editorialNote,
+        reason: '마지막에는 이동을 줄이고 쉬어갈 수 있는 여백을 둡니다.',
+      },
+    ],
+  }
+}
+
+const createInitialChatMessages = (preference: Preference): ChatMessage[] => [
+  {
+    id: createMessageId('assistant', 0),
+    role: 'assistant',
+    content: `${preference.cityPair} 감성에 맞춰 시작할게요. 여행 기간, 동행, 걷는 양을 알려주면 어울리는 소도시와 일정 흐름을 먼저 정리할게요.`,
+  },
+  {
+    id: createMessageId('user', 1),
+    role: 'user',
+    content: '대화로 먼저 여행 조건을 좁혀보고 싶어요.',
+  },
+]
+
+const createAssistantReply = (preference: Preference, draft: PlanDraft) =>
+  `${preference.cityPair} 감성으로 ${draft.durationLabel} 흐름을 잡아볼게요. ${draft.intensityLabel}으로 ${preference.tag} 취향이 가장 잘 보이는 시간대를 먼저 배치했습니다.`
+
 function App() {
   const proofItems = ['AI 일정', '챗봇', '소도시 보기']
   const [selectedPreference, setSelectedPreference] = useState(() => readStoredPreference() ?? preferences[0])
   const [activeView, setActiveView] = useState<View>(() => (readStoredPreference() ? 'home' : 'onboarding'))
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
+    createInitialChatMessages(selectedPreference),
+  )
+  const [planDraft, setPlanDraft] = useState<PlanDraft>(() => createPlanDraft(selectedPreference))
 
   const goHome = (event?: React.MouseEvent<HTMLAnchorElement>) => {
     event?.preventDefault()
@@ -108,6 +213,9 @@ function App() {
 
   const openChat = (event?: React.MouseEvent<HTMLAnchorElement>) => {
     event?.preventDefault()
+    setChatInput('')
+    setChatMessages(createInitialChatMessages(selectedPreference))
+    setPlanDraft(createPlanDraft(selectedPreference))
     setActiveView('chat')
   }
 
@@ -123,6 +231,37 @@ function App() {
   const enterMainWithPreference = () => {
     storeSelectedPreference()
     setActiveView('home')
+  }
+
+  const submitChatMessage = (message: string) => {
+    const trimmedMessage = message.trim()
+
+    if (!trimmedMessage) {
+      return
+    }
+
+    const nextDraft = createPlanDraft(selectedPreference, trimmedMessage)
+
+    setChatMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        id: createMessageId('user', currentMessages.length),
+        role: 'user',
+        content: trimmedMessage,
+      },
+      {
+        id: createMessageId('assistant', currentMessages.length + 1),
+        role: 'assistant',
+        content: createAssistantReply(selectedPreference, nextDraft),
+      },
+    ])
+    setPlanDraft(nextDraft)
+    setChatInput('')
+  }
+
+  const submitChatForm = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    submitChatMessage(chatInput)
   }
 
   return (
@@ -433,19 +572,73 @@ function App() {
                         여행 조건을 대화로 정리하기
                       </h3>
                     </div>
-                    <div className="flex-1 space-y-4 px-6 py-6">
-                      <div className="max-w-[560px] break-keep rounded-[18px] border border-[#bed0b1] bg-[#f0f6e9] px-5 py-4 text-sm leading-6 text-[#10392d] max-sm:text-[13px] max-sm:leading-6">
-                        {selectedPreference.cityPair} 감성에 맞춰 시작할게요. 여행 기간, 동행, 걷는 양을
-                        알려주면 어울리는 소도시와 일정 흐름을 먼저 정리할게요.
-                      </div>
-                      <div className="ml-auto max-w-[520px] break-keep rounded-[18px] border border-[#d7d3a2] bg-[#ffe25a] px-5 py-4 text-sm font-semibold leading-6 text-[#10392d] max-sm:text-[13px] max-sm:leading-6">
-                        대화로 먼저 여행 조건을 좁혀보고 싶어요.
-                      </div>
+                    <div
+                      role="log"
+                      aria-label="AI 일정 대화"
+                      className="flex-1 space-y-4 px-6 py-6"
+                    >
+                      {chatMessages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`max-w-[560px] break-keep rounded-[18px] border px-5 py-4 text-sm leading-6 text-[#10392d] max-sm:text-[13px] max-sm:leading-6 ${
+                            message.role === 'assistant'
+                              ? 'border-[#bed0b1] bg-[#f0f6e9]'
+                              : 'ml-auto border-[#d7d3a2] bg-[#ffe25a] font-semibold'
+                          }`}
+                        >
+                          {message.content}
+                        </div>
+                      ))}
+
+                      {chatMessages.length > 2 ? (
+                        <div className="rounded-[18px] border border-[#d7d3a2] bg-[#fffced] p-5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-[#bed0b1] bg-[#fffffa] px-3 py-1 text-[12px] font-bold text-[#10392d]">
+                              일정 초안
+                            </span>
+                            <span className="rounded-full border border-[#d7d3a2] bg-[#ffe25a] px-3 py-1 text-[12px] font-bold text-[#10392d]">
+                              {planDraft.durationLabel}
+                            </span>
+                            <span className="rounded-full border border-[#bed0b1] bg-[#f0f6e9] px-3 py-1 text-[12px] font-bold text-[#10392d]">
+                              {planDraft.intensityLabel} 반영
+                            </span>
+                          </div>
+                          <p className="mt-3 break-keep text-sm font-semibold leading-6 text-[#10392d] max-sm:text-[13px]">
+                            하단 일정 상세에 반영했어요. 시간대별 동선과 추천 이유를 이어서 확인해 주세요.
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
                     <div className="border-t border-[#e0d6a8] p-5">
-                      <div className="flex min-h-12 items-center rounded-full border border-[#bed0b1] bg-[#f7f5df] px-5 py-2 break-keep text-sm leading-5 text-[#617566] max-sm:text-[13px]">
-                        여행 기간, 동행, 관심사를 입력해 주세요
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {suggestionPrompts.map((prompt) => (
+                          <button
+                            key={prompt}
+                            type="button"
+                            onClick={() => submitChatMessage(prompt)}
+                            className="inline-flex min-h-[34px] items-center rounded-full border border-[#bed0b1] bg-[#f0f6e9] px-4 py-1 text-[12px] font-bold leading-4 text-[#10392d] transition hover:border-[#ccb23d] hover:bg-[#ffe55f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10392d]"
+                          >
+                            {prompt}
+                          </button>
+                        ))}
                       </div>
+                      <form onSubmit={submitChatForm} className="grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1">
+                        <input
+                          aria-label="여행 조건 입력"
+                          value={chatInput}
+                          onChange={(event) => setChatInput(event.target.value)}
+                          placeholder="여행 기간, 동행, 관심사를 입력해 주세요"
+                          className="min-h-12 min-w-0 rounded-full border border-[#bed0b1] bg-[#f7f5df] px-5 py-2 break-keep text-sm leading-5 text-[#10392d] outline-none transition placeholder:text-[#617566] focus:border-[#10392d] focus:bg-[#fffffa] max-sm:text-[13px]"
+                        />
+                        <button
+                          type="submit"
+                          aria-label="메시지 보내기"
+                          disabled={!chatInput.trim()}
+                          className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#b8c9aa] bg-[#dbe8d3] px-6 text-sm font-bold text-[#10392d] transition hover:border-[#ccb23d] hover:bg-[#ffe55f] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-[#b8c9aa] disabled:hover:bg-[#dbe8d3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10392d]"
+                        >
+                          보내기
+                        </button>
+                      </form>
                     </div>
                   </div>
 
@@ -474,7 +667,7 @@ function App() {
 
                       <div className="mt-5 grid grid-cols-3 gap-3 max-md:grid-cols-1">
                         {[
-                          '동선이 느슨한 일정',
+                          planDraft.intensityLabel,
                           `${selectedPreference.tag} 중심`,
                           selectedPreference.weakSignal,
                         ].map((item) => (
@@ -493,11 +686,11 @@ function App() {
                         <div>
                           <p className="text-sm font-bold text-[#617566]">1일차 추천 일정</p>
                           <h4 className="mt-2 break-keep text-xl font-bold leading-7 text-[#10392d] max-sm:text-lg max-sm:leading-6">
-                            {selectedPreference.cityPair} 감성 1일 초안
+                            {selectedPreference.cityPair} 감성 {planDraft.durationLabel} 초안
                           </h4>
                           <p className="mt-2 line-clamp-2 break-keep text-sm leading-6 text-[#577861] max-sm:text-[13px]">
-                            장소를 확정하기 전, 취향에 맞는 하루 흐름과 이동 강도를 먼저 확인하는 결과
-                            패널입니다.
+                            장소를 확정하기 전, 취향에 맞는 하루 흐름과 이동 강도를 먼저 확인합니다.{' '}
+                            {planDraft.summary}
                           </p>
                         </div>
                         <span className="rounded-full border border-[#bed0b1] bg-[#f0f6e9] px-4 py-2 text-[12px] font-bold text-[#10392d]">
@@ -506,29 +699,7 @@ function App() {
                       </div>
 
                       <div className="mt-6 space-y-4">
-                        {[
-                          {
-                            time: '오전',
-                            move: '18분',
-                            title: '가볍게 도착하고 동네 감 잡기',
-                            body: selectedPreference.routeHint,
-                            reason: '첫 장소는 걷는 부담보다 여행 분위기를 잡는 데 집중합니다.',
-                          },
-                          {
-                            time: '오후',
-                            move: '24분',
-                            title: '취향에 맞는 핵심 장소 둘러보기',
-                            body: selectedPreference.description,
-                            reason: '선택한 취향이 가장 잘 드러나는 장소를 중간에 배치합니다.',
-                          },
-                          {
-                            time: '저녁',
-                            move: '15분',
-                            title: '무리하지 않는 마무리 동선',
-                            body: selectedPreference.editorialNote,
-                            reason: '마지막에는 이동을 줄이고 쉬어갈 수 있는 여백을 둡니다.',
-                          },
-                        ].map((item, index) => (
+                        {planDraft.stops.map((item, index) => (
                           <article key={item.time} className="grid grid-cols-[38px_minmax(0,1fr)] gap-4">
                             <div className="flex flex-col items-center">
                               <span className="flex size-9 items-center justify-center rounded-full border border-[#10392d] bg-[#ffe25a] text-sm font-black text-[#10392d]">

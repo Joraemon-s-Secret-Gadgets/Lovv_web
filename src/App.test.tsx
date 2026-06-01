@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
 
@@ -114,5 +114,44 @@ describe('MVP main entry screen', () => {
     expect(
       screen.queryByRole('heading', { name: '이번 여행의 첫 분위기를 골라주세요' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('turns a chat message into an assistant response and updated itinerary detail', () => {
+    seedPreference('도쿄 · 서울')
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
+
+    const input = screen.getByRole('textbox', { name: '여행 조건 입력' })
+    const sendButton = screen.getByRole('button', { name: '메시지 보내기' })
+
+    expect(sendButton).toBeDisabled()
+
+    fireEvent.change(input, { target: { value: '2박 3일, 전시랑 편집숍 위주로 덜 걷고 싶어요' } })
+    expect(sendButton).not.toBeDisabled()
+
+    fireEvent.click(sendButton)
+
+    expect(input).toHaveValue('')
+    expect(screen.getByText('2박 3일, 전시랑 편집숍 위주로 덜 걷고 싶어요')).toBeInTheDocument()
+    expect(screen.getByText(/도쿄 · 서울 감성으로 2박 3일 흐름을 잡아볼게요/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '도쿄 · 서울 감성 2박 3일 초안' })).toBeInTheDocument()
+    expect(screen.getByText('덜 걷는 일정')).toBeInTheDocument()
+    expect(screen.getByText(/전시와 편집숍 사이 이동을 줄이는 쪽/)).toBeInTheDocument()
+  })
+
+  it('submits a suggestion chip without storing the full chat transcript', () => {
+    seedPreference('벳푸 · 온양')
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
+    fireEvent.click(screen.getByRole('button', { name: '혼자 1박 2일' }))
+
+    const chatLog = screen.getByRole('log', { name: 'AI 일정 대화' })
+
+    expect(within(chatLog).getByText('혼자 1박 2일')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '벳푸 · 온양 감성 1박 2일 초안' })).toBeInTheDocument()
+    expect(localStorage.getItem('lovv.chat')).toBeNull()
+    expect(localStorage.getItem('lovv.messages')).toBeNull()
   })
 })
