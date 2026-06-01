@@ -495,11 +495,8 @@ function App() {
                 onClick={signInWithGoogle}
                 className="inline-flex min-h-[52px] items-center justify-center rounded-[18px] border border-[#b8c9aa] bg-[#dbe8d3] px-6 text-sm font-bold text-[#10392d] shadow-[0_12px_28px_-14px_rgba(33,46,33,0.1)] transition hover:-translate-y-0.5 hover:border-[#ccb23d] hover:bg-[#ffe55f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10392d] max-sm:w-full"
               >
-                Google로 시작하기
+                Google 간편 로그인으로 시작하기
               </button>
-              <span className="inline-flex min-h-[34px] items-center rounded-full border border-[#d7d3a2] bg-[#fffced] px-4 py-1 text-[12px] font-bold text-[#10392d]">
-                MVP mock session
-              </span>
             </div>
           </div>
 

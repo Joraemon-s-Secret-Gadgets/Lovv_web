@@ -25,11 +25,12 @@ describe('MVP main entry screen', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: '회원가입하고 Lovv 시작하기' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Google로 시작하기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Google 간편 로그인으로 시작하기' })).toBeInTheDocument()
+    expect(screen.queryByText('MVP mock session')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '여행의 분위기를 골라주세요' })).not.toBeInTheDocument()
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Google로 시작하기' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Google 간편 로그인으로 시작하기' }))
 
     expect(localStorage.getItem(authStorageKey)).toContain('Lovv Tester')
     expect(screen.getByRole('heading', { name: '여행의 분위기를 골라주세요' })).toBeInTheDocument()
@@ -100,7 +101,7 @@ describe('MVP main entry screen', () => {
 
   it('shows onboarding after signup before the main screen on first entry', () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'Google로 시작하기' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Google 간편 로그인으로 시작하기' }))
 
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /나만 아는 여행 앱, Lovv/i })).not.toBeInTheDocument()
