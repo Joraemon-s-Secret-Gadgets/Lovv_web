@@ -724,7 +724,12 @@ function App() {
                     className="mt-3 break-keep text-[58px] font-bold leading-[68px] tracking-normal text-[#33271E] max-sm:text-[36px] max-sm:leading-[44px]"
                   >
                     <span className="block">나만 아는</span>
-                    <span className="block">여행 앱, Lovv</span>
+                    <span className="block">
+                      여행 앱,{' '}
+                      <span className="text-[#F36B12] drop-shadow-[0_3px_0_rgba(169,43,16,0.2)]">
+                        Lovv
+                      </span>
+                    </span>
                   </h1>
                   <p className="mt-7 inline-flex max-w-full min-h-[36px] items-center rounded-full border border-[#F3B489] bg-[#FFF0E4] px-5 py-2 break-keep text-center text-sm font-semibold leading-5 text-[#33271E] max-sm:text-[13px]">
                     {selectedPreference.cityPair} 감성으로 시작합니다

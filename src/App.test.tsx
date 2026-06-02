@@ -54,6 +54,10 @@ describe('MVP main entry screen', () => {
     expect(screen.queryByText('Lovv Tester')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /나만 아는 여행 앱, Lovv/i })).toBeInTheDocument()
     expect(screen.getByTestId('main-entry')).toHaveClass('lovv-hero-radial')
+    expect(screen.getByText('Lovv', { selector: 'span' })).toHaveClass(
+      'text-[#F36B12]',
+      'drop-shadow-[0_3px_0_rgba(169,43,16,0.2)]',
+    )
     expect(screen.getByRole('link', { name: 'AI 일정 짜기' })).toHaveAttribute('href', '#chat')
     expect(screen.getByText('처음엔 작게, 추천은 정확하게')).toBeInTheDocument()
   })
