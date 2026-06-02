@@ -259,11 +259,11 @@ const readStoredUser = () => {
 
 const createMessageId = (role: ChatMessage['role'], index: number) => `${role}-${index}`
 
-const getDurationLabel = (message: string) => {
+const getExplicitDurationLabel = (message: string) => {
   const normalizedMessage = message.replace(/\s+/g, '')
 
   if (!normalizedMessage) {
-    return '1일'
+    return null
   }
 
   const nightsMatch = normalizedMessage.match(/([1-4])박([2-5])일/)
@@ -291,7 +291,11 @@ const getDurationLabel = (message: string) => {
     return `${days - 1}박 ${days}일`
   }
 
-  return '1일'
+  return null
+}
+
+const getDurationLabel = (message: string) => {
+  return getExplicitDurationLabel(message) ?? '1일'
 }
 
 const wantsLessWalking = (message: string) => /덜\s*걷|적게\s*걷|동선|천천|여유|혼자/.test(message)
@@ -386,7 +390,7 @@ const createInitialChatMessages = (preference: Preference): ChatMessage[] => [
   {
     id: createMessageId('assistant', 0),
     role: 'assistant',
-    content: `${preference.cityPair} 감성에 맞춰 시작할게요. 축제를 일정 테마에 포함할까요? 여행 기간, 동행, 걷는 양도 알려주면 어울리는 소도시와 일정 흐름을 먼저 정리할게요.`,
+    content: `${preference.cityPair} 감성에 맞춰 시작할게요. 먼저 축제를 일정 테마에 포함할까요?`,
   },
   {
     id: createMessageId('user', 1),
@@ -422,6 +426,7 @@ function App() {
   const [coverImageIndex, setCoverImageIndex] = useState(0)
   const [hasSelectedCover, setHasSelectedCover] = useState(false)
   const [festivalThemeChoice, setFestivalThemeChoice] = useState<FestivalThemeChoice>('undecided')
+  const [selectedDurationLabel, setSelectedDurationLabel] = useState<string | null>(null)
   const [chatInput, setChatInput] = useState('')
   const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
@@ -431,6 +436,9 @@ function App() {
   const selectedCoverImage =
     selectedPreference.coverImages[coverImageIndex] ?? selectedPreference.coverImages[0]
   const selectedThemeHashtags = getThemeHashtags(selectedPreference)
+  const shouldShowFestivalPrompt = festivalThemeChoice === 'undecided'
+  const shouldShowDurationPrompt = !shouldShowFestivalPrompt && selectedDurationLabel === null
+  const isPlannerReady = festivalThemeChoice !== 'undecided' && selectedDurationLabel !== null
 
   const signInWithGoogle = () => {
     localStorage.setItem(authStorageKey, JSON.stringify(mockGoogleUser))
@@ -453,6 +461,7 @@ function App() {
     event?.preventDefault()
     setChatInput('')
     setFestivalThemeChoice('undecided')
+    setSelectedDurationLabel(null)
     setChatMessages(createInitialChatMessages(selectedPreference))
     setPlanDraft(createPlanDraft(selectedPreference))
     setActiveView('chat')
@@ -501,7 +510,23 @@ function App() {
     }
 
     const nextFestivalThemeChoice = resolveFestivalThemeChoice(trimmedMessage, festivalThemeChoice)
-    const nextDraft = createPlanDraft(selectedPreference, trimmedMessage, nextFestivalThemeChoice)
+    const explicitDurationLabel = getExplicitDurationLabel(trimmedMessage)
+    const nextSelectedDurationLabel = explicitDurationLabel ?? selectedDurationLabel
+    const draftMessage = explicitDurationLabel
+      ? trimmedMessage
+      : nextSelectedDurationLabel
+        ? `${nextSelectedDurationLabel} ${trimmedMessage}`
+        : trimmedMessage
+    const nextDraft = createPlanDraft(selectedPreference, draftMessage, nextFestivalThemeChoice)
+    const didChooseFestivalTheme = nextFestivalThemeChoice !== festivalThemeChoice
+    const assistantContent =
+      didChooseFestivalTheme && nextSelectedDurationLabel === null
+        ? `${getFestivalThemeLabel(nextFestivalThemeChoice)} 기준으로 볼게요. 이제 여행 기간을 먼저 골라주세요.`
+        : festivalThemeChoice === 'undecided' && nextFestivalThemeChoice === 'undecided'
+          ? nextSelectedDurationLabel
+            ? `${nextSelectedDurationLabel} 흐름은 반영했어요. 축제 테마를 일정에 포함할지도 알려주세요.`
+            : '좋아요. 먼저 축제 테마 포함 여부와 여행 기간을 차례로 좁혀볼게요.'
+          : createAssistantReply(selectedPreference, nextDraft)
 
     setChatMessages((currentMessages) => [
       ...currentMessages,
@@ -513,10 +538,11 @@ function App() {
       {
         id: createMessageId('assistant', currentMessages.length + 1),
         role: 'assistant',
-        content: createAssistantReply(selectedPreference, nextDraft),
+        content: assistantContent,
       },
     ])
     setFestivalThemeChoice(nextFestivalThemeChoice)
+    setSelectedDurationLabel(nextSelectedDurationLabel)
     setPlanDraft(nextDraft)
     setChatInput('')
   }
@@ -1092,52 +1118,56 @@ function App() {
                         </div>
                       ))}
 
-                      <div className="max-w-[560px] space-y-3">
-                        <div className="inline-flex max-w-full rounded-[18px] border border-[#F3B489] bg-[#FFF0E4] px-5 py-4 text-sm font-bold leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-6">
-                          축제 테마를 일정에 포함할까요?
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {festivalThemePrompts.map((prompt) => {
-                            const isSelected = festivalThemeChoice === prompt.choice
+                      {shouldShowFestivalPrompt ? (
+                        <div className="max-w-[560px] space-y-3">
+                          <div className="inline-flex max-w-full rounded-[18px] border border-[#F3B489] bg-[#FFF0E4] px-5 py-4 text-sm font-bold leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-6">
+                            축제 테마를 일정에 포함할까요?
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {festivalThemePrompts.map((prompt) => {
+                              const isSelected = festivalThemeChoice === prompt.choice
 
-                            return (
+                              return (
+                                <button
+                                  key={prompt.choice}
+                                  type="button"
+                                  aria-pressed={isSelected}
+                                  onClick={() => submitChatMessage(prompt.label)}
+                                  className={`inline-flex min-h-[36px] items-center rounded-full border px-4 py-1 text-[12px] font-bold leading-4 text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                                    isSelected
+                                      ? 'border-[#A92B10] bg-[#F36B12]'
+                                      : 'border-[#F3B489] bg-[#FFF0E4]'
+                                  }`}
+                                >
+                                  {prompt.label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {shouldShowDurationPrompt ? (
+                        <div className="max-w-[680px] space-y-3">
+                          <div className="inline-flex max-w-full rounded-[18px] border border-[#F3B489] bg-[#FFF0E4] px-5 py-4 text-sm font-bold leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-6">
+                            일정 기간을 먼저 골라주세요
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {durationGuidePrompts.map((prompt) => (
                               <button
-                                key={prompt.choice}
+                                key={prompt}
                                 type="button"
-                                aria-pressed={isSelected}
-                                onClick={() => submitChatMessage(prompt.label)}
-                                className={`inline-flex min-h-[36px] items-center rounded-full border px-4 py-1 text-[12px] font-bold leading-4 text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
-                                  isSelected
-                                    ? 'border-[#A92B10] bg-[#F36B12]'
-                                    : 'border-[#F3B489] bg-[#FFF0E4]'
-                                }`}
+                                onClick={() => submitChatMessage(prompt)}
+                                className="inline-flex min-h-[36px] items-center rounded-full border border-[#F3B489] bg-[#FFF0E4] px-4 py-1 text-[12px] font-bold leading-4 text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                               >
-                                {prompt.label}
+                                {prompt}
                               </button>
-                            )
-                          })}
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      ) : null}
 
-                      <div className="max-w-[680px] space-y-3">
-                        <div className="inline-flex max-w-full rounded-[18px] border border-[#F3B489] bg-[#FFF0E4] px-5 py-4 text-sm font-bold leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-6">
-                          일정 기간을 먼저 골라주세요
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {durationGuidePrompts.map((prompt) => (
-                            <button
-                              key={prompt}
-                              type="button"
-                              onClick={() => submitChatMessage(prompt)}
-                              className="inline-flex min-h-[36px] items-center rounded-full border border-[#F3B489] bg-[#FFF0E4] px-4 py-1 text-[12px] font-bold leading-4 text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
-                            >
-                              {prompt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {chatMessages.length > 2 ? (
+                      {isPlannerReady ? (
                         <div className="rounded-[18px] border border-[#F3B489] bg-[#FFF0E4] p-5">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded-full border border-[#F3B489] bg-[#fffffa] px-3 py-1 text-[12px] font-bold text-[#33271E]">
