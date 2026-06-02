@@ -504,7 +504,7 @@ function App() {
           <div className="flex items-center justify-center">
             <img
               src={suitcaseImage}
-              alt="손을 흔드는 초록색 캐리어 캐릭터"
+              alt="손을 흔드는 오렌지색 캐리어 캐릭터"
               className="h-[520px] w-full max-w-[420px] object-contain max-sm:h-auto"
             />
           </div>
@@ -744,7 +744,7 @@ function App() {
                 <div className="-mt-2.5 justify-self-end max-lg:mt-0 max-lg:justify-self-start">
                   <img
                     src={suitcaseImage}
-                    alt="손을 흔드는 초록색 캐리어 캐릭터"
+                    alt="손을 흔드는 오렌지색 캐리어 캐릭터"
                     className="h-[531px] w-[430px] object-contain max-sm:h-auto max-sm:w-full"
                   />
                 </div>

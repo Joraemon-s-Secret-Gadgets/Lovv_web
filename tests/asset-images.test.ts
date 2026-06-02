@@ -108,15 +108,15 @@ const pixelAt = (image: PngImage, x: number, y: number) => {
 }
 
 describe('brand image assets', () => {
-  it('keeps the suitcase background transparent without cutting out the green body', () => {
+  it('keeps the suitcase background transparent without cutting out the orange body', () => {
     const image = readPng(join(process.cwd(), 'src/assets/lovv-suitcase-hi.png'))
 
     expect(pixelAt(image, 20, 20).a).toBe(0)
 
     const body = pixelAt(image, 512, 320)
     expect(body.a).toBeGreaterThan(240)
-    expect(body.g).toBeGreaterThan(body.r)
-    expect(body.g).toBeGreaterThan(body.b)
+    expect(body.r).toBeGreaterThan(body.g)
+    expect(body.r).toBeGreaterThan(body.b)
 
     expect(pixelAt(image, 512, 512).a).toBeGreaterThan(240)
   })
