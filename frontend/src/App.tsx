@@ -216,7 +216,7 @@ const preferences: Preference[] = [
   },
 ]
 
-type View = 'auth' | 'onboarding' | 'home' | 'chat' | 'mypage'
+type View = 'auth' | 'onboarding' | 'home' | 'chat' | 'mypage' | 'preferenceEdit'
 
 const durationGuidePrompts = ['당일치기', '1박 2일', '2박 3일', '3박 4일', '4박 5일']
 const festivalThemePrompts: { label: string; choice: FestivalThemeChoice }[] = [
@@ -450,6 +450,7 @@ function App() {
 
     return readStoredPreference() ? 'home' : 'onboarding'
   })
+  const [pendingPreference, setPendingPreference] = useState(() => readStoredPreference() ?? preferences[0])
   const [coverImageIndex, setCoverImageIndex] = useState(0)
   const [hasSelectedCover, setHasSelectedCover] = useState(false)
   const [festivalThemeChoice, setFestivalThemeChoice] = useState<FestivalThemeChoice>('undecided')
@@ -457,25 +458,47 @@ function App() {
   const [chatInput, setChatInput] = useState('')
   const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false)
   const [savedPlanNotice, setSavedPlanNotice] = useState<string | null>(null)
+  const [preferenceNotice, setPreferenceNotice] = useState<string | null>(null)
   const [plannerContextText, setPlannerContextText] = useState('')
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
     createInitialChatMessages(selectedPreference),
   )
   const [planDraft, setPlanDraft] = useState<PlanDraft>(() => createPlanDraft(selectedPreference))
+  const isPreferenceEditView = activeView === 'preferenceEdit'
+  const preferenceSelection = isPreferenceEditView ? pendingPreference : selectedPreference
   const selectedCoverImage =
-    selectedPreference.coverImages[coverImageIndex] ?? selectedPreference.coverImages[0]
+    preferenceSelection.coverImages[coverImageIndex] ?? preferenceSelection.coverImages[0]
   const selectedThemeHashtags = getThemeHashtags(selectedPreference)
   const shouldShowFestivalPrompt = festivalThemeChoice === 'undecided'
   const shouldShowDurationPrompt = !shouldShowFestivalPrompt && selectedDurationLabel === null
   const isPlannerReady = festivalThemeChoice !== 'undecided' && selectedDurationLabel !== null
+  const plannerSummaryCards = [
+    {
+      title: '취향 반영 완료',
+      body: `${selectedPreference.cityPair} 감성으로 시작합니다.`,
+      chips: [`#${selectedPreference.tag.split('·')[0]}`, selectedPreference.signals[0] ?? selectedPreference.weakSignal],
+    },
+    {
+      title: '소도시 후보 탐색',
+      body: '취향에 맞는 후보를 먼저 좁히고 있어요.',
+      chips: selectedPreference.coverImages.slice(0, 2).map((coverImage) => coverImage.city),
+    },
+    {
+      title: '일정 초안 구성',
+      body: isPlannerReady
+        ? `${selectedDurationLabel ?? planDraft.durationLabel} · ${getFestivalThemeLabel(festivalThemeChoice)}로 구성 중입니다.`
+        : '기간과 축제 여부를 고르면 초안이 완성됩니다.',
+      chips: isPlannerReady ? ['초안 준비', planDraft.intensityLabel] : ['대기중'],
+    },
+  ]
 
-  const resetPlannerFlow = () => {
+  const resetPlannerFlow = (preference = selectedPreference) => {
     setChatInput('')
     setFestivalThemeChoice('undecided')
     setSelectedDurationLabel(null)
     setPlannerContextText('')
-    setChatMessages(createInitialChatMessages(selectedPreference))
-    setPlanDraft(createPlanDraft(selectedPreference))
+    setChatMessages(createInitialChatMessages(preference))
+    setPlanDraft(createPlanDraft(preference))
     setSavedPlanNotice(null)
   }
 
@@ -510,6 +533,21 @@ function App() {
     setActiveView('mypage')
   }
 
+  const openPreferenceEdit = () => {
+    setPendingPreference(selectedPreference)
+    setCoverImageIndex(0)
+    setHasSelectedCover(true)
+    setPreferenceNotice(null)
+    setActiveView('preferenceEdit')
+  }
+
+  const cancelPreferenceEdit = () => {
+    setPendingPreference(selectedPreference)
+    setCoverImageIndex(0)
+    setHasSelectedCover(false)
+    setActiveView('mypage')
+  }
+
   const currentProviderLabel =
     currentUser?.provider === 'kakao'
       ? 'Kakao mock'
@@ -534,28 +572,43 @@ function App() {
     window.scrollTo?.({ behavior: 'smooth', top: 0 })
   }
 
-  const storeSelectedPreference = () => {
+  const storePreference = (preference: Preference) => {
     localStorage.setItem(
       preferenceStorageKey,
       JSON.stringify({
-        cityPair: selectedPreference.cityPair,
+        cityPair: preference.cityPair,
       }),
     )
   }
 
   const enterMainWithPreference = () => {
-    storeSelectedPreference()
+    storePreference(selectedPreference)
     setActiveView('home')
   }
 
+  const savePreferenceEdit = () => {
+    storePreference(pendingPreference)
+    setSelectedPreference(pendingPreference)
+    resetPlannerFlow(pendingPreference)
+    setCoverImageIndex(0)
+    setHasSelectedCover(false)
+    setPreferenceNotice('취향이 변경됐어요. 다음 AI 일정부터 반영됩니다.')
+    setActiveView('mypage')
+  }
+
   const selectPreference = (preference: Preference) => {
-    setSelectedPreference(preference)
+    if (isPreferenceEditView) {
+      setPendingPreference(preference)
+    } else {
+      setSelectedPreference(preference)
+    }
+
     setCoverImageIndex(0)
     setHasSelectedCover(true)
   }
 
   const showNextCoverImage = () => {
-    setCoverImageIndex((currentIndex) => (currentIndex + 1) % selectedPreference.coverImages.length)
+    setCoverImageIndex((currentIndex) => (currentIndex + 1) % preferenceSelection.coverImages.length)
   }
 
   const submitChatMessage = (message: string) => {
@@ -735,7 +788,7 @@ function App() {
           <div className="mt-6 grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <button
               type="button"
-              onClick={resetPlannerFlow}
+              onClick={() => resetPlannerFlow()}
               className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-bold text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
             >
               일정 다시짜기
@@ -886,7 +939,7 @@ function App() {
             </div>
           </div>
         </section>
-      ) : activeView === 'onboarding' ? (
+      ) : activeView === 'onboarding' || isPreferenceEditView ? (
         <section
           id="onboarding"
           aria-labelledby="onboarding-title"
@@ -911,10 +964,12 @@ function App() {
                     id="onboarding-title"
                     className="mt-4 max-w-[820px] break-keep text-[56px] font-bold leading-[64px] text-[#33271E] max-sm:text-[34px] max-sm:leading-[42px]"
                   >
-                    여행의 분위기를 골라주세요
+                    {isPreferenceEditView ? '여행의 분위기를 다시 골라주세요' : '여행의 분위기를 골라주세요'}
                   </h1>
                   <p className="mt-5 max-w-[680px] break-keep text-base leading-7 text-[#33271E] max-sm:text-[15px] max-sm:leading-6">
-                    익숙한 대도시 감각을 Lovv가 한국과 일본 소도시 후보로 바꿔둘게요.
+                    {isPreferenceEditView
+                      ? '새 취향은 저장한 뒤 다음 AI 일정부터 반영됩니다.'
+                      : '익숙한 대도시 감각을 Lovv가 한국과 일본 소도시 후보로 바꿔둘게요.'}
                   </p>
                 </div>
               </div>
@@ -931,7 +986,7 @@ function App() {
 
                 <div className="mt-5 grid grid-cols-3 gap-4 max-lg:grid-cols-2 max-md:grid-cols-1">
                   {preferences.map((preference) => {
-                    const isSelected = hasSelectedCover && selectedPreference.cityPair === preference.cityPair
+                    const isSelected = hasSelectedCover && preferenceSelection.cityPair === preference.cityPair
 
                     return (
                       <button
@@ -973,7 +1028,7 @@ function App() {
 
                 <div className="mt-6 grid grid-cols-[1fr_auto] items-center gap-5 rounded-[22px] border border-[#F3B489] bg-[#fffffa] px-5 py-4 shadow-[0_18px_50px_-34px_rgba(51,39,30,0.24)] max-md:grid-cols-1">
                   <div className="flex flex-wrap gap-2">
-                    {[...selectedPreference.signals.slice(0, 3), selectedPreference.weakSignal].map(
+                    {[...preferenceSelection.signals.slice(0, 3), preferenceSelection.weakSignal].map(
                       (signal) => (
                         <span
                           key={signal}
@@ -984,13 +1039,24 @@ function App() {
                       ),
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={enterMainWithPreference}
-                    className="inline-flex h-auto min-h-[48px] w-[220px] items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-center text-sm font-semibold leading-5 text-[#33271E] shadow-[0_2px_3px_rgba(0,0,0,0.04)] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:w-full"
-                  >
-                    이 취향으로 Lovv 시작하기
-                  </button>
+                  <div className="flex flex-wrap justify-end gap-2 max-md:grid max-md:grid-cols-1">
+                    {isPreferenceEditView ? (
+                      <button
+                        type="button"
+                        onClick={cancelPreferenceEdit}
+                        className="inline-flex h-auto min-h-[48px] items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-center text-sm font-semibold leading-5 text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                      >
+                        취소하고 마이페이지로 돌아가기
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={isPreferenceEditView ? savePreferenceEdit : enterMainWithPreference}
+                      className="inline-flex h-auto min-h-[48px] w-[220px] items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-center text-sm font-semibold leading-5 text-[#33271E] shadow-[0_2px_3px_rgba(0,0,0,0.04)] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:w-full"
+                    >
+                      {isPreferenceEditView ? '이 취향으로 저장하기' : '이 취향으로 Lovv 시작하기'}
+                    </button>
+                  </div>
                 </div>
               </section>
             </div>
@@ -1003,7 +1069,7 @@ function App() {
                       Selected Cover
                     </span>
                     <span className="rounded-full border border-[#F3B489] bg-[#FFF0E4] px-3 py-1 text-[12px] font-bold text-[#33271E]">
-                      {selectedPreference.tag}
+                      {preferenceSelection.tag}
                     </span>
                   </div>
                   <img
@@ -1029,10 +1095,10 @@ function App() {
                 <div className="px-2 pb-2 pt-5">
                   <p className="text-sm font-semibold text-[#33271E]">오늘의 취향 여정</p>
                   <h2 className="mt-2 break-keep text-[34px] font-bold leading-10 text-[#33271E] max-sm:text-3xl max-sm:leading-9">
-                    {selectedPreference.cityPair}
+                    {preferenceSelection.cityPair}
                   </h2>
                   <p className="mt-4 line-clamp-3 break-keep text-sm leading-6 text-[#33271E]">
-                    {selectedPreference.editorialNote}
+                    {preferenceSelection.editorialNote}
                   </p>
 
                   <div className="mt-5 rounded-[18px] border border-[#F3B489] bg-[#FFF0E4] p-4">
@@ -1040,12 +1106,14 @@ function App() {
                       First route note
                     </p>
                     <p className="mt-2 line-clamp-2 break-keep text-sm font-bold leading-6 text-[#33271E]">
-                      {selectedPreference.routeHint}
+                      {preferenceSelection.routeHint}
                     </p>
                   </div>
 
                   <p className="mt-5 line-clamp-3 break-keep text-[13px] leading-6 text-[#33271E]">
-                    현재 MVP는 Google mock 세션과 여행 취향 힌트만 저장하고, 전체 채팅 로그는 저장하지 않습니다.
+                    {isPreferenceEditView
+                      ? '저장하기 전까지 기존 취향은 유지됩니다.'
+                      : '현재 MVP는 Google mock 세션과 여행 취향 힌트만 저장하고, 전체 채팅 로그는 저장하지 않습니다.'}
                   </p>
                 </div>
               </aside>
@@ -1296,6 +1364,14 @@ function App() {
                     Kakao/Google 연동이 붙으면 이 페이지에서 저장 일정과 취향 데이터를 계정 기준으로
                     매핑하면 됩니다.
                   </p>
+                  {preferenceNotice ? (
+                    <p
+                      role="status"
+                      className="mt-5 rounded-[16px] border border-[#F3B489] bg-[#FFF0E4] px-5 py-3 text-sm font-black leading-6 text-[#33271E]"
+                    >
+                      {preferenceNotice}
+                    </p>
+                  ) : null}
 
                   <div className="mt-8 grid grid-cols-3 gap-4 max-md:grid-cols-1">
                     {[
@@ -1335,6 +1411,13 @@ function App() {
                         </span>
                       ))}
                     </div>
+                    <button
+                      type="button"
+                      onClick={openPreferenceEdit}
+                      className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-sm:w-full"
+                    >
+                      취향 다시 고르기
+                    </button>
                   </div>
                 </section>
 
@@ -1413,12 +1496,25 @@ function App() {
                     </p>
                   </div>
                   <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
-                    {['취향 반영 완료', '소도시 후보 탐색', '일정 초안 구성'].map((item) => (
+                    {plannerSummaryCards.map((item) => (
                       <div
-                        key={item}
-                        className="rounded-[14px] border border-[#F3B489] bg-[#FFF0E4] px-4 py-3 text-sm font-semibold leading-5 text-[#33271E]"
+                        key={item.title}
+                        className="rounded-[14px] border border-[#F3B489] bg-[#FFF0E4] px-4 py-3 text-[#33271E]"
                       >
-                        {item}
+                        <p className="text-sm font-black leading-5">{item.title}</p>
+                        <p className="mt-2 line-clamp-2 break-keep text-[12px] font-semibold leading-5">
+                          {item.body}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {item.chips.slice(0, 2).map((chip) => (
+                            <span
+                              key={chip}
+                              className="inline-flex min-h-7 items-center rounded-full border border-[#F3B489] bg-[#fffffa] px-2.5 py-0.5 text-[11px] font-black leading-4"
+                            >
+                              {chip}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>

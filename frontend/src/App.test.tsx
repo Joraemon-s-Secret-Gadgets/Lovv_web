@@ -116,8 +116,83 @@ describe('MVP main entry screen', () => {
     expect(screen.getByText('Google mock')).toBeInTheDocument()
     expect(screen.getByText('경주 · 교토')).toBeInTheDocument()
     expect(screen.getByText(/API 호출 없이 더미 사용자만 저장 중입니다/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '취향 다시 고르기' })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: '로그아웃' })).toHaveLength(2)
     expect(screen.getByRole('button', { name: '메인으로 돌아가기' })).toBeInTheDocument()
+  })
+
+  it('opens preference edit from My Page and keeps the old preference when canceled', () => {
+    seedUser()
+    seedPreference('경주 · 교토')
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '마이페이지' }))
+    fireEvent.click(screen.getByRole('button', { name: '취향 다시 고르기' }))
+
+    expect(screen.getByRole('heading', { name: '여행의 분위기를 다시 골라주세요' })).toBeInTheDocument()
+    expect(screen.getByText('새 취향은 저장한 뒤 다음 AI 일정부터 반영됩니다.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /경주 · 교토/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(localStorage.getItem('lovv.preference')).toContain('경주 · 교토')
+
+    fireEvent.click(screen.getByRole('button', { name: /부산 · 오키나와/ }))
+
+    expect(screen.getByRole('button', { name: /부산 · 오키나와/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(localStorage.getItem('lovv.preference')).toContain('경주 · 교토')
+
+    fireEvent.click(screen.getByRole('button', { name: '취소하고 마이페이지로 돌아가기' }))
+
+    expect(screen.getByRole('heading', { name: '마이페이지' })).toBeInTheDocument()
+    expect(screen.getByText('경주 · 교토')).toBeInTheDocument()
+    expect(localStorage.getItem('lovv.preference')).toContain('경주 · 교토')
+  })
+
+  it('saves a reselected preference and uses it for the next planner session', () => {
+    seedUser()
+    seedPreference('경주 · 교토')
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '마이페이지' }))
+    fireEvent.click(screen.getByRole('button', { name: '취향 다시 고르기' }))
+    fireEvent.click(screen.getByRole('button', { name: /부산 · 오키나와/ }))
+    fireEvent.click(screen.getByRole('button', { name: '이 취향으로 저장하기' }))
+
+    expect(screen.getByRole('heading', { name: '마이페이지' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('취향이 변경됐어요. 다음 AI 일정부터 반영됩니다.')
+    expect(screen.getByText('부산 · 오키나와')).toBeInTheDocument()
+    expect(localStorage.getItem('lovv.preference')).toContain('부산 · 오키나와')
+
+    fireEvent.click(screen.getByRole('button', { name: '메인으로 돌아가기' }))
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
+
+    expect(screen.getByText('부산 · 오키나와 감성으로 시작합니다.')).toBeInTheDocument()
+    expect(screen.getByText('부산')).toBeInTheDocument()
+    expect(screen.getByText('오키나와')).toBeInTheDocument()
+  })
+
+  it('shows compact planner summary cards and updates schedule status after choices', () => {
+    seedUser()
+    seedPreference('제주 · 닛코')
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
+
+    const summary = screen.getByTestId('chat-planner-summary')
+
+    expect(within(summary).getByText('취향 반영 완료')).toBeInTheDocument()
+    expect(within(summary).getByText('제주 · 닛코 감성으로 시작합니다.')).toBeInTheDocument()
+    expect(within(summary).getByText('#자연')).toBeInTheDocument()
+    expect(within(summary).getByText('소도시 후보 탐색')).toBeInTheDocument()
+    expect(within(summary).getByText('제주')).toBeInTheDocument()
+    expect(within(summary).getByText('닛코')).toBeInTheDocument()
+    expect(within(summary).getByText('일정 초안 구성')).toBeInTheDocument()
+    expect(within(summary).getByText('기간과 축제 여부를 고르면 초안이 완성됩니다.')).toBeInTheDocument()
+    expect(within(summary).getByText('대기중')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '축제 제외' }))
+    fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
+
+    expect(within(summary).getByText('1박 2일 · 축제 제외로 구성 중입니다.')).toBeInTheDocument()
+    expect(within(summary).getByText('초안 준비')).toBeInTheDocument()
   })
 
   it('opens floating quick actions for chat and top navigation', () => {
@@ -398,7 +473,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '축제 제외' }))
 
     expect(screen.getByRole('heading', { name: '강릉 · 가나자와 감성 2박 3일 초안' })).toBeInTheDocument()
-    expect(screen.getByText('덜 걷는 일정')).toBeInTheDocument()
+    expect(screen.getAllByText('덜 걷는 일정').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText(/전시와 편집숍 사이 이동을 줄이는 쪽/)).toBeInTheDocument()
   })
 
