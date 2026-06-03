@@ -572,6 +572,45 @@ describe('MVP main entry screen', () => {
     expect(screen.getByText('축제 테마를 일정에 포함할까요?')).toBeInTheDocument()
   })
 
+  it('opens a generated itinerary detail view and preserves like/save actions when returning to chat', () => {
+    seedUser()
+    seedPreference('아산/온양 · 벳푸')
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
+    fireEvent.click(screen.getByRole('button', { name: '축제 포함' }))
+    fireEvent.click(screen.getByRole('button', { name: '2박 3일' }))
+    fireEvent.click(screen.getByRole('button', { name: '세부 일정 보기' }))
+
+    const detailView = screen.getByRole('region', { name: '세부 일정 상세' })
+
+    expect(within(detailView).getByRole('heading', { name: '아산/온양 · 벳푸 감성 2박 3일 초안' })).toBeInTheDocument()
+    expect(within(detailView).getByText('아산/온양 · 벳푸')).toBeInTheDocument()
+    expect(within(detailView).getByText('2박 3일')).toBeInTheDocument()
+    expect(within(detailView).getByText('축제 포함')).toBeInTheDocument()
+    expect(within(detailView).getByText('동선이 느슨한 일정')).toBeInTheDocument()
+    expect(within(detailView).getByText('가볍게 도착하고 동네 감 잡기')).toBeInTheDocument()
+    expect(within(detailView).getByText('취향에 맞는 핵심 장소 둘러보기')).toBeInTheDocument()
+    expect(within(detailView).getByText('무리하지 않는 마무리 동선')).toBeInTheDocument()
+    expect(within(detailView).getAllByText('추천 이유')).toHaveLength(3)
+    expect(within(detailView).getByText('다음 장소까지 18분')).toBeInTheDocument()
+
+    fireEvent.click(within(detailView).getByRole('button', { name: '좋아요' }))
+    fireEvent.click(within(detailView).getByRole('button', { name: '마이페이지에 저장' }))
+
+    expect(within(detailView).getByRole('button', { name: '좋아요 취소' })).toBeInTheDocument()
+    expect(within(detailView).getByRole('button', { name: '마이페이지에 저장됨' })).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('lovv.likedPlanIds') ?? '[]')).toHaveLength(1)
+    expect(JSON.parse(localStorage.getItem('lovv.savedPlans') ?? '[]')).toHaveLength(1)
+
+    fireEvent.click(within(detailView).getByRole('button', { name: '채팅으로 돌아가기' }))
+
+    expect(screen.getByRole('heading', { name: 'AI 일정 챗봇' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '아산/온양 · 벳푸 감성 2박 3일 초안' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '좋아요 취소' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '마이페이지에 저장됨' })).toBeInTheDocument()
+  })
+
   it('ignores invalid saved and liked plan storage when using generated plan actions', () => {
     seedUser()
     seedPreference('제주 · 닛코')
