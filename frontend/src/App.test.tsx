@@ -233,9 +233,13 @@ describe('MVP main entry screen', () => {
   it('uses a warm patterned app background', () => {
     render(<App />)
 
-    expect(screen.getByRole('main')).toHaveClass('lovv-warm-pattern')
-    expect(screen.getByRole('main')).toHaveClass('lovv-ambient-background')
-    expect(screen.getByRole('main')).toHaveClass('text-[#33271E]')
+    const appRoot = screen.getByRole('main')
+
+    expect(appRoot).toHaveClass('lovv-app-shell')
+    expect(appRoot).toHaveClass('lovv-warm-pattern')
+    expect(appRoot).toHaveClass('lovv-ambient-background')
+    expect(appRoot).toHaveClass('text-[#33271E]')
+    expect(appRoot.firstElementChild).toHaveClass('lovv-app-content')
   })
 
   it('keeps dense text responsive on narrow screens', () => {

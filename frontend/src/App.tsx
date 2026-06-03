@@ -1186,8 +1186,9 @@ function App() {
   }
 
   return (
-    <main className="lovv-warm-pattern lovv-ambient-background min-h-dvh bg-[#fff8ee] text-[#33271E]">
-      {activeView === 'auth' ? (
+    <main className="lovv-app-shell lovv-warm-pattern lovv-ambient-background min-h-dvh bg-[#fff8ee] text-[#33271E]">
+      <div className="lovv-app-content">
+        {activeView === 'auth' ? (
         <section
           aria-labelledby="auth-title"
           className="mx-auto grid min-h-dvh max-w-[1440px] grid-cols-[minmax(360px,440px)_minmax(0,1fr)] lg:h-dvh lg:overflow-hidden max-lg:grid-cols-1"
@@ -2019,7 +2020,8 @@ function App() {
             </section>
           )}
         </>
-      )}
+        )}
+      </div>
     </main>
   )
 }

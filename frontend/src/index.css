@@ -22,18 +22,23 @@ body {
 
 .lovv-warm-pattern {
   background-color: #fff8ee;
+}
+
+.lovv-app-shell {
+  background-color: #fff8ee;
+  isolation: isolate;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.lovv-app-shell::before {
   background-image:
     radial-gradient(ellipse 64vw 48vw at 24% 38%, rgb(255 172 73 / 0.22), rgb(255 138 42 / 0.1) 42%, transparent 72%),
     radial-gradient(ellipse 44vw 52vw at 78% 34%, rgb(243 107 18 / 0.18), rgb(255 214 123 / 0.08) 45%, transparent 76%),
     linear-gradient(115deg, rgb(207 116 77 / 0.07) 0 1px, transparent 1px 34px),
     linear-gradient(25deg, rgb(226 176 95 / 0.06) 0 1px, transparent 1px 42px),
     repeating-linear-gradient(90deg, rgb(207 116 77 / 0.035) 0 1px, transparent 1px 96px);
-  background-attachment:
-    scroll,
-    scroll,
-    scroll,
-    scroll,
-    scroll;
+  background-color: #fff8ee;
   background-position:
     -3vw -2vh,
     4vw -3vh,
@@ -52,10 +57,21 @@ body {
     180px 180px,
     240px 240px,
     96px 96px;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
 }
 
 .lovv-ambient-background {
-  animation: lovv-ambient-drift 18s ease-in-out infinite alternate;
+  background-color: #fff8ee;
+}
+
+.lovv-app-content {
+  min-height: inherit;
+  position: relative;
+  z-index: 1;
 }
 
 .lovv-hero-radial {
@@ -82,7 +98,6 @@ body {
 }
 
 .lovv-hero-radial::before {
-  animation: lovv-hero-glow-a 12s ease-in-out infinite alternate;
   background: radial-gradient(ellipse at center, rgb(255 198 95 / 0.26), rgb(255 138 42 / 0.11) 48%, transparent 72%);
   height: 620px;
   left: -4%;
@@ -91,7 +106,6 @@ body {
 }
 
 .lovv-hero-radial::after {
-  animation: lovv-hero-glow-b 14s ease-in-out infinite alternate;
   background: radial-gradient(ellipse at center, rgb(243 107 18 / 0.2), rgb(255 190 86 / 0.09) 44%, transparent 76%);
   height: 560px;
   right: 2%;
@@ -197,10 +211,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lovv-ambient-background,
   .lovv-float-soft,
-  .lovv-hero-radial::before,
-  .lovv-hero-radial::after {
+  .lovv-ambient-background {
     animation: none;
   }
 }
