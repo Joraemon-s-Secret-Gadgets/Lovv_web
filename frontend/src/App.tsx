@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import logoImage from './assets/lovv-logo.png'
 import foxFaceImage from './assets/foxhead-smile.png'
 import beppuImage from './assets/cities/beppu.jpg'
@@ -16,17 +16,18 @@ import onyangImage from './assets/cities/onyang.jpg'
 import osakaImage from './assets/cities/osaka.jpg'
 import { SmallCityLeafletMap } from './components/SmallCityLeafletMap'
 import {
+  createSmallCityMapMarkers,
   createPlannerCityContext,
   filterSmallCities,
-  getSmallCityMapCities,
-  getSmallCitiesByCountry,
   smallCityCountryOptions,
   smallCityThemes,
   type PlannerCityContext,
   type SmallCity,
   type SmallCityCountry,
+  type SmallCityMapMarker,
   type SmallCityTheme,
 } from './data/smallCities'
+import { createStaticSmallCityCatalogState } from './data/smallCityDataSource'
 
 type CityCoverImage = {
   city: string
@@ -35,7 +36,33 @@ type CityCoverImage = {
 
 type FestivalThemeChoice = 'undecided' | 'include' | 'exclude'
 
+type ThemeId =
+  | 'hot_spring_rest'
+  | 'sea_coast'
+  | 'history_tradition'
+  | 'food_local'
+  | 'nature_trekking'
+  | 'art_emotion'
+
+type PreferenceProfileSource = 'onboarding' | 'preference_edit' | 'legacy_migration'
+
+type ThemeDefinition = {
+  id: ThemeId
+  label: string
+  shortLabel: string
+  description: string
+  keywords: string[]
+}
+
+type PreferenceProfile = {
+  version: 2
+  selectedThemeIds: ThemeId[]
+  source: PreferenceProfileSource
+  updatedAt: string
+}
+
 type Preference = {
+  themeId: ThemeId
   cityPair: string
   legacyCityPairs?: string[]
   description: string
@@ -94,12 +121,23 @@ type PlanDraft = {
   stops: PlanStop[]
 }
 
+type MockConditionExtraction = {
+  activeRequiredThemes: ThemeId[]
+  softPreferences: string[]
+  cleanedRawQuery: string
+  unsupportedConditions: string[]
+  excludedThemes: ThemeId[]
+  backupThemes: ThemeId[]
+}
+
 type SavedPlan = {
   id: string
   ownerId: string
   title: string
   cityPair: string
   themeTag: string
+  themeLabels: string[]
+  conditionSummary: string
   durationLabel: string
   festivalThemeLabel: string
   intensityLabel: string
@@ -123,6 +161,7 @@ const preferenceStorageKey = 'lovv.preference'
 const authStorageKey = 'lovv.auth.user'
 const savedPlansStorageKey = 'lovv.savedPlans'
 const likedPlanIdsStorageKey = 'lovv.likedPlanIds'
+const preferenceProfileVersion = 2
 
 const mockAuthUsers: Record<AuthProvider, LovvUser> = {
   google: {
@@ -215,8 +254,54 @@ const authJourneyItems = [
   },
 ]
 
+const themeDefinitions: ThemeDefinition[] = [
+  {
+    id: 'hot_spring_rest',
+    label: '온천·휴양',
+    shortLabel: '온천',
+    description: '숙소 체류, 온천, 스파처럼 회복감이 있는 장면을 먼저 봅니다.',
+    keywords: ['온천', '휴양', '스파', '숙소', '회복'],
+  },
+  {
+    id: 'sea_coast',
+    label: '바다·해안',
+    shortLabel: '바다',
+    description: '바다색, 해변 산책, 리조트 여백이 있는 소도시를 우선합니다.',
+    keywords: ['바다', '해안', '해변', '리조트', '섬'],
+  },
+  {
+    id: 'history_tradition',
+    label: '역사·전통',
+    shortLabel: '전통',
+    description: '사찰, 오래된 거리, 지역의 전통이 살아 있는 동선을 고릅니다.',
+    keywords: ['역사', '전통', '사찰', '골목', '고택'],
+  },
+  {
+    id: 'food_local',
+    label: '미식·노포',
+    shortLabel: '미식',
+    description: '시장, 로컬 식탁, 오래된 가게를 따라가는 여행에 맞춥니다.',
+    keywords: ['미식', '노포', '시장', '로컬 음식', '식탁'],
+  },
+  {
+    id: 'nature_trekking',
+    label: '자연·트레킹',
+    shortLabel: '자연',
+    description: '숲, 산, 폭포, 전망처럼 걷는 리듬이 있는 장면을 봅니다.',
+    keywords: ['자연', '트레킹', '숲', '산', '폭포'],
+  },
+  {
+    id: 'art_emotion',
+    label: '예술·감성',
+    shortLabel: '예술',
+    description: '공예, 정원, 카페, 전시처럼 기록하고 싶은 장면을 우선합니다.',
+    keywords: ['예술', '감성', '공예', '카페', '전시'],
+  },
+]
+
 const preferences: Preference[] = [
   {
+    themeId: 'hot_spring_rest',
     cityPair: '아산/온양 · 벳푸',
     legacyCityPairs: ['온양 · 벳푸', '벳푸 · 온양'],
     description: '온양온천, 스파 휴양 · 온천 수도, 지옥 순례',
@@ -232,6 +317,7 @@ const preferences: Preference[] = [
     ],
   },
   {
+    themeId: 'sea_coast',
     cityPair: '부산 · 오키나와',
     legacyCityPairs: ['제주 · 오키나와', '오키나와 · 제주'],
     description: '해운대, 광안리 · 에메랄드 바다, 리조트',
@@ -247,6 +333,7 @@ const preferences: Preference[] = [
     ],
   },
   {
+    themeId: 'history_tradition',
     cityPair: '경주 · 교토',
     legacyCityPairs: ['교토 · 경주'],
     description: '불국사, 첨성대, 황리단길 · 사찰, 기온, 전통 거리',
@@ -262,6 +349,7 @@ const preferences: Preference[] = [
     ],
   },
   {
+    themeId: 'food_local',
     cityPair: '전주 · 오사카',
     legacyCityPairs: ['부산 · 후쿠오카', '후쿠오카 · 부산'],
     description: '한옥마을, 전주비빔밥, 시장 · 도톤보리, 타코야키, 노포',
@@ -277,6 +365,7 @@ const preferences: Preference[] = [
     ],
   },
   {
+    themeId: 'nature_trekking',
     cityPair: '제주 · 닛코',
     legacyCityPairs: ['강원 · 삿포로', '삿포로 · 강원'],
     description: '한라산, 올레길 · 도쇼구, 게곤폭포, 산악',
@@ -292,6 +381,7 @@ const preferences: Preference[] = [
     ],
   },
   {
+    themeId: 'art_emotion',
     cityPair: '강릉 · 가나자와',
     legacyCityPairs: ['서울 · 도쿄', '도쿄 · 서울'],
     description: '감성 카페, 안목해변, 정동진 · 히가시차야, 겐로쿠엔, 공예',
@@ -372,7 +462,58 @@ const festivalThemePrompts: { label: string; choice: FestivalThemeChoice }[] = [
   { label: '축제 제외', choice: 'exclude' },
 ]
 
-const readStoredPreference = () => {
+const isThemeId = (value: unknown): value is ThemeId =>
+  typeof value === 'string' && themeDefinitions.some((theme) => theme.id === value)
+
+const isPreferenceProfileSource = (value: unknown): value is PreferenceProfileSource =>
+  value === 'onboarding' || value === 'preference_edit' || value === 'legacy_migration'
+
+const normalizeThemeIds = (themeIds: unknown): ThemeId[] => {
+  if (!Array.isArray(themeIds)) {
+    return []
+  }
+
+  return Array.from(new Set(themeIds.filter(isThemeId))).slice(0, 3)
+}
+
+const createPreferenceProfile = (
+  selectedThemeIds: ThemeId[],
+  source: PreferenceProfileSource,
+): PreferenceProfile => ({
+  version: preferenceProfileVersion,
+  selectedThemeIds: normalizeThemeIds(selectedThemeIds).slice(0, 3),
+  source,
+  updatedAt: new Date().toISOString(),
+})
+
+const findPreferenceByCityPair = (cityPair: string | undefined) =>
+  preferences.find(
+    (preference) =>
+      preference.cityPair === cityPair || preference.legacyCityPairs?.includes(cityPair ?? ''),
+  ) ?? null
+
+const getThemeDefinition = (themeId: ThemeId) =>
+  themeDefinitions.find((theme) => theme.id === themeId) ?? themeDefinitions[0]
+
+const getPreferenceByThemeId = (themeId: ThemeId) =>
+  preferences.find((preference) => preference.themeId === themeId) ?? preferences[0]
+
+const getPreferencesForProfile = (profile: PreferenceProfile) => {
+  const selectedPreferences = profile.selectedThemeIds
+    .map(getPreferenceByThemeId)
+    .filter((preference): preference is Preference => Boolean(preference))
+
+  return selectedPreferences.length > 0 ? selectedPreferences : [preferences[0]]
+}
+
+const getPrimaryPreference = (profile: PreferenceProfile) => getPreferencesForProfile(profile)[0] ?? preferences[0]
+
+const getDefaultPreferenceProfile = () => createPreferenceProfile([preferences[0].themeId], 'onboarding')
+
+const getThemeLabels = (themeIds: ThemeId[]) =>
+  themeIds.map((themeId) => getThemeDefinition(themeId).label)
+
+const readStoredPreferenceProfile = (): PreferenceProfile | null => {
   try {
     const rawPreference = localStorage.getItem(preferenceStorageKey)
 
@@ -380,15 +521,30 @@ const readStoredPreference = () => {
       return null
     }
 
-    const parsedPreference = JSON.parse(rawPreference) as Partial<Preference>
+    const parsedPreference = JSON.parse(rawPreference) as Partial<PreferenceProfile & Preference>
+    const normalizedThemeIds = normalizeThemeIds(parsedPreference.selectedThemeIds)
 
-    return (
-      preferences.find(
-        (preference) =>
-          preference.cityPair === parsedPreference.cityPair ||
-          preference.legacyCityPairs?.includes(parsedPreference.cityPair ?? ''),
-      ) ?? null
-    )
+    if (parsedPreference.version === preferenceProfileVersion && normalizedThemeIds.length > 0) {
+      return {
+        version: preferenceProfileVersion,
+        selectedThemeIds: normalizedThemeIds,
+        source: isPreferenceProfileSource(parsedPreference.source)
+          ? parsedPreference.source
+          : 'onboarding',
+        updatedAt:
+          typeof parsedPreference.updatedAt === 'string'
+            ? parsedPreference.updatedAt
+            : new Date().toISOString(),
+      }
+    }
+
+    const legacyPreference = findPreferenceByCityPair(parsedPreference.cityPair)
+
+    if (legacyPreference) {
+      return createPreferenceProfile([legacyPreference.themeId], 'legacy_migration')
+    }
+
+    return null
   } catch {
     return null
   }
@@ -534,6 +690,73 @@ const resolveFestivalThemeChoice = (
   return currentChoice
 }
 
+const themeExtractionPatterns: Record<ThemeId, RegExp> = {
+  hot_spring_rest: /온천|스파|휴양|숙소|료칸|회복|쉬고|휴식/,
+  sea_coast: /바다|해변|해안|리조트|항구|섬|오션/,
+  history_tradition: /역사|전통|사찰|절|고택|한옥|문화재|골목/,
+  food_local: /미식|맛집|노포|시장|식당|음식|비빔밥|타코야키|로컬\s*식탁/,
+  nature_trekking: /자연|숲|산|트레킹|올레|폭포|계곡|걷|산책/,
+  art_emotion: /예술|감성|공예|전시|편집숍|갤러리|정원|카페|사진/,
+}
+
+const detectExcludedThemes = (query: string) =>
+  themeDefinitions
+    .filter((theme) => {
+      const themeKeywordPattern = new RegExp(theme.keywords.join('|'))
+
+      return themeKeywordPattern.test(query) && /싫|제외|빼고|없이/.test(query)
+    })
+    .map((theme) => theme.id)
+
+const extractSoftPreferences = (query: string) => {
+  const softPreferences = [
+    [/덜\s*걷|적게\s*걷|동선|무리|천천|여유/, '이동 부담 낮추기'],
+    [/혼자|solo|솔로/, '혼자 여행'],
+    [/친구|연인|가족|부모|아이|동행/, '동행 고려'],
+    [/카페|커피|디저트/, '카페 여백'],
+    [/야경|저녁|밤/, '저녁 장면'],
+    [/숙소|호텔|료칸|스테이/, '숙소 체류'],
+  ] as const
+
+  return softPreferences
+    .filter(([pattern]) => pattern.test(query))
+    .map(([, label]) => label)
+}
+
+const createMockConditionExtraction = (
+  query: string,
+  baselineThemeIds: ThemeId[],
+): MockConditionExtraction => {
+  const cleanedRawQuery = query.replace(/\s+/g, ' ').trim()
+  const detectedThemeIds = themeDefinitions
+    .filter((theme) => themeExtractionPatterns[theme.id].test(cleanedRawQuery))
+    .map((theme) => theme.id)
+  const excludedThemes = detectExcludedThemes(cleanedRawQuery)
+  const activeRequiredThemes = Array.from(
+    new Set([...baselineThemeIds, ...detectedThemeIds].filter((themeId) => !excludedThemes.includes(themeId))),
+  ).slice(0, 3)
+  const backupThemes = baselineThemeIds.filter((themeId) => !activeRequiredThemes.includes(themeId))
+  const unsupportedConditionMatchers: [RegExp, string][] = [
+    [/항공권|비행기|항공/, '항공권 조건'],
+    [/숙박\s*예약|호텔\s*예약|예약/, '실시간 예약'],
+    [/날씨|강수|비\s*오면/, '실시간 날씨'],
+  ]
+  const unsupportedConditions = unsupportedConditionMatchers
+    .filter(([pattern]) => pattern.test(cleanedRawQuery))
+    .map(([, label]) => label)
+
+  return {
+    activeRequiredThemes: activeRequiredThemes.length > 0 ? activeRequiredThemes : baselineThemeIds.slice(0, 1),
+    softPreferences: extractSoftPreferences(cleanedRawQuery),
+    cleanedRawQuery,
+    unsupportedConditions,
+    excludedThemes,
+    backupThemes,
+  }
+}
+
+const formatThemeList = (themeIds: ThemeId[]) => getThemeLabels(themeIds).join(' · ')
+
 const getFestivalThemeSummary = (choice: FestivalThemeChoice) => {
   if (choice === 'include') {
     return '지역 축제나 시즌 행사가 있으면 일정 후보에 함께 넣습니다.'
@@ -609,7 +832,7 @@ const createPlanDraft = (
             ? '전시 공간 · 편집숍 · 쉬어가는 카페를 한 구역에 묶어 봅니다.'
             : preference.description,
         reason: cityContext
-          ? '상세 패널에서 고른 소도시의 route seed를 오후 핵심 동선으로 이어갑니다.'
+          ? '상세 패널에서 고른 장소 흐름을 오후 핵심 동선으로 이어갑니다.'
           : isArtFocused
             ? '선택한 예술 취향이 가장 잘 드러나는 장소를 이동이 짧은 순서로 배치합니다.'
             : '선택한 취향이 가장 잘 드러나는 장소를 중간에 배치합니다.',
@@ -626,7 +849,7 @@ const createPlanDraft = (
 }
 
 const createInitialChatMessages = (
-  preference: Preference,
+  basisLabel: string,
   cityContext: PlannerCityContext | null = null,
 ): ChatMessage[] => [
   {
@@ -634,7 +857,7 @@ const createInitialChatMessages = (
     role: 'assistant',
     content: cityContext
       ? `${cityContext.cityName}(${cityContext.countryLabel} ${cityContext.region})를 기준으로 시작할게요. 먼저 축제를 일정 테마에 포함할까요?`
-      : `${preference.cityPair} 감성에 맞춰 시작할게요. 먼저 축제를 일정 테마에 포함할까요?`,
+      : `${basisLabel} 기준 테마로 시작할게요. 먼저 축제를 일정 테마에 포함할까요?`,
   },
   {
     id: createMessageId('user', 1),
@@ -646,26 +869,31 @@ const createInitialChatMessages = (
 ]
 
 const createAssistantReply = (
-  preference: Preference,
+  basisLabel: string,
   draft: PlanDraft,
+  extraction: MockConditionExtraction,
   cityContext: PlannerCityContext | null = null,
 ) =>
-  cityContext
-    ? `${cityContext.cityName} 중심으로 ${draft.durationLabel} 흐름을 잡아볼게요. ${draft.intensityLabel}으로 ${cityContext.themes.slice(0, 2).join('·')} 장면이 잘 보이는 시간대를 먼저 배치했습니다.`
-    : `${preference.cityPair} 감성으로 ${draft.durationLabel} 흐름을 잡아볼게요. ${draft.intensityLabel}으로 ${preference.tag} 취향이 가장 잘 보이는 시간대를 먼저 배치했습니다.`
+  `${cityContext ? `${cityContext.cityName} 중심으로` : `${basisLabel} 기준으로`} ${draft.durationLabel} 흐름을 잡아볼게요. ${draft.intensityLabel}으로 ${formatThemeList(extraction.activeRequiredThemes)} 장면을 먼저 배치했습니다.${
+    extraction.softPreferences.length > 0
+      ? ` 현재 입력에서는 ${extraction.softPreferences.slice(0, 2).join(', ')} 조건을 함께 봅니다.`
+      : ''
+  }`
 
 const createPlanId = (
-  preference: Preference,
+  basisLabel: string,
   draft: PlanDraft,
   festivalThemeChoice: FestivalThemeChoice,
   cityContext: PlannerCityContext | null = null,
+  extraction: MockConditionExtraction | null = null,
 ) =>
   [
     cityContext?.cityId,
-    preference.cityPair,
+    basisLabel,
     draft.durationLabel,
     getFestivalThemeLabel(festivalThemeChoice),
     draft.intensityLabel,
+    extraction?.activeRequiredThemes.join('.'),
   ]
     .filter(Boolean)
     .join('-')
@@ -683,11 +911,6 @@ const getPlannerCitySeedText = (cityContext: PlannerCityContext | null) =>
       ].join(' ')
     : ''
 
-const getThemeHashtags = (preference: Preference) => [
-  ...preference.coverImages.map((coverImage) => `#${coverImage.city.replace('/', '')}`),
-  `#${preference.tag.split('·')[0]}`,
-]
-
 const compactHashtag = (label: string) =>
   `#${label
     .replace(/[·,/]/g, '')
@@ -695,11 +918,19 @@ const compactHashtag = (label: string) =>
     .replace(/-/g, '')
     .replace(/[()]/g, '')}`
 
-const getRecommendationBasisHashtags = (preference: Preference) => {
-  const themeBasis = preference.tag.split('·').map((theme) => theme.trim())
+const getThemeHashtags = (profile: PreferenceProfile) =>
+  profile.selectedThemeIds.map((themeId) => `#${getThemeDefinition(themeId).shortLabel}`)
 
-  return Array.from(new Set(themeBasis.map(compactHashtag).filter((tag) => tag.length > 1))).slice(0, 4)
+const getRecommendationBasisHashtags = (profile: PreferenceProfile) => {
+  const themeBasis = getThemeLabels(profile.selectedThemeIds)
+    .flatMap((label) => label.split('·'))
+    .map((theme) => theme.trim())
+
+  return Array.from(new Set(themeBasis.map(compactHashtag).filter((tag) => tag.length > 1))).slice(0, 6)
 }
+
+const getPreferenceProfileLabel = (profile: PreferenceProfile) =>
+  getThemeLabels(profile.selectedThemeIds).join(' · ')
 
 const getPlannerStepClassName = (status: PlannerStepStatus) => {
   if (status === 'completed') {
@@ -714,17 +945,27 @@ const getPlannerStepClassName = (status: PlannerStepStatus) => {
 }
 
 function App() {
+  const cityMapDetailPanelRef = useRef<HTMLDivElement | null>(null)
+  const cityMapListDetailPanelRef = useRef<HTMLDivElement | null>(null)
   const [currentUser, setCurrentUser] = useState<LovvUser | null>(() => readStoredUser())
-  const [selectedPreference, setSelectedPreference] = useState(() => readStoredPreference() ?? preferences[0])
+  const [selectedPreferenceProfile, setSelectedPreferenceProfile] = useState(
+    () => readStoredPreferenceProfile() ?? getDefaultPreferenceProfile(),
+  )
+  const selectedPreferences = useMemo(
+    () => getPreferencesForProfile(selectedPreferenceProfile),
+    [selectedPreferenceProfile],
+  )
+  const selectedPreference = selectedPreferences[0] ?? preferences[0]
+  const selectedPreferenceLabel = getPreferenceProfileLabel(selectedPreferenceProfile)
   const [activeMonthlyRecommendation, setActiveMonthlyRecommendation] = useState(monthlyRecommendations[0])
   const [activeView, setActiveView] = useState<View>(() => {
     if (!readStoredUser()) {
       return 'auth'
     }
 
-    return readStoredPreference() ? 'home' : 'onboarding'
+    return readStoredPreferenceProfile() ? 'home' : 'onboarding'
   })
-  const [pendingPreference, setPendingPreference] = useState(() => readStoredPreference() ?? preferences[0])
+  const [pendingPreferenceProfile, setPendingPreferenceProfile] = useState(() => selectedPreferenceProfile)
   const [coverImageIndex, setCoverImageIndex] = useState(0)
   const [hasSelectedCover, setHasSelectedCover] = useState(false)
   const [festivalThemeChoice, setFestivalThemeChoice] = useState<FestivalThemeChoice>('undecided')
@@ -734,75 +975,120 @@ function App() {
   const [isSessionMenuOpen, setIsSessionMenuOpen] = useState(false)
   const [savedPlanNotice, setSavedPlanNotice] = useState<string | null>(null)
   const [preferenceNotice, setPreferenceNotice] = useState<string | null>(null)
+  const [themeSelectionNotice, setThemeSelectionNotice] = useState<string | null>(null)
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>(() => readStoredSavedPlans())
   const [likedPlanIds, setLikedPlanIds] = useState<string[]>(() => readStoredLikedPlanIds())
+  const [plannerPreferenceProfile, setPlannerPreferenceProfile] = useState(() => selectedPreferenceProfile)
+  const plannerPreferences = useMemo(
+    () => getPreferencesForProfile(plannerPreferenceProfile),
+    [plannerPreferenceProfile],
+  )
+  const plannerPreference = plannerPreferences[0] ?? selectedPreference
+  const plannerPreferenceLabel = getPreferenceProfileLabel(plannerPreferenceProfile)
+  const plannerThemeHashtags = getThemeHashtags(plannerPreferenceProfile)
+  const [plannerConditionExtraction, setPlannerConditionExtraction] =
+    useState<MockConditionExtraction | null>(null)
   const [plannerContextText, setPlannerContextText] = useState('')
   const [plannerCityContext, setPlannerCityContext] = useState<PlannerCityContext | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
-    createInitialChatMessages(selectedPreference),
+    createInitialChatMessages(selectedPreferenceLabel),
   )
   const [planDraft, setPlanDraft] = useState<PlanDraft>(() => createPlanDraft(selectedPreference))
+  const [smallCityCatalogState] = useState(() => createStaticSmallCityCatalogState())
   const [cityMapCountry, setCityMapCountry] = useState<SmallCityCountry>('KR')
   const [cityMapQuery, setCityMapQuery] = useState('')
   const [selectedSmallCityThemes, setSelectedSmallCityThemes] = useState<SmallCityTheme[]>([])
   const [selectedSmallCityId, setSelectedSmallCityId] = useState(() => {
-    const firstKoreanCity = getSmallCitiesByCountry('KR')[0]
+    const firstKoreanCity = smallCityCatalogState.cities.find((city) => city.country === 'KR')
 
     return firstKoreanCity?.id ?? ''
   })
   const [currentHeroThemeIndex, setCurrentHeroThemeIndex] = useState(0)
   const isPreferenceEditView = activeView === 'preferenceEdit'
-  const preferenceSelection = isPreferenceEditView ? pendingPreference : selectedPreference
+  const pendingPreferences = useMemo(
+    () => getPreferencesForProfile(pendingPreferenceProfile),
+    [pendingPreferenceProfile],
+  )
+  const activePreferenceProfile = isPreferenceEditView ? pendingPreferenceProfile : selectedPreferenceProfile
+  const activeThemeIds =
+    isPreferenceEditView || hasSelectedCover ? activePreferenceProfile.selectedThemeIds : []
+  const activeThemeLabels = getThemeLabels(activeThemeIds)
+  const activeThemePreferences = activeThemeIds.map(getPreferenceByThemeId)
+  const hasValidThemeSelection = activeThemeIds.length > 0 && activeThemeIds.length <= 3
+  const preferenceSelection = isPreferenceEditView
+    ? pendingPreferences[0] ?? preferences[0]
+    : selectedPreference
   const selectedCoverImage =
     preferenceSelection.coverImages[coverImageIndex] ?? preferenceSelection.coverImages[0]
-  const selectedThemeHashtags = getThemeHashtags(selectedPreference)
-  const recommendationBasisHashtags = getRecommendationBasisHashtags(selectedPreference)
+  const selectedPreferenceEditorialNotes = selectedPreferences
+    .map((preference) => preference.editorialNote)
+    .slice(0, 3)
+    .join(' ')
+  const selectedThemeHashtags = getThemeHashtags(selectedPreferenceProfile)
+  const recommendationBasisHashtags = getRecommendationBasisHashtags(selectedPreferenceProfile)
   const currentHeroTheme = heroThemes[currentHeroThemeIndex]
   const shouldShowFestivalPrompt = festivalThemeChoice === 'undecided'
   const shouldShowDurationPrompt = !shouldShowFestivalPrompt && selectedDurationLabel === null
-  const isPlannerReady = festivalThemeChoice !== 'undecided' && selectedDurationLabel !== null
+  const hasGuidedPlannerChoices = festivalThemeChoice !== 'undecided' && selectedDurationLabel !== null
+  const isPlannerReady = hasGuidedPlannerChoices && plannerConditionExtraction !== null
+  const canSubmitChatInput = hasGuidedPlannerChoices && chatInput.trim().length > 0
   const plannerBasisLabel = plannerCityContext
     ? `${plannerCityContext.cityName} · ${plannerCityContext.region}`
-    : selectedPreference.cityPair
-  const currentPlanId = createPlanId(selectedPreference, planDraft, festivalThemeChoice, plannerCityContext)
+    : plannerPreferenceLabel
+  const currentPlanId = createPlanId(
+    plannerBasisLabel,
+    planDraft,
+    festivalThemeChoice,
+    plannerCityContext,
+    plannerConditionExtraction,
+  )
   const currentPlanTitle = plannerCityContext
     ? `${plannerBasisLabel} ${planDraft.durationLabel} 초안`
-    : `${plannerBasisLabel} 감성 ${planDraft.durationLabel} 초안`
+    : `${plannerBasisLabel} ${planDraft.durationLabel} 초안`
   const isCurrentPlanSaved = savedPlans.some((plan) => plan.id === currentPlanId)
   const isCurrentPlanLiked = likedPlanIds.includes(currentPlanId)
   const activeCountrySmallCities = useMemo(
-    () => getSmallCitiesByCountry(cityMapCountry),
-    [cityMapCountry],
+    () => smallCityCatalogState.cities.filter((city) => city.country === cityMapCountry),
+    [cityMapCountry, smallCityCatalogState.cities],
   )
+  const canUseSmallCityCatalog = smallCityCatalogState.status === 'success'
+  const hasSmallCityCatalogError = smallCityCatalogState.status === 'error'
+  const isSmallCityCatalogLoading = smallCityCatalogState.status === 'loading'
   const filteredSmallCities = useMemo(
     () => filterSmallCities(activeCountrySmallCities, cityMapQuery, selectedSmallCityThemes),
     [activeCountrySmallCities, cityMapQuery, selectedSmallCityThemes],
   )
-  const activeCountryMapCities = useMemo(
-    () => getSmallCityMapCities(activeCountrySmallCities),
-    [activeCountrySmallCities],
-  )
-  const visibleSmallCityMarkers = useMemo(
-    () => getSmallCityMapCities(filteredSmallCities),
+  const visibleSmallCityMapMarkers = useMemo(
+    () => createSmallCityMapMarkers(filteredSmallCities),
     [filteredSmallCities],
   )
   const selectedSmallCity = useMemo(() => {
-    if (visibleSmallCityMarkers.length === 0) {
+    if (filteredSmallCities.length === 0) {
       return null
     }
 
     return (
-      visibleSmallCityMarkers.find((city) => city.id === selectedSmallCityId) ??
-      visibleSmallCityMarkers[0]
+      filteredSmallCities.find((city) => city.id === selectedSmallCityId) ??
+      filteredSmallCities[0]
     )
-  }, [visibleSmallCityMarkers, selectedSmallCityId])
+  }, [filteredSmallCities, selectedSmallCityId])
   const selectedCountryOption =
     smallCityCountryOptions.find((option) => option.country === cityMapCountry) ??
     smallCityCountryOptions[0]
-  const activeCountryTotalCount = activeCountryMapCities.length
+  const activeCountryTotalCount = activeCountrySmallCities.length
   const plannerStateCityChips = plannerCityContext
     ? [plannerCityContext.cityName, plannerCityContext.region]
-    : selectedPreference.coverImages.slice(0, 2).map((coverImage) => coverImage.city)
+    : getThemeLabels(plannerPreferenceProfile.selectedThemeIds)
+  const plannerConditionSummary = plannerConditionExtraction
+    ? [
+        getFestivalThemeLabel(festivalThemeChoice),
+        selectedDurationLabel ?? planDraft.durationLabel,
+        formatThemeList(plannerConditionExtraction.activeRequiredThemes),
+        ...plannerConditionExtraction.softPreferences.slice(0, 2),
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : `${getFestivalThemeLabel(festivalThemeChoice)} · ${selectedDurationLabel ?? '기간 미정'}`
   const plannerStateSteps: {
     id: string
     label: string
@@ -817,9 +1103,9 @@ function App() {
       status: 'completed',
       statusLabel: '완료',
       body: plannerCityContext
-        ? `${selectedPreference.cityPair} 취향은 유지하고 선택한 소도시를 일정 출발점으로 사용합니다.`
-        : `${selectedPreference.cityPair} 감성으로 시작합니다.`,
-      chips: [`#${selectedPreference.tag.split('·')[0]}`, selectedPreference.signals[0] ?? selectedPreference.weakSignal],
+        ? `${plannerPreferenceLabel} 취향은 유지하고 선택한 소도시를 일정 출발점으로 사용합니다.`
+        : `${plannerPreferenceLabel} 기준 테마로 시작합니다.`,
+      chips: plannerThemeHashtags,
     },
     {
       id: 'candidates',
@@ -834,12 +1120,20 @@ function App() {
     {
       id: 'schedule',
       label: '일정 구성',
-      status: isPlannerReady ? 'completed' : shouldShowDurationPrompt ? 'active' : 'pending',
-      statusLabel: isPlannerReady ? '완료' : shouldShowDurationPrompt ? '진행 중' : '대기',
+      status: isPlannerReady ? 'completed' : festivalThemeChoice !== 'undecided' ? 'active' : 'pending',
+      statusLabel: isPlannerReady ? '완료' : festivalThemeChoice !== 'undecided' ? '진행 중' : '대기',
       body: isPlannerReady
-        ? `${selectedDurationLabel ?? planDraft.durationLabel} · ${getFestivalThemeLabel(festivalThemeChoice)}로 구성 중입니다.`
-        : '기간과 축제 여부를 고르면 초안이 완성됩니다.',
-      chips: isPlannerReady ? ['초안 준비', planDraft.intensityLabel] : ['대기중'],
+        ? `${plannerConditionSummary} 조건으로 구성 중입니다.`
+        : hasGuidedPlannerChoices
+          ? '동행, 관심사, 걷는 정도를 자연어로 입력하면 초안이 완성됩니다.'
+          : shouldShowDurationPrompt
+            ? '여행 기간을 선택해 주세요.'
+            : '축제 포함 여부를 먼저 골라주세요.',
+      chips: isPlannerReady
+        ? ['초안 준비', planDraft.intensityLabel]
+        : hasGuidedPlannerChoices
+          ? ['조건 입력 대기', selectedDurationLabel ?? '기간 선택됨']
+          : ['대기중'],
     },
   ]
 
@@ -862,15 +1156,19 @@ function App() {
   const resetPlannerFlow = (
     preference = selectedPreference,
     cityContext: PlannerCityContext | null = plannerCityContext,
+    profile: PreferenceProfile = selectedPreferenceProfile,
   ) => {
     const nextPlannerContextText = getPlannerCitySeedText(cityContext)
+    const nextPlannerLabel = getPreferenceProfileLabel(profile)
 
     setChatInput('')
     setFestivalThemeChoice('undecided')
     setSelectedDurationLabel(null)
+    setPlannerPreferenceProfile(profile)
+    setPlannerConditionExtraction(null)
     setPlannerCityContext(cityContext)
     setPlannerContextText(nextPlannerContextText)
-    setChatMessages(createInitialChatMessages(preference, cityContext))
+    setChatMessages(createInitialChatMessages(nextPlannerLabel, cityContext))
     setPlanDraft(createPlanDraft(preference, nextPlannerContextText, 'undecided', cityContext))
     setSavedPlanNotice(null)
   }
@@ -880,13 +1178,18 @@ function App() {
       return
     }
 
+    const themeLabels = plannerCityContext
+      ? plannerCityContext.themes
+      : getThemeLabels(plannerPreferenceProfile.selectedThemeIds)
     const savedAt = new Date().toISOString()
     const nextPlan: SavedPlan = {
       id: currentPlanId,
       ownerId: currentUser?.id ?? 'mock-user',
       title: currentPlanTitle,
       cityPair: plannerBasisLabel,
-      themeTag: plannerCityContext?.themes.join('·') ?? selectedPreference.tag,
+      themeTag: themeLabels.join('·'),
+      themeLabels,
+      conditionSummary: plannerConditionSummary,
       durationLabel: planDraft.durationLabel,
       festivalThemeLabel: planDraft.festivalThemeLabel,
       intensityLabel: planDraft.intensityLabel,
@@ -947,7 +1250,7 @@ function App() {
 
     localStorage.setItem(authStorageKey, JSON.stringify(mockUser))
     setCurrentUser(mockUser)
-    setActiveView(readStoredPreference() ? 'home' : 'onboarding')
+    setActiveView(readStoredPreferenceProfile() ? 'home' : 'onboarding')
   }
 
   const signOut = () => {
@@ -969,17 +1272,19 @@ function App() {
   }
 
   const openPreferenceEdit = () => {
-    setPendingPreference(selectedPreference)
+    setPendingPreferenceProfile(selectedPreferenceProfile)
     setCoverImageIndex(0)
     setHasSelectedCover(true)
     setPreferenceNotice(null)
+    setThemeSelectionNotice(null)
     setActiveView('preferenceEdit')
   }
 
   const cancelPreferenceEdit = () => {
-    setPendingPreference(selectedPreference)
+    setPendingPreferenceProfile(selectedPreferenceProfile)
     setCoverImageIndex(0)
     setHasSelectedCover(false)
+    setThemeSelectionNotice(null)
     setActiveView('mypage')
   }
 
@@ -993,7 +1298,7 @@ function App() {
   const openChat = (event?: React.MouseEvent<HTMLElement>) => {
     event?.preventDefault()
     setIsSessionMenuOpen(false)
-    resetPlannerFlow(selectedPreference, null)
+    resetPlannerFlow(selectedPreference, null, selectedPreferenceProfile)
     setActiveView('chat')
   }
 
@@ -1012,14 +1317,14 @@ function App() {
     window.scrollTo?.({ behavior: 'smooth', top: 0 })
   }
 
-  const storePreference = (preference: Preference) => {
-    localStorage.setItem(
-      preferenceStorageKey,
-      JSON.stringify({
-        cityPair: preference.cityPair,
-      }),
-    )
+  const storePreferenceProfile = (profile: PreferenceProfile) => {
+    localStorage.setItem(preferenceStorageKey, JSON.stringify(profile))
   }
+
+  const createSinglePreferenceProfile = (
+    preference: Preference,
+    source: PreferenceProfileSource,
+  ) => createPreferenceProfile([preference.themeId], source)
 
   const openMonthlyRecommendationDetail = (recommendation: MonthlyRecommendation) => {
     setActiveMonthlyRecommendation(recommendation)
@@ -1028,15 +1333,15 @@ function App() {
   }
 
   const openMonthlyRecommendationPlan = (preference: Preference) => {
-    storePreference(preference)
-    setSelectedPreference(preference)
-    resetPlannerFlow(preference, null)
+    const nextProfile = createSinglePreferenceProfile(preference, 'preference_edit')
+
+    resetPlannerFlow(preference, null, nextProfile)
     setIsQuickActionsOpen(false)
     setActiveView('chat')
   }
 
   const selectCityMapCountry = (country: SmallCityCountry) => {
-    const nextCountryCities = getSmallCityMapCities(getSmallCitiesByCountry(country))
+    const nextCountryCities = smallCityCatalogState.cities.filter((city) => city.country === country)
 
     setCityMapCountry(country)
     setSelectedSmallCityId(nextCountryCities[0]?.id ?? '')
@@ -1053,45 +1358,93 @@ function App() {
   const clearSmallCityFilters = () => {
     setCityMapQuery('')
     setSelectedSmallCityThemes([])
-    setSelectedSmallCityId(activeCountryMapCities[0]?.id ?? '')
+    setSelectedSmallCityId(activeCountrySmallCities[0]?.id ?? '')
   }
 
-  const selectSmallCity = (city: SmallCity) => {
+  const selectSmallCityFromList = (city: SmallCity) => {
     setSelectedSmallCityId(city.id)
+
+    window.setTimeout(() => {
+      if (
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(max-width: 1279px)').matches
+      ) {
+        cityMapListDetailPanelRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      }
+    }, 0)
+  }
+
+  const selectSmallCityMapMarker = (marker: SmallCityMapMarker) => {
+    setSelectedSmallCityId(marker.cityId)
   }
 
   const openSmallCityPlanner = (city: SmallCity) => {
     const cityContext = createPlannerCityContext(city)
 
-    resetPlannerFlow(selectedPreference, cityContext)
+    resetPlannerFlow(selectedPreference, cityContext, selectedPreferenceProfile)
     setIsQuickActionsOpen(false)
     setActiveView('chat')
   }
 
   const enterMainWithPreference = () => {
-    storePreference(selectedPreference)
+    if (!hasValidThemeSelection) {
+      setThemeSelectionNotice('원하는 테마를 1개 이상 선택해 주세요.')
+      return
+    }
+
+    storePreferenceProfile(selectedPreferenceProfile)
     setActiveView('home')
   }
 
   const savePreferenceEdit = () => {
-    storePreference(pendingPreference)
-    setSelectedPreference(pendingPreference)
-    resetPlannerFlow(pendingPreference, null)
+    if (!hasValidThemeSelection) {
+      setThemeSelectionNotice('원하는 테마를 1개 이상 선택해 주세요.')
+      return
+    }
+
+    storePreferenceProfile(pendingPreferenceProfile)
+    setSelectedPreferenceProfile(pendingPreferenceProfile)
+    resetPlannerFlow(getPrimaryPreference(pendingPreferenceProfile), null, pendingPreferenceProfile)
     setCoverImageIndex(0)
     setHasSelectedCover(false)
+    setThemeSelectionNotice(null)
     setPreferenceNotice('취향이 변경됐어요. 다음 AI 일정부터 반영됩니다.')
     setActiveView('mypage')
   }
 
-  const selectPreference = (preference: Preference) => {
+  const togglePreferenceTheme = (themeId: ThemeId) => {
+    const source = isPreferenceEditView ? 'preference_edit' : 'onboarding'
+    const currentThemeIds = activeThemeIds
+    const isSelected = currentThemeIds.includes(themeId)
+    const nextThemeIds = isSelected
+      ? currentThemeIds.filter((currentThemeId) => currentThemeId !== themeId)
+      : currentThemeIds.length >= 3
+        ? currentThemeIds
+        : [...currentThemeIds, themeId]
+
+    if (!isSelected && currentThemeIds.length >= 3) {
+      setThemeSelectionNotice('기준 테마는 최대 3개까지 선택할 수 있어요.')
+      return
+    }
+
+    const nextProfile = createPreferenceProfile(nextThemeIds, source)
+
     if (isPreferenceEditView) {
-      setPendingPreference(preference)
+      setPendingPreferenceProfile(nextProfile)
     } else {
-      setSelectedPreference(preference)
+      setSelectedPreferenceProfile(nextProfile)
     }
 
     setCoverImageIndex(0)
-    setHasSelectedCover(true)
+    setHasSelectedCover(nextThemeIds.length > 0)
+    setThemeSelectionNotice(
+      nextThemeIds.length > 0
+        ? `${nextThemeIds.length}/3개 기준 테마가 선택됐어요.`
+        : '원하는 테마를 1개 이상 선택해 주세요.',
+    )
   }
 
   const showNextCoverImage = () => {
@@ -1105,30 +1458,85 @@ function App() {
       return
     }
 
-    const nextFestivalThemeChoice = resolveFestivalThemeChoice(trimmedMessage, festivalThemeChoice)
-    const explicitDurationLabel = getExplicitDurationLabel(trimmedMessage)
-    const nextSelectedDurationLabel = explicitDurationLabel ?? selectedDurationLabel
+    if (festivalThemeChoice === 'undecided') {
+      const nextFestivalThemeChoice = resolveFestivalThemeChoice(trimmedMessage, festivalThemeChoice)
+
+      if (nextFestivalThemeChoice === 'undecided') {
+        return
+      }
+
+      setChatMessages((currentMessages) => [
+        ...currentMessages,
+        {
+          id: createMessageId('user', currentMessages.length),
+          role: 'user',
+          content: trimmedMessage,
+        },
+        {
+          id: createMessageId('assistant', currentMessages.length + 1),
+          role: 'assistant',
+          content: `${getFestivalThemeLabel(nextFestivalThemeChoice)} 기준으로 볼게요. 이제 여행 기간을 먼저 골라주세요.`,
+        },
+      ])
+      setFestivalThemeChoice(nextFestivalThemeChoice)
+      setSavedPlanNotice(null)
+      setChatInput('')
+
+      return
+    }
+
+    if (selectedDurationLabel === null) {
+      const nextSelectedDurationLabel = getExplicitDurationLabel(trimmedMessage)
+
+      if (!nextSelectedDurationLabel) {
+        return
+      }
+
+      const nextDraft = createPlanDraft(
+        plannerPreference,
+        `${nextSelectedDurationLabel} ${plannerContextText}`.trim(),
+        festivalThemeChoice,
+        plannerCityContext,
+      )
+
+      setChatMessages((currentMessages) => [
+        ...currentMessages,
+        {
+          id: createMessageId('user', currentMessages.length),
+          role: 'user',
+          content: trimmedMessage,
+        },
+        {
+          id: createMessageId('assistant', currentMessages.length + 1),
+          role: 'assistant',
+          content: `${nextSelectedDurationLabel}로 잡아둘게요. 이제 동행, 관심사, 걷는 정도를 한 문장으로 알려주세요.`,
+        },
+      ])
+      setSelectedDurationLabel(nextSelectedDurationLabel)
+      setPlanDraft(nextDraft)
+      setSavedPlanNotice(null)
+      setChatInput('')
+
+      return
+    }
+
     const nextPlannerContextText = `${plannerContextText} ${trimmedMessage}`.trim()
-    const draftMessage = explicitDurationLabel
-      ? `${explicitDurationLabel} ${nextPlannerContextText}`
-      : nextSelectedDurationLabel
-        ? `${nextSelectedDurationLabel} ${nextPlannerContextText}`
-        : nextPlannerContextText
+    const nextExtraction = createMockConditionExtraction(
+      trimmedMessage,
+      plannerPreferenceProfile.selectedThemeIds,
+    )
     const nextDraft = createPlanDraft(
-      selectedPreference,
-      draftMessage,
-      nextFestivalThemeChoice,
+      plannerPreference,
+      `${selectedDurationLabel} ${nextPlannerContextText}`,
+      festivalThemeChoice,
       plannerCityContext,
     )
-    const didChooseFestivalTheme = nextFestivalThemeChoice !== festivalThemeChoice
-    const assistantContent =
-      didChooseFestivalTheme && nextSelectedDurationLabel === null
-        ? `${getFestivalThemeLabel(nextFestivalThemeChoice)} 기준으로 볼게요. 이제 여행 기간을 먼저 골라주세요.`
-        : festivalThemeChoice === 'undecided' && nextFestivalThemeChoice === 'undecided'
-          ? nextSelectedDurationLabel
-            ? `${nextSelectedDurationLabel} 흐름은 반영했어요. 축제 테마를 일정에 포함할지도 알려주세요.`
-            : '좋아요. 먼저 축제 테마 포함 여부와 여행 기간을 차례로 좁혀볼게요.'
-          : createAssistantReply(selectedPreference, nextDraft, plannerCityContext)
+    const assistantContent = createAssistantReply(
+      plannerBasisLabel,
+      nextDraft,
+      nextExtraction,
+      plannerCityContext,
+    )
 
     setChatMessages((currentMessages) => [
       ...currentMessages,
@@ -1143,9 +1551,8 @@ function App() {
         content: assistantContent,
       },
     ])
-    setFestivalThemeChoice(nextFestivalThemeChoice)
-    setSelectedDurationLabel(nextSelectedDurationLabel)
     setPlannerContextText(nextPlannerContextText)
+    setPlannerConditionExtraction(nextExtraction)
     setPlanDraft(nextDraft)
     setSavedPlanNotice(null)
     setChatInput('')
@@ -1174,7 +1581,7 @@ function App() {
           <p className="mt-4 break-keep text-sm leading-6 text-[#33271E]">
             {plannerCityContext
               ? `${plannerCityContext.cityName} 상세 정보를 기준으로 축제 포함 여부와 여행 기간을 먼저 정리합니다.`
-              : `${selectedPreference.cityPair} 감성을 기준으로 축제 포함 여부와 여행 기간을 먼저 정리합니다.`}
+              : `${plannerPreferenceLabel} 기준 테마로 축제 포함 여부와 여행 기간을 먼저 정리합니다.`}
           </p>
         </div>
 
@@ -1360,7 +1767,7 @@ function App() {
           : null}
 
         {isPlannerReady ? (
-          <div className="rounded-[18px] border border-[#F3B489] bg-[#FFF8F6] p-5">
+          <div aria-label="조건 해석 결과" className="rounded-[18px] border border-[#F3B489] bg-[#FFF8F6] p-5">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-[5px] border border-[#F3B489] bg-[#fffffa] px-3 py-1 text-[12px] font-bold text-[#33271E]">
                 일정 초안
@@ -1371,10 +1778,28 @@ function App() {
               <span className="rounded-[5px] border border-[#F3B489] bg-[#FFF0E4] px-3 py-1 text-[12px] font-bold text-[#33271E]">
                 {planDraft.intensityLabel} 반영
               </span>
+              {plannerConditionExtraction?.activeRequiredThemes.map((themeId) => (
+                <span
+                  key={`active-theme-${themeId}`}
+                  className="rounded-[5px] border border-[#F3B489] bg-[#fffffa] px-3 py-1 text-[12px] font-bold text-[#33271E]"
+                >
+                  {getThemeDefinition(themeId).label}
+                </span>
+              ))}
             </div>
             <p className="mt-3 break-keep text-sm font-semibold leading-6 text-[#33271E] max-sm:text-[13px]">
               하단 일정 상세에 반영했어요. 시간대별 동선과 추천 이유를 이어서 확인해 주세요.
             </p>
+            {plannerConditionExtraction?.softPreferences.length ? (
+              <p className="mt-2 break-keep text-[12px] font-bold leading-5 text-[#6E5A50]">
+                추가 조건: {plannerConditionExtraction.softPreferences.join(' · ')}
+              </p>
+            ) : null}
+            {plannerConditionExtraction?.unsupportedConditions.length ? (
+              <p className="mt-2 break-keep text-[12px] font-bold leading-5 text-[#A92B10]">
+                아직 반영하지 않는 조건: {plannerConditionExtraction.unsupportedConditions.join(' · ')}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -1387,13 +1812,18 @@ function App() {
             aria-label="여행 조건 입력"
             value={chatInput}
             onChange={(event) => setChatInput(event.target.value)}
-            placeholder="동행, 관심사, 걷는 정도를 추가로 입력해 주세요"
-            className="min-h-11 min-w-0 rounded-full border-0 bg-transparent px-4 py-2 break-keep text-sm leading-5 text-[#33271E] outline-none placeholder:text-[#8A7467] focus:bg-[#FFF8F6] max-sm:text-[13px]"
+            disabled={!hasGuidedPlannerChoices}
+            placeholder={
+              hasGuidedPlannerChoices
+                ? '동행, 관심사, 걷는 정도를 추가로 입력해 주세요'
+                : '축제 포함 여부와 여행 기간을 먼저 선택해 주세요'
+            }
+            className="min-h-11 min-w-0 rounded-full border-0 bg-transparent px-4 py-2 break-keep text-sm leading-5 text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-65 focus:bg-[#FFF8F6] max-sm:text-[13px]"
           />
           <button
             type="submit"
             aria-label="메시지 보내기"
-            disabled={!chatInput.trim()}
+            disabled={!canSubmitChatInput}
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-6 text-sm font-bold text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-[#A92B10] disabled:hover:bg-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
           >
             보내기
@@ -1416,7 +1846,7 @@ function App() {
               아직 일정이 생성되지 않았어요
             </h3>
             <p className="mt-4 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
-              축제 포함 여부와 여행 기간을 고르면 일정 초안이 여기에 표시됩니다.
+              축제 포함 여부와 여행 기간을 고른 뒤 이번 여행 조건을 입력하면 일정 초안이 여기에 표시됩니다.
             </p>
           </div>
           <div className="mt-8 rounded-[18px] border border-[#F3B489] bg-[#FFF0E4] p-5">
@@ -1424,7 +1854,9 @@ function App() {
             <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
               {shouldShowFestivalPrompt
                 ? '축제 테마를 포함할지 먼저 골라주세요.'
-                : '당일치기부터 4박 5일까지 여행 기간을 선택해 주세요.'}
+                : shouldShowDurationPrompt
+                  ? '당일치기부터 4박 5일까지 여행 기간을 선택해 주세요.'
+                  : '동행, 관심사, 걷는 정도를 자연어로 입력해 주세요.'}
             </p>
           </div>
         </section>
@@ -1460,9 +1892,9 @@ function App() {
               planDraft.intensityLabel,
               plannerCityContext
                 ? `${plannerCityContext.cityName} 중심`
-                : `${selectedPreference.tag} 중심`,
+                : `${plannerPreferenceLabel} 중심`,
               `${planDraft.festivalThemeLabel} 반영`,
-              selectedPreference.weakSignal,
+              `${plannerPreferenceProfile.selectedThemeIds.length}개 테마 반영`,
             ].map((item) => (
               <span
                 key={item}
@@ -1608,6 +2040,27 @@ function App() {
 
   const renderCityMapDiscoverySection = () => {
     const hasActiveFilters = cityMapQuery.trim().length > 0 || selectedSmallCityThemes.length > 0
+    const cityCatalogStatusMessage = isSmallCityCatalogLoading
+      ? {
+          title: '소도시 데이터를 불러오는 중입니다.',
+          body: '국가별 후보를 정리한 뒤 지도에 표시합니다.',
+        }
+      : hasSmallCityCatalogError
+        ? {
+            title: '소도시 데이터를 불러오지 못했습니다.',
+            body: smallCityCatalogState.errorMessage,
+          }
+        : smallCityCatalogState.status === 'empty'
+          ? {
+              title: '표시할 소도시 데이터가 없습니다.',
+              body: '데이터 소스가 준비되면 다시 확인할 수 있습니다.',
+            }
+          : null
+    const selectedThemeKeywords = getThemeLabels(selectedPreferenceProfile.selectedThemeIds).flatMap((label) =>
+      label.split('·'),
+    )
+    const selectedCityMatchedThemes =
+      selectedSmallCity?.themes.filter((theme) => selectedThemeKeywords.includes(theme)) ?? []
 
     return (
       <section
@@ -1616,8 +2069,8 @@ function App() {
         aria-labelledby="city-map-discovery-title"
         className="mx-auto max-w-[1440px] px-[55px] pb-14 max-sm:px-5"
       >
-        <div className="overflow-hidden rounded-[24px] border border-[#F3B489] bg-white/82 shadow-[0_18px_48px_-34px_rgba(51,39,30,0.28)]">
-          <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(360px,0.45fr)] gap-0 max-xl:grid-cols-1">
+        <div className="rounded-[24px] border border-[#F3B489] bg-white/82 shadow-[0_18px_48px_-34px_rgba(51,39,30,0.28)]">
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(360px,0.38fr)] gap-0 max-xl:grid-cols-1">
             <div className="min-w-0 border-r border-[#F3B489] p-8 max-xl:border-r-0 max-xl:border-b max-sm:p-5">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-6 max-lg:grid-cols-1">
                 <div className="min-w-0">
@@ -1668,14 +2121,15 @@ function App() {
                   <input
                     value={cityMapQuery}
                     onChange={(event) => setCityMapQuery(event.target.value)}
+                    disabled={!canUseSmallCityCatalog}
                     placeholder="도시, 지역, 테마 검색"
-                    className="min-h-12 w-full rounded-[8px] border border-[#F3B489] bg-[#fffffa] px-4 text-sm font-bold text-[#33271E] outline-none placeholder:text-[#8A7467] focus:border-[#A92B10] focus:ring-4 focus:ring-[#FF7017]/15"
+                    className="min-h-12 w-full rounded-[8px] border border-[#F3B489] bg-[#fffffa] px-4 text-sm font-bold text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-60 focus:border-[#A92B10] focus:ring-4 focus:ring-[#FF7017]/15"
                   />
                 </label>
                 <button
                   type="button"
                   onClick={clearSmallCityFilters}
-                  disabled={!hasActiveFilters}
+                  disabled={!hasActiveFilters || !canUseSmallCityCatalog}
                   className="inline-flex min-h-12 items-center justify-center rounded-[8px] border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] disabled:cursor-default disabled:opacity-45 disabled:hover:border-[#F3B489] disabled:hover:bg-[#fffffa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                 >
                   필터 초기화
@@ -1691,11 +2145,12 @@ function App() {
                       key={theme}
                       type="button"
                       aria-pressed={isSelected}
+                      disabled={!canUseSmallCityCatalog}
                       onClick={() => toggleSmallCityThemeFilter(theme)}
                       className={`inline-flex min-h-9 items-center rounded-[5px] border px-3 py-1 text-[12px] font-black leading-4 text-[#33271E] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
                         isSelected
                           ? 'border-[#A92B10] bg-[#F36B12]'
-                          : 'border-[#F3B489] bg-[#FFF8F6] hover:border-[#F36B12] hover:bg-[#FFE0CA]'
+                          : 'border-[#F3B489] bg-[#FFF8F6] hover:border-[#F36B12] hover:bg-[#FFE0CA] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[#F3B489] disabled:hover:bg-[#FFF8F6]'
                       }`}
                     >
                       #{theme}
@@ -1704,15 +2159,15 @@ function App() {
                 })}
               </div>
 
-              <div className="mt-6 grid grid-cols-[minmax(0,1.05fr)_minmax(260px,0.45fr)] gap-5 max-lg:grid-cols-1">
+              <div className="mt-6">
                 <div className="min-w-0">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <p className="break-keep text-sm font-black text-[#33271E]">
-                      {selectedCountryOption.label} {visibleSmallCityMarkers.length}곳 / 전체{' '}
+                      {selectedCountryOption.label} {filteredSmallCities.length}곳 / 전체{' '}
                       {activeCountryTotalCount}곳
                     </p>
                     <span className="rounded-[5px] border border-[#F3B489] bg-[#FFF8F6] px-3 py-1 text-[12px] font-black text-[#33271E]">
-                      후보 데이터 {filteredSmallCities.length}건
+                      도시명 마커 {visibleSmallCityMapMarkers.length}개
                     </span>
                   </div>
 
@@ -1720,19 +2175,30 @@ function App() {
                     data-testid="city-map-marker-layer"
                     className="lovv-city-map-surface relative min-h-[500px] overflow-hidden rounded-[18px] border border-[#F3B489] bg-[#FFF8F6] max-sm:min-h-[380px]"
                     role="region"
-                    aria-label={`${selectedCountryOption.label} 소도시 목업 지도. 현재 조건에 맞는 도시 마커 ${visibleSmallCityMarkers.length}개.`}
+                    aria-label={`${selectedCountryOption.label} 소도시 지도. 현재 조건에 맞는 도시명 마커 ${visibleSmallCityMapMarkers.length}개.`}
                   >
                     <SmallCityLeafletMap
-                      cities={visibleSmallCityMarkers}
+                      markers={visibleSmallCityMapMarkers}
                       country={cityMapCountry}
                       countryLabel={selectedCountryOption.label}
-                      selectedCityId={selectedSmallCity?.id ?? null}
-                      onSelectCity={selectSmallCity}
+                      selectedMarkerCityId={selectedSmallCity?.id ?? null}
+                      onSelectMarker={selectSmallCityMapMarker}
                     />
                     <div className="absolute left-5 top-5 z-10 rounded-[5px] border border-[#F3B489] bg-white/88 px-3 py-2 text-[12px] font-black text-[#33271E] backdrop-blur">
                       {selectedCountryOption.description}
                     </div>
-                    {visibleSmallCityMarkers.length === 0 ? (
+                    {cityCatalogStatusMessage ? (
+                      <div className="absolute inset-0 z-10 grid place-items-center px-6 text-center">
+                        <div className="rounded-[12px] border border-[#F3B489] bg-white/90 px-5 py-4 shadow-[0_12px_28px_-20px_rgba(51,39,30,0.28)]">
+                          <p className="break-keep text-sm font-black text-[#33271E]">
+                            {cityCatalogStatusMessage.title}
+                          </p>
+                          <p className="mt-2 break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
+                            {cityCatalogStatusMessage.body}
+                          </p>
+                        </div>
+                      </div>
+                    ) : filteredSmallCities.length === 0 ? (
                       <div className="absolute inset-0 z-10 grid place-items-center px-6 text-center">
                         <div className="rounded-[12px] border border-[#F3B489] bg-white/90 px-5 py-4 shadow-[0_12px_28px_-20px_rgba(51,39,30,0.28)]">
                           <p className="break-keep text-sm font-black text-[#33271E]">
@@ -1747,84 +2213,6 @@ function App() {
                   </div>
                 </div>
 
-                <aside
-                  data-testid="city-map-detail-panel"
-                  aria-label={selectedSmallCity ? undefined : '선택 소도시 상세 정보'}
-                  aria-labelledby={selectedSmallCity ? 'city-map-selected-title' : undefined}
-                  aria-live="polite"
-                  className="min-w-0 rounded-[18px] border border-[#F3B489] bg-[#fffffa] p-5"
-                >
-                  {selectedSmallCity ? (
-                    <>
-                      <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
-                        Selected city
-                      </p>
-                      <h3
-                        id="city-map-selected-title"
-                        className="mt-3 break-keep text-[28px] font-black leading-9 text-[#33271E] max-sm:text-2xl max-sm:leading-8"
-                      >
-                        {selectedSmallCity.nameKo}
-                      </h3>
-                      <p className="mt-2 break-keep text-sm font-black text-[#6E5A50]">
-                        {selectedSmallCity.countryLabel} · {selectedSmallCity.region}
-                        {selectedSmallCity.nameLocal ? ` · ${selectedSmallCity.nameLocal}` : ''}
-                      </p>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {selectedSmallCity.themes.map((theme) => (
-                          <span
-                            key={`${selectedSmallCity.id}-${theme}`}
-                            className="rounded-[5px] border border-[#F3B489] bg-[#FFF0E4] px-3 py-1 text-[12px] font-black text-[#33271E]"
-                          >
-                            #{theme}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="mt-5 break-keep text-sm font-semibold leading-6 text-[#33271E]">
-                        {selectedSmallCity.summary}
-                      </p>
-                      <p className="mt-3 break-keep text-sm leading-6 text-[#33271E]">
-                        {selectedSmallCity.detail}
-                      </p>
-                      <div className="mt-5 rounded-[12px] border border-[#F3B489] bg-[#FFF8F6] p-4">
-                        <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
-                          First route note
-                        </p>
-                        <p className="mt-2 break-keep text-sm font-black leading-6 text-[#33271E]">
-                          {selectedSmallCity.routeSeed.slice(0, 3).join(' · ')}
-                        </p>
-                      </div>
-                      <div className="mt-5">
-                        <p className="text-[12px] font-black text-[#33271E]">하이라이트</p>
-                        <ul className="mt-2 grid gap-2">
-                          {selectedSmallCity.highlights.slice(0, 4).map((highlight) => (
-                            <li
-                              key={`${selectedSmallCity.id}-${highlight}`}
-                              className="break-keep rounded-[5px] border border-[#F3B489] bg-white px-3 py-2 text-[12px] font-bold leading-5 text-[#33271E]"
-                            >
-                              {highlight}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => openSmallCityPlanner(selectedSmallCity)}
-                        className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-[8px] border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
-                      >
-                        이 소도시로 AI 일정 짜기
-                      </button>
-                    </>
-                  ) : (
-                    <div className="flex min-h-[320px] flex-col justify-center">
-                      <p className="break-keep text-lg font-black leading-7 text-[#33271E]">
-                        선택할 수 있는 소도시가 없습니다.
-                      </p>
-                      <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#6E5A50]">
-                        필터를 초기화하면 다시 상세 정보를 볼 수 있습니다.
-                      </p>
-                    </div>
-                  )}
-                </aside>
               </div>
 
               <div className="mt-5 rounded-[18px] border border-[#F3B489] bg-[#FFF8F6] p-5">
@@ -1837,85 +2225,224 @@ function App() {
                       표시된 소도시 목록
                     </p>
                     <p className="mt-1 break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
-                      키보드 사용자는 이 목록에서 도시를 선택할 수 있습니다.
+                      목록에서 고른 도시는 옆의 상세 패널에 바로 반영됩니다.
                     </p>
                   </div>
                   <span className="rounded-[5px] border border-[#F3B489] bg-white px-3 py-1 text-[12px] font-black text-[#33271E]">
-                    {visibleSmallCityMarkers.length} / {visibleSmallCityMarkers.length}
+                    {filteredSmallCities.length} / {activeCountryTotalCount}
                   </span>
                 </div>
 
-                {visibleSmallCityMarkers.length > 0 ? (
-                  <ol
-                    aria-labelledby="city-map-results-title"
-                    data-testid="city-map-result-list"
-                    className="mt-4 grid max-h-[460px] grid-cols-3 gap-2 overflow-y-auto pr-1 max-lg:grid-cols-2 max-sm:max-h-[360px] max-sm:grid-cols-1"
-                  >
-                    {visibleSmallCityMarkers.map((city) => {
-                      const isSelected = city.id === selectedSmallCity?.id
+                {filteredSmallCities.length > 0 ? (
+                  <div className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(280px,0.52fr)] gap-4 max-lg:grid-cols-1">
+                    <ol
+                      aria-labelledby="city-map-results-title"
+                      data-testid="city-map-result-list"
+                      className="grid max-h-[460px] grid-cols-2 gap-2 overflow-y-auto pr-1 max-sm:max-h-[360px] max-sm:grid-cols-1"
+                    >
+                      {filteredSmallCities.map((city) => {
+                        const isSelected = city.id === selectedSmallCity?.id
 
-                      return (
-                        <li key={`result-${city.id}`}>
+                        return (
+                          <li key={`result-${city.id}`}>
+                            <button
+                              type="button"
+                              aria-current={isSelected ? 'true' : undefined}
+                              onClick={() => selectSmallCityFromList(city)}
+                              className={`min-h-[74px] w-full rounded-[8px] border px-4 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                                isSelected
+                                  ? 'border-[#A92B10] bg-[#FFE0CA]'
+                                  : 'border-[#F3B489] bg-white hover:border-[#F36B12] hover:bg-[#fffffa]'
+                              }`}
+                            >
+                              <span className="block break-keep text-sm font-black leading-5 text-[#33271E]">
+                                {city.nameKo}
+                              </span>
+                              <span className="mt-1 block break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
+                                {city.countryLabel} · {city.region}
+                                {city.nameLocal ? ` · ${city.nameLocal}` : ''}
+                              </span>
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ol>
+
+                    <div
+                      ref={cityMapListDetailPanelRef}
+                      data-testid="city-map-list-detail-panel"
+                      aria-labelledby="city-map-list-detail-title"
+                      aria-live="polite"
+                      className="min-w-0 rounded-[12px] border border-[#F3B489] bg-white p-4 shadow-[0_14px_32px_-28px_rgba(51,39,30,0.35)]"
+                    >
+                      {selectedSmallCity ? (
+                        <>
+                          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+                            List detail
+                          </p>
+                          <h3
+                            id="city-map-list-detail-title"
+                            className="mt-2 break-keep text-xl font-black leading-7 text-[#33271E]"
+                          >
+                            {selectedSmallCity.nameKo}
+                          </h3>
+                          <p className="mt-1 break-keep text-[12px] font-black leading-5 text-[#6E5A50]">
+                            {selectedSmallCity.countryLabel} · {selectedSmallCity.region}
+                            {selectedSmallCity.nameLocal ? ` · ${selectedSmallCity.nameLocal}` : ''}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {selectedSmallCity.themes.map((theme) => (
+                              <span
+                                key={`list-${selectedSmallCity.id}-${theme}`}
+                                className="rounded-[5px] border border-[#F3B489] bg-[#FFF8F6] px-2.5 py-1 text-[11px] font-black text-[#33271E]"
+                              >
+                                #{theme}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="mt-4 break-keep text-[13px] font-semibold leading-6 text-[#33271E]">
+                            {selectedSmallCity.summary}
+                          </p>
+                          <div className="mt-4 rounded-[8px] border border-[#F3B489] bg-[#FFF8F6] p-3">
+                            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#A92B10]">
+                              First route note
+                            </p>
+                            <p className="mt-2 break-keep text-[13px] font-black leading-6 text-[#33271E]">
+                              {selectedSmallCity.routeSeed.slice(0, 3).join(' · ')}
+                            </p>
+                          </div>
+                          <div className="mt-3 rounded-[8px] border border-[#F3B489] bg-[#FFF8F6] p-3">
+                            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#A92B10]">
+                              추천 근거
+                            </p>
+                            <p className="mt-2 break-keep text-[13px] font-black leading-6 text-[#33271E]">
+                              {selectedCityMatchedThemes.length > 0
+                                ? `${selectedCityMatchedThemes.join('·')} 테마와 겹쳐 바로 일정 후보로 볼 만합니다.`
+                                : `${selectedSmallCity.themes.slice(0, 2).join('·')} 장면이 뚜렷해서 새 후보로 비교하기 좋습니다.`}
+                            </p>
+                          </div>
                           <button
                             type="button"
-                            aria-current={isSelected ? 'true' : undefined}
-                            onClick={() => selectSmallCity(city)}
-                            className={`min-h-[74px] w-full rounded-[8px] border px-4 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
-                              isSelected
-                                ? 'border-[#A92B10] bg-[#FFE0CA]'
-                                : 'border-[#F3B489] bg-white hover:border-[#F36B12] hover:bg-[#fffffa]'
-                            }`}
+                            onClick={() => openSmallCityPlanner(selectedSmallCity)}
+                            className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-[8px] border border-[#A92B10] bg-[#F36B12] px-4 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                           >
-                            <span className="block break-keep text-sm font-black leading-5 text-[#33271E]">
-                              {city.nameKo}
-                            </span>
-                            <span className="mt-1 block break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
-                              {city.countryLabel} · {city.region}
-                              {city.nameLocal ? ` · ${city.nameLocal}` : ''}
-                            </span>
+                            이 소도시로 AI 일정 짜기
                           </button>
-                        </li>
-                      )
-                    })}
-                  </ol>
+                        </>
+                      ) : (
+                        <div className="flex min-h-[220px] flex-col justify-center">
+                          <p className="break-keep text-sm font-black leading-6 text-[#33271E]">
+                            선택할 수 있는 소도시가 없습니다.
+                          </p>
+                          <p className="mt-2 break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
+                            필터를 초기화하면 목록 상세를 다시 볼 수 있습니다.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ) : (
                   <p className="mt-4 break-keep rounded-[8px] border border-[#F3B489] bg-white px-4 py-4 text-sm font-bold text-[#33271E]">
                     표시할 결과가 없습니다.
                   </p>
                 )}
 
-                {filteredSmallCities.length !== visibleSmallCityMarkers.length ? (
-                  <p className="mt-3 break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
-                    내부 후보 데이터 {filteredSmallCities.length}건을 도시명 기준으로 묶어 마커와 목록에는 {visibleSmallCityMarkers.length}개 소도시만 표시합니다.
-                  </p>
-                ) : null}
               </div>
             </div>
 
-            <aside className="min-w-0 bg-[#FFF0E4] p-8 max-sm:p-5">
-              <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
-                Backend-ready note
-              </p>
-              <h3 className="mt-3 break-keep text-2xl font-black leading-8 text-[#33271E]">
-                실제 DB와 지도 SDK로 바꾸기 쉬운 구조
-              </h3>
-              <p className="mt-4 break-keep text-sm font-semibold leading-6 text-[#33271E]">
-                현재는 프론트엔드 fixture로 마커 밀도, 필터, 상세 패널, AI 일정 연결 흐름을 먼저 검증합니다.
-              </p>
-              <dl className="mt-6 grid gap-3">
-                {[
-                  ['데이터', 'SmallCity fixture → /api/small-cities'],
-                  ['지도', 'Leaflet/OpenStreetMap adapter → production map provider'],
-                  ['일정', 'PlannerCityContext → AI planner request'],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-[8px] border border-[#F3B489] bg-[#fffffa] p-4">
-                    <dt className="text-[12px] font-black text-[#A92B10]">{label}</dt>
-                    <dd className="mt-1 break-keep text-sm font-bold leading-6 text-[#33271E]">
-                      {value}
-                    </dd>
+            <aside
+              data-testid="city-map-detail-panel"
+              aria-label={selectedSmallCity ? undefined : '선택 소도시 상세 정보'}
+              aria-labelledby={selectedSmallCity ? 'city-map-selected-title' : undefined}
+              aria-live="polite"
+              className="min-w-0 rounded-r-[24px] bg-[#FFF0E4] p-8 max-xl:rounded-b-[24px] max-xl:rounded-r-none max-sm:p-5"
+            >
+              <div
+                ref={cityMapDetailPanelRef}
+                data-testid="city-map-detail-sticky-content"
+                className="xl:sticky xl:top-24"
+              >
+                {selectedSmallCity ? (
+                  <>
+                    <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+                      Selected city
+                    </p>
+                    <h3
+                      id="city-map-selected-title"
+                      className="mt-3 break-keep text-[30px] font-black leading-10 text-[#33271E] max-sm:text-2xl max-sm:leading-8"
+                    >
+                      {selectedSmallCity.nameKo}
+                    </h3>
+                    <p className="mt-2 break-keep text-sm font-black text-[#6E5A50]">
+                      {selectedSmallCity.countryLabel} · {selectedSmallCity.region}
+                      {selectedSmallCity.nameLocal ? ` · ${selectedSmallCity.nameLocal}` : ''}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {selectedSmallCity.themes.map((theme) => (
+                        <span
+                          key={`${selectedSmallCity.id}-${theme}`}
+                          className="rounded-[5px] border border-[#F3B489] bg-[#fffffa] px-3 py-1 text-[12px] font-black text-[#33271E]"
+                        >
+                          #{theme}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-5 break-keep text-sm font-semibold leading-6 text-[#33271E]">
+                      {selectedSmallCity.summary}
+                    </p>
+                    <p className="mt-3 break-keep text-sm leading-6 text-[#33271E]">
+                      {selectedSmallCity.detail}
+                    </p>
+                    <div className="mt-5 rounded-[12px] border border-[#F3B489] bg-[#fffffa] p-4">
+                      <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+                        추천 근거
+                      </p>
+                      <p className="mt-2 break-keep text-sm font-black leading-6 text-[#33271E]">
+                        {selectedCityMatchedThemes.length > 0
+                          ? `선택 취향의 ${selectedCityMatchedThemes.join('·')} 테마와 겹쳐 먼저 볼 만합니다.`
+                          : `${selectedSmallCity.themes.slice(0, 2).join('·')} 장면이 뚜렷해서 새로운 후보로 비교하기 좋습니다.`}
+                      </p>
+                    </div>
+                    <div className="mt-5 rounded-[12px] border border-[#F3B489] bg-[#fffffa] p-4">
+                      <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+                        First route note
+                      </p>
+                      <p className="mt-2 break-keep text-sm font-black leading-6 text-[#33271E]">
+                        {selectedSmallCity.routeSeed.slice(0, 3).join(' · ')}
+                      </p>
+                    </div>
+                    <div className="mt-5">
+                      <p className="text-[12px] font-black text-[#33271E]">하이라이트</p>
+                      <ul className="mt-2 grid gap-2">
+                        {selectedSmallCity.highlights.slice(0, 4).map((highlight) => (
+                          <li
+                            key={`${selectedSmallCity.id}-${highlight}`}
+                            className="break-keep rounded-[5px] border border-[#F3B489] bg-white px-3 py-2 text-[12px] font-bold leading-5 text-[#33271E]"
+                          >
+                            {highlight}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openSmallCityPlanner(selectedSmallCity)}
+                      className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-[8px] border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                    >
+                      이 소도시로 AI 일정 짜기
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex min-h-[320px] flex-col justify-center">
+                    <p className="break-keep text-lg font-black leading-7 text-[#33271E]">
+                      선택할 수 있는 소도시가 없습니다.
+                    </p>
+                    <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#6E5A50]">
+                      필터를 초기화하면 다시 상세 정보를 볼 수 있습니다.
+                    </p>
                   </div>
-                ))}
-              </dl>
+                )}
+              </div>
             </aside>
           </div>
         </div>
@@ -2129,7 +2656,7 @@ function App() {
                 <div>
                   <p className="text-sm font-black text-[#33271E]">시간대별 흐름</p>
                   <p className="mt-1 break-keep text-sm font-semibold leading-6 text-[#33271E]/75">
-                    실제 API 연결 전까지는 현재 대화 조건으로 만든 mock 일정 초안입니다.
+                    현재 대화에서 정리한 조건으로 만든 일정 초안입니다.
                   </p>
                 </div>
                 <span className="rounded-full border border-[#A92B10] bg-[#F36B12] px-4 py-2 text-[12px] font-black text-[#33271E]">
@@ -2181,8 +2708,7 @@ function App() {
             <aside className="rounded-[20px] border border-[#F3B489] bg-[#FFF0E4] p-5">
               <p className="text-sm font-black text-[#33271E]">일정 액션</p>
               <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#33271E]/80">
-                저장과 좋아요는 mock localStorage에만 남깁니다. 실제 백엔드 연결 시 같은 plan id로
-                매핑하면 됩니다.
+                마음에 드는 일정은 좋아요로 표시하거나 마이페이지에 저장해 다시 확인할 수 있습니다.
               </p>
               <div className="mt-5 grid gap-3">
                 <button
@@ -2461,41 +2987,46 @@ function App() {
                   data-testid="preference-card-grid"
                   className="mt-5 grid auto-rows-[212px] grid-cols-3 gap-4 max-lg:grid-cols-2 max-md:auto-rows-auto max-md:grid-cols-1"
                 >
-                  {preferences.map((preference) => {
-                    const isSelected = hasSelectedCover && preferenceSelection.cityPair === preference.cityPair
+                  {themeDefinitions.map((theme, index) => {
+                    const isSelected = activeThemeIds.includes(theme.id)
+                    const isMaxed = !isSelected && activeThemeIds.length >= 3
+                    const samplePreference = getPreferenceByThemeId(theme.id)
 
                     return (
                       <button
-                        key={preference.cityPair}
+                        key={theme.id}
                         type="button"
                         aria-pressed={isSelected}
-                        onClick={() => selectPreference(preference)}
+                        aria-disabled={isMaxed}
+                        onClick={() => togglePreferenceTheme(theme.id)}
                         className={`flex h-full min-w-0 flex-col overflow-hidden rounded-[22px] border p-5 text-left transition hover:-translate-y-0.5 hover:border-[#A92B10] hover:bg-[#FFF0E4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:min-h-[212px] ${
                           isSelected
                             ? 'border-[#A92B10] bg-[#FFF0E4] shadow-[0_18px_40px_-28px_rgba(51,39,30,0.55)]'
-                            : 'border-[#F3B489] bg-[#fffffa]'
+                            : isMaxed
+                              ? 'border-[#F3B489] bg-[#fffffa] opacity-55'
+                              : 'border-[#F3B489] bg-[#fffffa]'
                         }`}
                       >
                         <span className="flex shrink-0 items-center justify-between gap-3">
                           <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#33271E]">
-                            {preference.issue}
+                            NO. {String(index + 1).padStart(2, '0')}
                           </span>
                           <span
                             className="inline-flex h-[30px] shrink-0 items-center rounded-full border border-[#F3B489] bg-[#FFF0E4] px-3 text-[12px] font-bold text-[#33271E]"
                           >
-                            {preference.tag}
+                            {theme.shortLabel}
                           </span>
                         </span>
                         <span className="mt-5 min-h-0">
                           <span className="block break-keep text-[23px] font-bold leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7">
-                            {preference.cityPair}
+                            {theme.label}
                           </span>
                           <span className="mt-2 block line-clamp-2 break-keep text-sm leading-6 text-[#33271E]">
-                            {preference.description}
+                            {theme.description}
                           </span>
                         </span>
                         <span className="mt-auto block w-full shrink-0 line-clamp-2 break-keep border-t border-[#F3B489] pt-3 text-[12px] font-semibold leading-5 text-[#33271E]">
-                          {preference.routeHint}
+                          {samplePreference.routeHint}
                         </span>
                       </button>
                     )
@@ -2504,15 +3035,19 @@ function App() {
 
                 <div className="mt-6 grid grid-cols-[1fr_auto] items-center gap-5 rounded-[22px] border border-[#F3B489] bg-[#fffffa] px-5 py-4 shadow-[0_18px_50px_-34px_rgba(51,39,30,0.24)] max-md:grid-cols-1">
                   <div className="flex flex-wrap gap-2">
-                    {[...preferenceSelection.signals.slice(0, 3), preferenceSelection.weakSignal].map(
-                      (signal) => (
+                    {activeThemeLabels.length > 0 ? (
+                      activeThemeLabels.map((themeLabel) => (
                         <span
-                          key={signal}
+                          key={themeLabel}
                           className="inline-flex h-auto min-h-[32px] max-w-full items-center justify-center rounded-full border border-[#F3B489] bg-[#FFF0E4] px-4 py-1 text-center text-[12px] font-semibold leading-5 text-[#33271E]"
                         >
-                          {signal}
+                          #{themeLabel}
                         </span>
-                      ),
+                      ))
+                    ) : (
+                      <span className="inline-flex h-auto min-h-[32px] max-w-full items-center justify-center rounded-full border border-[#F3B489] bg-[#FFF8F6] px-4 py-1 text-center text-[12px] font-semibold leading-5 text-[#33271E]">
+                        원하는 테마를 1개 이상 선택해 주세요
+                      </span>
                     )}
                   </div>
                   <div className="flex flex-wrap justify-end gap-2 max-md:grid max-md:grid-cols-1">
@@ -2528,12 +3063,18 @@ function App() {
                     <button
                       type="button"
                       onClick={isPreferenceEditView ? savePreferenceEdit : enterMainWithPreference}
-                      className="inline-flex h-auto min-h-[48px] w-[220px] items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-center text-sm font-semibold leading-5 text-[#33271E] shadow-[0_2px_3px_rgba(0,0,0,0.04)] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:w-full"
+                      disabled={!hasValidThemeSelection}
+                      className="inline-flex h-auto min-h-[48px] w-[220px] items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-center text-sm font-semibold leading-5 text-[#33271E] shadow-[0_2px_3px_rgba(0,0,0,0.04)] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:w-full"
                     >
                       {isPreferenceEditView ? '이 취향으로 저장하기' : '이 취향으로 Lovv 시작하기'}
                     </button>
                   </div>
                 </div>
+                {themeSelectionNotice ? (
+                  <p role="status" className="mt-3 break-keep text-sm font-bold leading-6 text-[#A92B10]">
+                    {themeSelectionNotice}
+                  </p>
+                ) : null}
               </section>
             </div>
 
@@ -2574,10 +3115,13 @@ function App() {
                 <div className="px-2 pb-2 pt-5">
                   <p className="text-sm font-semibold text-[#33271E]">오늘의 취향 여정</p>
                   <h2 className="mt-2 break-keep text-[34px] font-bold leading-10 text-[#33271E] max-sm:text-3xl max-sm:leading-9">
-                    {preferenceSelection.cityPair}
+                    {activeThemeLabels.join(' · ')}
                   </h2>
                   <p className="mt-4 line-clamp-3 break-keep text-sm leading-6 text-[#33271E]">
-                    {preferenceSelection.editorialNote}
+                    {activeThemePreferences
+                      .map((preference) => preference.editorialNote)
+                      .slice(0, 2)
+                      .join(' ')}
                   </p>
 
                   <div className="mt-5 rounded-[18px] border border-[#F3B489] bg-[#FFF0E4] p-4">
@@ -2585,7 +3129,10 @@ function App() {
                       First route note
                     </p>
                     <p className="mt-2 line-clamp-2 break-keep text-sm font-bold leading-6 text-[#33271E]">
-                      {preferenceSelection.routeHint}
+                      {activeThemePreferences
+                        .map((preference) => preference.routeHint)
+                        .slice(0, 2)
+                        .join(' · ')}
                     </p>
                   </div>
 
@@ -2834,7 +3381,7 @@ function App() {
                   {monthlyRecommendations.map((recommendation, index) => {
                     const isFeatured = index === 0
                     const isCurrentRecommendation =
-                      recommendation.preference.cityPair === selectedPreference.cityPair
+                      selectedPreferenceProfile.selectedThemeIds.includes(recommendation.preference.themeId)
 
                     return (
                       <button
@@ -2975,7 +3522,7 @@ function App() {
                   <div className="mt-8 grid grid-cols-3 gap-4 max-md:grid-cols-1">
                     {[
                       { label: '로그인 방식', value: currentProviderLabel },
-                      { label: '선택 취향', value: selectedPreference.tag },
+                      { label: '선택 취향', value: selectedPreferenceLabel },
                       { label: '저장 일정', value: savedPlanNotice ? '1개 준비됨' : '아직 없음' },
                     ].map((item) => (
                       <article
@@ -2995,10 +3542,10 @@ function App() {
                   <div className="mt-8 rounded-[20px] border border-[#F3B489] bg-[#FFF0E4] p-6">
                     <p className="text-sm font-black text-[#33271E]">선택한 여행 분위기</p>
                     <h2 className="mt-3 break-keep text-[30px] font-black leading-9 text-[#33271E] max-sm:text-2xl max-sm:leading-8">
-                      {selectedPreference.cityPair}
+                      {selectedPreferenceLabel}
                     </h2>
                     <p className="mt-3 break-keep text-sm font-semibold leading-6 text-[#33271E]">
-                      {selectedPreference.editorialNote}
+                      {selectedPreferenceEditorialNotes}
                     </p>
                     <div className="mt-5 flex flex-wrap gap-2">
                       {selectedThemeHashtags.map((tag) => (

@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { smallCityMapBounds, type SmallCity, type SmallCityCountry } from '../data/smallCities'
+import { smallCityMapBounds, type SmallCityCountry, type SmallCityMapMarker } from '../data/smallCities'
 
 type SmallCityLeafletMapProps = {
-  cities: SmallCity[]
+  markers: SmallCityMapMarker[]
   country: SmallCityCountry
   countryLabel: string
-  selectedCityId: string | null
-  onSelectCity: (city: SmallCity) => void
+  selectedMarkerCityId: string | null
+  onSelectMarker: (marker: SmallCityMapMarker) => void
 }
 
 const getCountryBounds = (country: SmallCityCountry): L.LatLngBoundsExpression => {
@@ -21,20 +21,20 @@ const getCountryBounds = (country: SmallCityCountry): L.LatLngBoundsExpression =
 }
 
 export function SmallCityLeafletMap({
-  cities,
+  markers,
   country,
   countryLabel,
-  selectedCityId,
-  onSelectCity,
+  selectedMarkerCityId,
+  onSelectMarker,
 }: SmallCityLeafletMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<L.Map | null>(null)
   const markerLayerRef = useRef<L.LayerGroup | null>(null)
-  const onSelectCityRef = useRef(onSelectCity)
+  const onSelectMarkerRef = useRef(onSelectMarker)
 
   useEffect(() => {
-    onSelectCityRef.current = onSelectCity
-  }, [onSelectCity])
+    onSelectMarkerRef.current = onSelectMarker
+  }, [onSelectMarker])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) {
@@ -86,9 +86,9 @@ export function SmallCityLeafletMap({
 
     markerLayer.clearLayers()
 
-    cities.forEach((city) => {
-      const isSelected = city.id === selectedCityId
-      const marker = L.circleMarker([city.latitude, city.longitude], {
+    markers.forEach((cityMarker) => {
+      const isSelected = cityMarker.cityId === selectedMarkerCityId
+      const marker = L.circleMarker([cityMarker.latitude, cityMarker.longitude], {
         radius: isSelected ? 9 : 5,
         color: isSelected ? '#33271E' : '#ffffff',
         fillColor: isSelected ? '#F36B12' : '#A92B10',
@@ -98,25 +98,25 @@ export function SmallCityLeafletMap({
       })
 
       marker
-        .bindTooltip(city.nameKo, {
+        .bindTooltip(cityMarker.label, {
           direction: 'top',
           offset: [0, -8],
           opacity: isSelected ? 1 : 0.92,
           permanent: isSelected,
         })
         .on('click', () => {
-          onSelectCityRef.current(city)
+          onSelectMarkerRef.current(cityMarker)
         })
         .addTo(markerLayer)
     })
-  }, [cities, selectedCityId])
+  }, [markers, selectedMarkerCityId])
 
   return (
     <div
       ref={containerRef}
-      data-marker-count={cities.length}
+      data-marker-count={markers.length}
       data-testid="city-map-leaflet-map"
-      aria-label={`${countryLabel} 소도시 실제 지도. 현재 조건에 맞는 마커 ${cities.length}개.`}
+      aria-label={`${countryLabel} 소도시 실제 지도. 현재 조건에 맞는 도시명 마커 ${markers.length}개.`}
       className="lovv-leaflet-map h-full min-h-[inherit] w-full"
       role="region"
     />

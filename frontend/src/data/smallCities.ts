@@ -21,6 +21,18 @@ export type SmallCity = {
   image?: string
 }
 
+export type SmallCityMapMarker = {
+  id: string
+  cityId: string
+  country: SmallCityCountry
+  countryLabel: '한국' | '일본'
+  region: string
+  label: string
+  localLabel?: string
+  latitude: number
+  longitude: number
+}
+
 export type PlannerCityContext = {
   cityId: string
   cityName: string
@@ -58,12 +70,12 @@ export const smallCityCountryOptions: {
   {
     country: 'KR',
     label: '한국',
-    description: '대한민국 전체를 기준으로 40개 목업 소도시를 표시합니다.',
+    description: '대한민국 전체를 기준으로 40개 소도시를 표시합니다.',
   },
   {
     country: 'JP',
     label: '일본',
-    description: '일본 전역을 기준으로 360개 목업 소도시를 표시합니다.',
+    description: '일본 전역을 기준으로 40개 소도시를 표시합니다.',
   },
 ]
 
@@ -489,18 +501,6 @@ const japaneseBaseSeeds: CitySeed[] = [
   { region: '고치', nameKo: '시만토', nameLocal: '四万十', latitude: 32.991, longitude: 132.933, themes: ['자연', '바다'], highlights: ['시만토강', '침하교', '강변'], routeSeed: ['시만토강', '침하교', '강변'] },
 ]
 
-const japaneseVariantProfiles = [
-  { suffix: '', latOffset: 0, lngOffset: 0, theme: '산책' as SmallCityTheme },
-  { suffix: '해안', latOffset: -0.08, lngOffset: 0.16, theme: '바다' as SmallCityTheme },
-  { suffix: '온천', latOffset: 0.11, lngOffset: -0.12, theme: '온천' as SmallCityTheme },
-  { suffix: '구시가', latOffset: 0.06, lngOffset: 0.09, theme: '전통' as SmallCityTheme },
-  { suffix: '축제', latOffset: -0.13, lngOffset: -0.08, theme: '축제' as SmallCityTheme },
-  { suffix: '공예', latOffset: 0.18, lngOffset: 0.04, theme: '예술' as SmallCityTheme },
-  { suffix: '숲길', latOffset: -0.18, lngOffset: 0.1, theme: '자연' as SmallCityTheme },
-  { suffix: '시장', latOffset: 0.12, lngOffset: -0.18, theme: '미식' as SmallCityTheme },
-  { suffix: '산책', latOffset: -0.05, lngOffset: -0.05, theme: '산책' as SmallCityTheme },
-]
-
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 const uniqueThemes = (themes: SmallCityTheme[]) => Array.from(new Set(themes)).slice(0, 4)
@@ -509,16 +509,12 @@ const createCity = (
   seed: CitySeed,
   country: SmallCityCountry,
   index: number,
-  variant?: (typeof japaneseVariantProfiles)[number],
 ): SmallCity => {
   const countryLabel = country === 'KR' ? '한국' : '일본'
   const bounds = smallCityMapBounds[country]
-  const themes = uniqueThemes(variant ? [...seed.themes, variant.theme] : seed.themes)
-  const latitude = clamp(seed.latitude + (variant?.latOffset ?? 0), bounds.minLat, bounds.maxLat)
-  const longitude = clamp(seed.longitude + (variant?.lngOffset ?? 0), bounds.minLng, bounds.maxLng)
-  const routeSeed = variant?.suffix
-    ? [seed.routeSeed[0], `${seed.nameKo} ${variant.suffix} 거리`, seed.routeSeed[2] ?? seed.routeSeed[1]].filter(Boolean)
-    : seed.routeSeed
+  const themes = uniqueThemes(seed.themes)
+  const latitude = clamp(seed.latitude, bounds.minLat, bounds.maxLat)
+  const longitude = clamp(seed.longitude, bounds.minLng, bounds.maxLng)
 
   return {
     id: `${country.toLowerCase()}-${String(index + 1).padStart(3, '0')}`,
@@ -530,20 +526,16 @@ const createCity = (
     latitude,
     longitude,
     themes,
-    summary: `${countryLabel} ${seed.region}의 ${seed.nameKo}는 ${themes.slice(0, 2).join('·')} 분위기로 먼저 살펴보는 MVP 목업 소도시입니다.`,
-    detail: `${routeSeed.slice(0, 3).join(', ')} 흐름을 기준으로 여행 조건을 좁히기 좋은 후보입니다. 실제 DB 연결 전까지는 지도 탐색 UX 검증을 위한 fixture 데이터로 사용합니다.`,
+    summary: `${countryLabel} ${seed.region}의 ${seed.nameKo}는 ${themes.slice(0, 2).join('·')} 분위기가 뚜렷한 소도시입니다.`,
+    detail: `${seed.routeSeed.slice(0, 3).join(', ')} 흐름을 기준으로 여행 조건을 좁히기 좋은 후보입니다.`,
     highlights: seed.highlights,
-    routeSeed,
+    routeSeed: seed.routeSeed,
   }
 }
 
 export const koreanSmallCities = koreanCitySeeds.map((seed, index) => createCity(seed, 'KR', index))
 
-export const japaneseSmallCities = japaneseBaseSeeds.flatMap((seed, seedIndex) =>
-  japaneseVariantProfiles.map((variant, variantIndex) =>
-    createCity(seed, 'JP', seedIndex * japaneseVariantProfiles.length + variantIndex, variant),
-  ),
-)
+export const japaneseSmallCities = japaneseBaseSeeds.map((seed, index) => createCity(seed, 'JP', index))
 
 export const smallCities = [...koreanSmallCities, ...japaneseSmallCities]
 
@@ -610,6 +602,21 @@ export const filterSmallCities = (
     return matchesQuery && matchesTheme
   })
 }
+
+export const createSmallCityMapMarker = (city: SmallCity): SmallCityMapMarker => ({
+  id: `marker-${city.id}`,
+  cityId: city.id,
+  country: city.country,
+  countryLabel: city.countryLabel,
+  region: city.region,
+  label: city.nameKo,
+  localLabel: city.nameLocal,
+  latitude: city.latitude,
+  longitude: city.longitude,
+})
+
+export const createSmallCityMapMarkers = (cities: SmallCity[]) =>
+  cities.map(createSmallCityMapMarker)
 
 export const createPlannerCityContext = (city: SmallCity): PlannerCityContext => ({
   cityId: city.id,
