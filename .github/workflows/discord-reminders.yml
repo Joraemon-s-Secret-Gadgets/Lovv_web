@@ -56,25 +56,13 @@ jobs:
             exit 1
           fi
 
-          python3 - <<'PY'
-          import json
-          import os
-          import urllib.request
+          payload=$(jq -nc \
+            --arg content "$MESSAGE" \
+            --arg username "SKN_3rd_PJ 알림봇" \
+            '{content: $content, username: $username}')
 
-          webhook_url = os.environ["DISCORD_WEBHOOK_URL"]
-          message = os.environ["MESSAGE"]
-          payload = json.dumps({
-              "content": message,
-              "username": "SKN_3rd_PJ 알림봇",
-          }).encode("utf-8")
-          request = urllib.request.Request(
-              webhook_url,
-              data=payload,
-              headers={"Content-Type": "application/json"},
-              method="POST",
-          )
-
-          with urllib.request.urlopen(request, timeout=15) as response:
-              if response.status >= 300:
-                  raise SystemExit(f"Discord webhook failed with status {response.status}")
-          PY
+          curl --fail --silent --show-error \
+            --header "Content-Type: application/json" \
+            --header "User-Agent: SKN_3rd_PJ Reminder Bot (GitHub Actions)" \
+            --data "$payload" \
+            "$DISCORD_WEBHOOK_URL"
