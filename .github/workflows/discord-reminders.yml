@@ -2,20 +2,9 @@ name: SKN_3rd_PJ Discord Reminders
 
 on:
   schedule:
-    # 09:00 KST, Monday-Friday.
-    - cron: "0 0 * * 1-5"
     # 17:00 KST, Monday-Friday.
     - cron: "0 8 * * 1-5"
   workflow_dispatch:
-    inputs:
-      reminder:
-        description: "Reminder to send"
-        required: true
-        default: attendance
-        type: choice
-        options:
-          - attendance
-          - progress
 
 permissions:
   contents: read
@@ -26,30 +15,9 @@ jobs:
     env:
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
     steps:
-      - name: Select reminder message
-        id: reminder
-        env:
-          SCHEDULE: ${{ github.event.schedule }}
-          MANUAL_REMINDER: ${{ github.event.inputs.reminder || '' }}
-        run: |
-          if [ "$SCHEDULE" = "0 0 * * 1-5" ] || [ "$MANUAL_REMINDER" = "attendance" ]; then
-            {
-              echo "message=좋은 아침입니다. 오전 9시 출석 체크해주세요."
-              echo "label=attendance"
-            } >> "$GITHUB_OUTPUT"
-          elif [ "$SCHEDULE" = "0 8 * * 1-5" ] || [ "$MANUAL_REMINDER" = "progress" ]; then
-            {
-              echo "message=오후 5시입니다. 오늘 각자 진행상황을 Discord 채널에 업로드해주세요."
-              echo "label=progress"
-            } >> "$GITHUB_OUTPUT"
-          else
-            echo "Unsupported reminder schedule: $SCHEDULE"
-            exit 1
-          fi
-
       - name: Send Discord message
         env:
-          MESSAGE: ${{ steps.reminder.outputs.message }}
+          MESSAGE: 오후 5시입니다. 오늘 각자 진행상황을 Discord 채널에 업로드해주세요.
         run: |
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then
             echo "DISCORD_WEBHOOK_URL GitHub secret is not configured."
@@ -58,7 +26,7 @@ jobs:
 
           payload=$(jq -nc \
             --arg content "$MESSAGE" \
-            --arg username "SKN_3rd_PJ 알림봇" \
+            --arg username "Notion 알림봇" \
             '{content: $content, username: $username}')
 
           curl --fail --silent --show-error \
