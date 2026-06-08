@@ -59,6 +59,19 @@ describe('small-city data source boundary', () => {
     })
   })
 
+  it('keeps the Korean art filter populated in visible map regions', async () => {
+    const state = await loadStaticSmallCityCatalog({
+      country: 'KR',
+      themes: ['예술'],
+      pageSize: 80,
+    })
+
+    expect(state.status).toBe('success')
+    expect(state.queryKey).toBe('country=KR&themes=%EC%98%88%EC%88%A0&page=1&page_size=80')
+    expect(state.cities.map((city) => city.nameKo)).toEqual(expect.arrayContaining(['문경', '평창']))
+    expect(state.cities.every((city) => city.themes.includes('예술'))).toBe(true)
+  })
+
   it('represents empty, loading, and error states explicitly', () => {
     const emptyState = createStaticSmallCityCatalogState([], { country: 'KR' })
     const loadingState = createSmallCityCatalogLoadingState('country=KR&page=1&page_size=120')
