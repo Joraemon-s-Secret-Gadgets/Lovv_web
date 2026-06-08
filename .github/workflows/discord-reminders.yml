@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Send Discord message
         env:
-          MESSAGE: 오후 5시입니다. 오늘 각자 진행상황을 Discord 채널에 업로드해주세요.
+          MESSAGE: 오후 5시입니다. 오늘 각자 진행상황을 팀 Notion에 업로드해주세요.
         run: |
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then
             echo "DISCORD_WEBHOOK_URL GitHub secret is not configured."

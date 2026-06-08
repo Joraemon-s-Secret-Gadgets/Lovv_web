@@ -10,7 +10,7 @@ All cron schedules are stored in UTC because GitHub Actions scheduled workflows 
 
 | KST time | UTC cron | Weekdays | Message |
 | --- | --- | --- | --- |
-| 17:00 | `0 8 * * 1-5` | Monday-Friday | `오후 5시입니다. 오늘 각자 진행상황을 Discord 채널에 업로드해주세요.` |
+| 17:00 | `0 8 * * 1-5` | Monday-Friday | `오후 5시입니다. 오늘 각자 진행상황을 팀 Notion에 업로드해주세요.` |
 
 ## Required Secret
 
