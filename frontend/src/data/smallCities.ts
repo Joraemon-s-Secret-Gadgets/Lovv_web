@@ -70,29 +70,32 @@ export const smallCityCountryOptions: {
   {
     country: 'KR',
     label: '한국',
-    description: '대한민국 전체를 기준으로 40개 소도시를 표시합니다.',
+    description: '강원과 경북을 기준으로 13개 소도시를 표시합니다.',
   },
   {
     country: 'JP',
     label: '일본',
-    description: '일본 전역을 기준으로 40개 소도시를 표시합니다.',
+    description: '관동 지방을 기준으로 6개 소도시를 표시합니다.',
   },
 ]
 
 export const smallCityMapBounds: Record<SmallCityCountry, MapBounds> = {
   KR: {
-    minLat: 33,
+    minLat: 35.6,
     maxLat: 38.7,
-    minLng: 124.5,
-    maxLng: 131.2,
+    minLng: 127.1,
+    maxLng: 130.4,
   },
   JP: {
-    minLat: 24,
-    maxLat: 45.8,
-    minLng: 122.9,
-    maxLng: 153.9,
+    minLat: 34.9,
+    maxLat: 37,
+    minLng: 138.2,
+    maxLng: 141.1,
   },
 }
+
+const visibleKoreanMapRegions = new Set(['강원', '경북'])
+const visibleJapaneseMapRegions = new Set(['이바라키', '도치기', '군마', '사이타마', '치바', '가나가와'])
 
 const koreanCitySeeds: CitySeed[] = [
   {
@@ -533,9 +536,13 @@ const createCity = (
   }
 }
 
-export const koreanSmallCities = koreanCitySeeds.map((seed, index) => createCity(seed, 'KR', index))
+export const koreanSmallCities = koreanCitySeeds
+  .filter((seed) => visibleKoreanMapRegions.has(seed.region))
+  .map((seed, index) => createCity(seed, 'KR', index))
 
-export const japaneseSmallCities = japaneseBaseSeeds.map((seed, index) => createCity(seed, 'JP', index))
+export const japaneseSmallCities = japaneseBaseSeeds
+  .filter((seed) => visibleJapaneseMapRegions.has(seed.region))
+  .map((seed, index) => createCity(seed, 'JP', index))
 
 export const smallCities = [...koreanSmallCities, ...japaneseSmallCities]
 

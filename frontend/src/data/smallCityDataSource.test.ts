@@ -36,7 +36,7 @@ describe('small-city data source boundary', () => {
     const state = createStaticSmallCityCatalogState()
 
     expect(state.status).toBe('success')
-    expect(state.cities).toHaveLength(80)
+    expect(state.cities).toHaveLength(19)
     expect(state.rejectedRecords).toHaveLength(0)
     expect(state.queryKey).toBe('page=1&page_size=120')
   })
@@ -44,18 +44,18 @@ describe('small-city data source boundary', () => {
   it('supports country, theme, and search params through the static loader', async () => {
     const state = await loadStaticSmallCityCatalog({
       country: 'JP',
-      query: '시만토강',
+      query: '게곤폭포',
       themes: ['자연'],
       pageSize: 80,
     })
 
     expect(state.status).toBe('success')
-    expect(state.queryKey).toBe('country=JP&q=%EC%8B%9C%EB%A7%8C%ED%86%A0%EA%B0%95&themes=%EC%9E%90%EC%97%B0&page=1&page_size=80')
+    expect(state.queryKey).toBe('country=JP&q=%EA%B2%8C%EA%B3%A4%ED%8F%AD%ED%8F%AC&themes=%EC%9E%90%EC%97%B0&page=1&page_size=80')
     expect(state.cities).toHaveLength(1)
     expect(state.cities[0]).toMatchObject({
       country: 'JP',
-      nameKo: '시만토',
-      routeSeed: expect.arrayContaining(['시만토강']),
+      nameKo: '닛코',
+      routeSeed: expect.arrayContaining(['게곤폭포']),
     })
   })
 

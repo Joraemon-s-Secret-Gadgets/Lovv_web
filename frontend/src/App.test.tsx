@@ -211,8 +211,8 @@ describe('MVP main entry screen', () => {
     expect(
       Boolean(monthlyGrid.compareDocumentPosition(cityMapSection) & Node.DOCUMENT_POSITION_FOLLOWING),
     ).toBe(true)
-    expect(within(cityMapSection).getByText('한국 40곳 / 전체 40곳')).toBeInTheDocument()
-    expect(within(cityMapSection).getByTestId('city-map-leaflet-map')).toHaveAttribute('data-marker-count', '40')
+    expect(within(cityMapSection).getByText('한국 13곳 / 전체 13곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByTestId('city-map-leaflet-map')).toHaveAttribute('data-marker-count', '13')
     expect(cityMapSection.querySelector('.leaflet-control-attribution')).toHaveTextContent(
       'OpenStreetMap contributors',
     )
@@ -253,9 +253,15 @@ describe('MVP main entry screen', () => {
     seedPreference('부산 · 오키나와')
     render(<App />)
 
-    expect(smallCityCounts.KR).toBe(40)
-    expect(smallCityCounts.JP).toBe(40)
-    expect(smallCities).toHaveLength(80)
+    expect(smallCityCounts.KR).toBe(13)
+    expect(smallCityCounts.JP).toBe(6)
+    expect(smallCities).toHaveLength(19)
+    expect(smallCities.filter((city) => city.country === 'KR').every((city) => ['강원', '경북'].includes(city.region))).toBe(true)
+    expect(
+      smallCities
+        .filter((city) => city.country === 'JP')
+        .every((city) => ['이바라키', '도치기', '군마', '사이타마', '치바', '가나가와'].includes(city.region)),
+    ).toBe(true)
     const japaneseCityNames = smallCities
       .filter((city) => city.country === 'JP')
       .map((city) => city.nameKo)
@@ -270,9 +276,9 @@ describe('MVP main entry screen', () => {
 
     expect(within(cityMapSection).getByRole('heading', { name: '내가 가고 싶은 소도시 찾아보기' })).toBeInTheDocument()
     expect(within(cityMapSection).getByRole('button', { name: '한국' })).toHaveAttribute('aria-pressed', 'true')
-    expect(within(cityMapSection).getByText('한국 40곳 / 전체 40곳')).toBeInTheDocument()
-    expect(within(cityMapSection).getByTestId('city-map-leaflet-map')).toHaveAttribute('data-marker-count', '40')
-    expect(within(screen.getByTestId('city-map-result-list')).getAllByRole('button')).toHaveLength(40)
+    expect(within(cityMapSection).getByText('한국 13곳 / 전체 13곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByTestId('city-map-leaflet-map')).toHaveAttribute('data-marker-count', '13')
+    expect(within(screen.getByTestId('city-map-result-list')).getAllByRole('button')).toHaveLength(13)
     expect(cityMapSection.querySelector('.leaflet-control-attribution')).toHaveTextContent(
       'OpenStreetMap contributors',
     )
@@ -280,31 +286,32 @@ describe('MVP main entry screen', () => {
     fireEvent.click(within(cityMapSection).getByRole('button', { name: '일본' }))
 
     expect(within(cityMapSection).getByRole('button', { name: '일본' })).toHaveAttribute('aria-pressed', 'true')
-    expect(within(cityMapSection).getByText('일본 40곳 / 전체 40곳')).toBeInTheDocument()
-    expect(within(cityMapSection).getByTestId('city-map-leaflet-map')).toHaveAttribute('data-marker-count', '40')
-    expect(within(screen.getByTestId('city-map-result-list')).getAllByRole('button')).toHaveLength(40)
+    expect(within(cityMapSection).getByText('일본 6곳 / 전체 6곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByTestId('city-map-leaflet-map')).toHaveAttribute('data-marker-count', '6')
+    expect(within(screen.getByTestId('city-map-result-list')).getAllByRole('button')).toHaveLength(6)
     expect(within(cityMapSection).queryByText(/내부 후보 데이터/)).not.toBeInTheDocument()
     expect(within(cityMapSection).queryByText(/Backend-ready/)).not.toBeInTheDocument()
-    expect(within(screen.getByTestId('city-map-result-list')).getAllByRole('button', { name: /오타루/ })).toHaveLength(1)
+    expect(within(screen.getByTestId('city-map-result-list')).queryByRole('button', { name: /오타루/ })).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('city-map-result-list')).getAllByRole('button', { name: /가마쿠라/ })).toHaveLength(1)
     expect(
-      within(screen.getByTestId('city-map-result-list')).queryByRole('button', { name: /오타루 공예/ }),
+      within(screen.getByTestId('city-map-result-list')).queryByRole('button', { name: /가마쿠라 공예/ }),
     ).not.toBeInTheDocument()
 
     fireEvent.change(within(cityMapSection).getByPlaceholderText('도시, 지역, 테마 검색'), {
-      target: { value: '시만토강' },
+      target: { value: '게곤폭포' },
     })
 
-    expect(within(cityMapSection).getByText('일본 1곳 / 전체 40곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByText('일본 1곳 / 전체 6곳')).toBeInTheDocument()
     expect(within(cityMapSection).getByTestId('city-map-leaflet-map')).toHaveAttribute('data-marker-count', '1')
-    expect(within(screen.getByTestId('city-map-result-list')).getByRole('button', { name: /시만토/ })).toBeInTheDocument()
-    expect(within(screen.getByTestId('city-map-result-list')).queryByRole('button', { name: /시만토 시장/ })).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('city-map-result-list')).getByRole('button', { name: /닛코/ })).toBeInTheDocument()
+    expect(within(screen.getByTestId('city-map-result-list')).queryByRole('button', { name: /닛코 시장/ })).not.toBeInTheDocument()
 
-    fireEvent.click(within(screen.getByTestId('city-map-result-list')).getByRole('button', { name: /시만토/ }))
+    fireEvent.click(within(screen.getByTestId('city-map-result-list')).getByRole('button', { name: /닛코/ }))
 
-    expect(within(cityMapSection).getByTestId('city-map-detail-panel')).toHaveTextContent('시만토')
-    expect(within(cityMapSection).getByTestId('city-map-detail-panel')).toHaveTextContent('시만토강')
-    expect(within(cityMapSection).getByTestId('city-map-list-detail-panel')).toHaveTextContent('시만토')
-    expect(within(cityMapSection).getByTestId('city-map-list-detail-panel')).toHaveTextContent('시만토강')
+    expect(within(cityMapSection).getByTestId('city-map-detail-panel')).toHaveTextContent('닛코')
+    expect(within(cityMapSection).getByTestId('city-map-detail-panel')).toHaveTextContent('게곤폭포')
+    expect(within(cityMapSection).getByTestId('city-map-list-detail-panel')).toHaveTextContent('닛코')
+    expect(within(cityMapSection).getByTestId('city-map-list-detail-panel')).toHaveTextContent('게곤폭포')
   })
 
   it('normalizes map markers to city identity without theme or route payloads', () => {
@@ -312,7 +319,7 @@ describe('MVP main entry screen', () => {
       smallCities.filter((city) => city.country === 'JP'),
     )
 
-    expect(japaneseMarkers).toHaveLength(40)
+    expect(japaneseMarkers).toHaveLength(6)
     expect(japaneseMarkers.every((marker) => marker.label.length > 0)).toBe(true)
     expect(japaneseMarkers.some((marker) => /\s(해안|온천|구시가|축제|공예|숲길|시장|산책)$/.test(marker.label))).toBe(false)
     expect(japaneseMarkers[0]).not.toHaveProperty('themes')
@@ -329,21 +336,21 @@ describe('MVP main entry screen', () => {
     const cityMapSection = screen.getByTestId('city-map-discovery-section')
     const searchInput = within(cityMapSection).getByPlaceholderText('도시, 지역, 테마 검색')
 
-    fireEvent.change(searchInput, { target: { value: '남해' } })
+    fireEvent.change(searchInput, { target: { value: '경주' } })
 
-    expect(within(cityMapSection).getByText('한국 1곳 / 전체 40곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByText('한국 1곳 / 전체 13곳')).toBeInTheDocument()
     expect(within(cityMapSection).getByTestId('city-map-leaflet-map')).toHaveAttribute('data-marker-count', '1')
-    expect(within(cityMapSection).getByTestId('city-map-detail-panel')).toHaveTextContent('남해')
+    expect(within(cityMapSection).getByTestId('city-map-detail-panel')).toHaveTextContent('경주')
 
     fireEvent.click(within(cityMapSection).getByRole('button', { name: '#온천' }))
 
-    expect(within(cityMapSection).getByText('한국 0곳 / 전체 40곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByText('한국 0곳 / 전체 13곳')).toBeInTheDocument()
     expect(within(cityMapSection).getByTestId('city-map-leaflet-map')).toHaveAttribute('data-marker-count', '0')
     expect(within(cityMapSection).getByText('조건에 맞는 소도시가 없습니다.')).toBeInTheDocument()
 
     fireEvent.click(within(cityMapSection).getByRole('button', { name: '필터 초기화' }))
 
-    expect(within(cityMapSection).getByText('한국 40곳 / 전체 40곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByText('한국 13곳 / 전체 13곳')).toBeInTheDocument()
   })
 
   it('opens the AI planner from a selected map city without mutating the stored preference', () => {
@@ -355,23 +362,23 @@ describe('MVP main entry screen', () => {
     const searchInput = within(cityMapSection).getByPlaceholderText('도시, 지역, 테마 검색')
     const storedPreferenceBefore = localStorage.getItem('lovv.preference')
 
-    fireEvent.change(searchInput, { target: { value: '남해' } })
+    fireEvent.change(searchInput, { target: { value: '경주' } })
     fireEvent.click(
       within(screen.getByTestId('city-map-result-list')).getByRole('button', {
-        name: /남해/,
+        name: /경주/,
       }),
     )
 
     const cityDetailPanel = within(cityMapSection).getByTestId('city-map-detail-panel')
-    expect(cityDetailPanel).toHaveTextContent('남해')
-    expect(cityDetailPanel).toHaveTextContent('독일마을 · 다랭이마을 · 상주은모래비치')
+    expect(cityDetailPanel).toHaveTextContent('경주')
+    expect(cityDetailPanel).toHaveTextContent('황리단길 · 첨성대 · 동궁과 월지')
 
     fireEvent.click(within(cityDetailPanel).getByRole('button', { name: '이 소도시로 AI 일정 짜기' }))
 
     expect(localStorage.getItem('lovv.preference')).toBe(storedPreferenceBefore)
     expect(screen.getByRole('heading', { name: 'AI 일정 챗봇' })).toBeInTheDocument()
-    expect(screen.getByTestId('chat-planner-summary')).toHaveTextContent('남해 상세 정보를 기준으로')
-    expect(screen.getByRole('log', { name: 'AI 일정 대화' })).toHaveTextContent('남해로 세부 일정을 짜고 싶어요.')
+    expect(screen.getByTestId('chat-planner-summary')).toHaveTextContent('경주 상세 정보를 기준으로')
+    expect(screen.getByRole('log', { name: 'AI 일정 대화' })).toHaveTextContent('경주로 세부 일정을 짜고 싶어요.')
 
     completeGuidedPlanner({
       festival: '축제 포함',
@@ -379,9 +386,9 @@ describe('MVP main entry screen', () => {
       query: '바다와 자연을 보면서 덜 걷고 싶어요',
     })
 
-    expect(screen.getByText(/남해 중심으로 1박 2일 흐름을 잡아볼게요/)).toBeInTheDocument()
+    expect(screen.getByText(/경주 중심으로 1박 2일 흐름을 잡아볼게요/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '생성된 일정 상세' })).toBeInTheDocument()
-    expect(screen.getByText(/남해 · 경남 1박 2일 초안/)).toBeInTheDocument()
+    expect(screen.getByText(/경주 · 경북 1박 2일 초안/)).toBeInTheDocument()
   })
 
   it('rotates the main hero theme every 10 seconds with theme-specific slogan styling', () => {
