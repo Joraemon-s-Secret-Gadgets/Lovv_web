@@ -14,6 +14,8 @@ import nikkoImage from './assets/cities/nikko.jpg'
 import okinawaImage from './assets/cities/okinawa.jpg'
 import onyangImage from './assets/cities/onyang.jpg'
 import osakaImage from './assets/cities/osaka.jpg'
+import seaHeroImage from './assets/cities/sea.jpg'
+import townHeroImage from './assets/cities/town.jpg'
 import { SmallCityLeafletMap } from './components/SmallCityLeafletMap'
 import {
   createSmallCityMapMarkers,
@@ -190,7 +192,7 @@ const heroThemes: HeroTheme[] = [
     accent: '소도시의 숨은 매력',
     summary:
       '복잡한 도심을 벗어나 현지인의 숨결이 닿은 산과 오래된 마을로 초대합니다. Lovv가 제안하는 느린 여행을 시작해보세요.',
-    backgroundImage: gyeongjuImage,
+    backgroundImage: townHeroImage,
     accentClassName: 'lovv-text-mountain',
     glowClassName: 'lovv-hero-glow-mountain',
   },
@@ -201,7 +203,7 @@ const heroThemes: HeroTheme[] = [
     accent: '소도시의 푸른 바다',
     summary:
       '탁 트인 바다와 청량한 바람이 머무는 곳. Lovv와 함께 파도 소리에 맞춰 걷는 특별한 여정을 찾아보세요.',
-    backgroundImage: busanImage,
+    backgroundImage: seaHeroImage,
     accentClassName: 'lovv-text-sea',
     glowClassName: 'lovv-hero-glow-sea',
   },
