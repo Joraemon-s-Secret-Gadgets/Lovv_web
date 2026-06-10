@@ -41,10 +41,10 @@ Implement draft generation API
 
 ```markdown
 ## 요약
-- 
+-
 
 ## 작업 내용
-- 
+-
 
 ## 테스트 결과
 - [ ] 로컬 실행 확인
@@ -52,7 +52,7 @@ Implement draft generation API
 - [ ] 통합 테스트 통과
 
 ## 리뷰 요청 사항
-- 
+-
 
 ## 이슈 연결
 Closes #0

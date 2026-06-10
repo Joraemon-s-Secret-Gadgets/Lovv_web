@@ -1,0 +1,178 @@
+:root {
+  --primary: oklch(65% 0.15 40);
+  --primary-foreground: oklch(98% 0.001 0);
+  --background: oklch(98% 0.001 60);
+  --foreground: oklch(28% 0.02 65);
+  --card: oklch(99% 0.001 60);
+  --card-foreground: oklch(28% 0.02 65);
+  --secondary: oklch(92% 0.008 45);
+  --secondary-foreground: oklch(35% 0.02 65);
+  --muted: oklch(88% 0.006 50);
+  --muted-foreground: oklch(55% 0.015 65);
+  --accent: oklch(65% 0.15 40);
+  --accent-foreground: oklch(98% 0.001 0);
+  --border: oklch(90% 0.005 60);
+  --input: oklch(90% 0.005 60);
+  --ring: oklch(65% 0.15 40);
+  --radius: 0.75rem;
+}
+
+.dark {
+  --primary: oklch(68% 0.14 38);
+  --primary-foreground: oklch(98% 0.001 0);
+  --background: oklch(15% 0.01 60);
+  --foreground: oklch(90% 0.005 60);
+  --card: oklch(22% 0.01 60);
+  --card-foreground: oklch(90% 0.005 60);
+  --secondary: oklch(28% 0.008 45);
+  --secondary-foreground: oklch(85% 0.005 60);
+  --muted: oklch(32% 0.006 50);
+  --muted-foreground: oklch(70% 0.01 60);
+  --accent: oklch(68% 0.14 38);
+  --accent-foreground: oklch(98% 0.001 0);
+  --border: oklch(100% 0 0 / 0.1);
+  --input: oklch(100% 0 0 / 0.15);
+  --ring: oklch(68% 0.14 38);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: Pretendard, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 700;
+}
+
+h1 {
+  font-size: 3rem;
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+
+h2 {
+  font-size: 2.25rem;
+  line-height: 2.5rem;
+  letter-spacing: -0.025em;
+}
+
+h3 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  letter-spacing: -0.025em;
+}
+
+p {
+  line-height: 1.625;
+}
+
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.card-elevated {
+  border-radius: var(--radius);
+  background-color: var(--card);
+  color: var(--card-foreground);
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.card-elevated:hover {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.btn-primary {
+  border-radius: var(--radius);
+  background-color: var(--primary);
+  padding: 0.75rem 1.5rem;
+  color: var(--primary-foreground);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.btn-primary:active {
+  transform: scale(0.95);
+}
+
+.btn-secondary {
+  border-radius: var(--radius);
+  background-color: var(--secondary);
+  padding: 0.75rem 1.5rem;
+  color: var(--secondary-foreground);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.gradient-warm {
+  background: linear-gradient(135deg, #f9f8f8, #e9e3e0);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, #d96a42, #bc5a29);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out;
+}
+
+@media (min-width: 640px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    max-width: 1280px;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
