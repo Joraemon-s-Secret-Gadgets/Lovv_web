@@ -1,7 +1,30 @@
+/**
+ * @file App.tsx
+ * @description Main Lovv frontend route and state coordinator.
+ * @lastModified 2026-06-12
+ */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { AuthView } from './features/auth/AuthView'
-import { authStorageKey, mockAuthUsers, readStoredUser } from './features/auth/authModel'
+import { authStorageKey, readStoredUser } from './features/auth/authModel'
+import {
+  adaptApiAuthSessionSnapshot,
+  createMockAuthSessionSnapshot,
+  getDefaultAuthRuntimeMode,
+} from './features/auth/authFlow'
+import {
+  clearPendingOAuthLogins,
+  clearPendingOAuthLogin,
+  createAuthLoginRequestFromCallback,
+  createCognitoAuthorizationRequest,
+  createCognitoTokenRequestFromCallback,
+  createOAuthAuthorizationRequest,
+  getAuthCallbackProvider,
+  isCognitoAuthCallbackPath,
+  OAuthRedirectConfigError,
+} from './features/auth/authRedirect'
+import { requestCognitoToken } from './features/auth/cognitoAuth'
 import { heroRotationIntervalMs, heroThemes, monthlyRecommendations } from './features/home/homeContent'
 import { HomeView } from './features/home/HomeView'
 import { ThemeDetailView } from './features/home/ThemeDetailView'
@@ -70,6 +93,12 @@ import {
 import { AppHeader } from './shared/components/AppHeader'
 import { Footer } from './shared/components/Footer'
 import {
+  requestAuthLogin,
+  requestAuthLogout,
+  requestAuthSession,
+  requestCognitoBridgeSession,
+} from './shared/api/authApi'
+import {
   getCanonicalViewFromPath,
   getGuardRedirectPath,
   getLegacyViewRedirectPath,
@@ -97,11 +126,26 @@ function App() {
   const cityMapDetailPanelRef = useRef<HTMLDivElement | null>(null)
   const location = useLocation()
   const navigate = useNavigate()
-  const [currentUser, setCurrentUser] = useState<LovvUser | null>(() => readStoredUser())
-  const [selectedPreferenceProfile, setSelectedPreferenceProfile] = useState(
-    () => readStoredPreferenceProfile() ?? getDefaultPreferenceProfile(),
+  const initialAuthCallbackRef = useRef(
+    Boolean(getAuthCallbackProvider(window.location.pathname)) ||
+      isCognitoAuthCallbackPath(window.location.pathname),
   )
-  const [hasCompletedPreference, setHasCompletedPreference] = useState(() => Boolean(readStoredPreferenceProfile()))
+  const processedOAuthCallbackKeyRef = useRef('')
+  const authRuntimeMode = useMemo(() => getDefaultAuthRuntimeMode(), [])
+  const isApiAuthMode = authRuntimeMode === 'api'
+  const isCognitoAuthMode = authRuntimeMode === 'cognito'
+  const isBackendAuthMode = isApiAuthMode || isCognitoAuthMode
+  const [currentUser, setCurrentUser] = useState<LovvUser | null>(() =>
+    isBackendAuthMode ? null : readStoredUser(),
+  )
+  const [authAccessToken, setAuthAccessToken] = useState<string | null>(null)
+  const [isAuthSessionRestoring, setIsAuthSessionRestoring] = useState(isBackendAuthMode)
+  const [selectedPreferenceProfile, setSelectedPreferenceProfile] = useState(
+    () => (isBackendAuthMode ? null : readStoredPreferenceProfile()) ?? getDefaultPreferenceProfile(),
+  )
+  const [hasCompletedPreference, setHasCompletedPreference] = useState(
+    () => !isBackendAuthMode && Boolean(readStoredPreferenceProfile()),
+  )
   const selectedPreferences = useMemo(
     () => getPreferencesForProfile(selectedPreferenceProfile),
     [selectedPreferenceProfile],
@@ -115,6 +159,10 @@ function App() {
     activeViewOverride && location.pathname === getPathForView(activeViewOverride)
       ? activeViewOverride
       : routedView
+  const authCallbackProvider = getAuthCallbackProvider(location.pathname)
+  const shouldHandleCognitoAuthCallback = isCognitoAuthMode && isCognitoAuthCallbackPath(location.pathname)
+  const shouldHandleAuthCallback =
+    (isApiAuthMode && Boolean(authCallbackProvider)) || shouldHandleCognitoAuthCallback
   const [pendingPreferenceProfile, setPendingPreferenceProfile] = useState(() => selectedPreferenceProfile)
   const [selectedPreviewImageKey, setSelectedPreviewImageKey] = useState<string | null>(null)
   const [isPreviewTrayOpen, setIsPreviewTrayOpen] = useState(false)
@@ -128,6 +176,7 @@ function App() {
   const [savedPlanNotice, setSavedPlanNotice] = useState<string | null>(null)
   const [preferenceNotice, setPreferenceNotice] = useState<string | null>(null)
   const [themeSelectionNotice, setThemeSelectionNotice] = useState<string | null>(null)
+  const [authFlowNotice, setAuthFlowNotice] = useState<string | null>(null)
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>(() => readStoredSavedPlans())
   const [savedPlanLikes, setSavedPlanLikes] = useState<SavedPlanLikeMap>(() => readStoredSavedPlanLikes())
   const [pendingSavedPlanLikeIds, setPendingSavedPlanLikeIds] = useState<string[]>([])
@@ -398,6 +447,10 @@ function App() {
   }
 
   useEffect(() => {
+    if (isAuthSessionRestoring || shouldHandleAuthCallback) {
+      return
+    }
+
     const legacyRedirectPath = getLegacyViewRedirectPath(
       location.search,
       isPlannerReady ? currentPlanId : null,
@@ -425,11 +478,238 @@ function App() {
     currentUser,
     hasCompletedPreference,
     hasRoutePlan,
+    isAuthSessionRestoring,
     isPlannerReady,
     location.pathname,
     location.search,
     navigate,
+    shouldHandleAuthCallback,
   ])
+
+  useEffect(() => {
+    // API mode restores the Lovv session from the HttpOnly refresh cookie.
+    if (!isBackendAuthMode || initialAuthCallbackRef.current) {
+      return undefined
+    }
+
+    let isActive = true
+
+    requestAuthSession()
+      .then((state) => {
+        if (!isActive) {
+          return
+        }
+
+        const session = adaptApiAuthSessionSnapshot(state)
+
+        setAuthAccessToken(session.accessToken)
+        setCurrentUser(session.user)
+        setHasCompletedPreference(session.onboardingCompleted)
+
+        if (session.preferenceProfile) {
+          setSelectedPreferenceProfile(session.preferenceProfile)
+        }
+      })
+      .catch(() => {
+        if (!isActive) {
+          return
+        }
+
+        setAuthAccessToken(null)
+        setCurrentUser(null)
+        setHasCompletedPreference(false)
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsAuthSessionRestoring(false)
+        }
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [isBackendAuthMode])
+
+  useEffect(() => {
+    // OAuth callback exchanges provider code through the backend and then resumes app routing.
+    if (!isApiAuthMode || !authCallbackProvider) {
+      return undefined
+    }
+
+    const callbackKey = `${authCallbackProvider}:${location.search}`
+
+    if (processedOAuthCallbackKeyRef.current === callbackKey) {
+      return undefined
+    }
+
+    processedOAuthCallbackKeyRef.current = callbackKey
+    const loginRequest = createAuthLoginRequestFromCallback(
+      authCallbackProvider,
+      location.search,
+      window.sessionStorage,
+    )
+    let isActive = true
+
+    if (loginRequest.status === 'error') {
+      queueMicrotask(() => {
+        if (!isActive) {
+          return
+        }
+
+        clearPendingOAuthLogin(window.sessionStorage, authCallbackProvider)
+        setAuthAccessToken(null)
+        setCurrentUser(null)
+        setHasCompletedPreference(false)
+        setAuthFlowNotice(
+          loginRequest.errorCode === 'OAUTH_STATE_INVALID'
+            ? '로그인 요청을 확인할 수 없습니다. 다시 시도해 주세요.'
+            : 'OAuth 로그인을 완료하지 못했습니다. 다시 시도해 주세요.',
+        )
+        setIsAuthSessionRestoring(false)
+        navigate('/auth', { replace: true })
+      })
+
+      return () => {
+        isActive = false
+      }
+    }
+
+    queueMicrotask(() => {
+      if (isActive) {
+        setIsAuthSessionRestoring(true)
+      }
+    })
+
+    requestAuthLogin(authCallbackProvider, loginRequest.request)
+      .then((state) => {
+        if (!isActive) {
+          return
+        }
+
+        const session = adaptApiAuthSessionSnapshot(state)
+
+        clearPendingOAuthLogin(window.sessionStorage, authCallbackProvider)
+        setAuthFlowNotice(null)
+        setAuthAccessToken(session.accessToken)
+        setCurrentUser(session.user)
+        setHasCompletedPreference(session.onboardingCompleted)
+
+        if (session.preferenceProfile) {
+          setSelectedPreferenceProfile(session.preferenceProfile)
+        }
+
+        setIsAuthSessionRestoring(false)
+        navigate(session.onboardingCompleted ? '/home' : '/onboarding', { replace: true })
+      })
+      .catch(() => {
+        if (!isActive) {
+          return
+        }
+
+        clearPendingOAuthLogin(window.sessionStorage, authCallbackProvider)
+        setAuthAccessToken(null)
+        setCurrentUser(null)
+        setHasCompletedPreference(false)
+        setAuthFlowNotice('OAuth 로그인을 완료하지 못했습니다. 다시 시도해 주세요.')
+        setIsAuthSessionRestoring(false)
+        navigate('/auth', { replace: true })
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [authCallbackProvider, isApiAuthMode, location.search, navigate])
+
+  useEffect(() => {
+    // Cognito mode exchanges the Hosted UI authorization code first, then bridges the Cognito JWT to Lovv.
+    if (!shouldHandleCognitoAuthCallback) {
+      return undefined
+    }
+
+    const callbackKey = `cognito:${location.search}`
+
+    if (processedOAuthCallbackKeyRef.current === callbackKey) {
+      return undefined
+    }
+
+    processedOAuthCallbackKeyRef.current = callbackKey
+    const tokenRequest = createCognitoTokenRequestFromCallback(location.search, window.sessionStorage)
+    let isActive = true
+
+    if (tokenRequest.status === 'error') {
+      queueMicrotask(() => {
+        if (!isActive) {
+          return
+        }
+
+        if (tokenRequest.provider) {
+          clearPendingOAuthLogin(window.sessionStorage, tokenRequest.provider)
+        } else {
+          clearPendingOAuthLogins(window.sessionStorage)
+        }
+        setAuthAccessToken(null)
+        setCurrentUser(null)
+        setHasCompletedPreference(false)
+        setAuthFlowNotice(
+          tokenRequest.errorCode === 'OAUTH_STATE_INVALID'
+            ? '로그인 요청을 확인할 수 없습니다. 다시 시도해 주세요.'
+            : 'OAuth 로그인을 완료하지 못했습니다. 다시 시도해 주세요.',
+        )
+        setIsAuthSessionRestoring(false)
+        navigate('/auth', { replace: true })
+      })
+
+      return () => {
+        isActive = false
+      }
+    }
+
+    queueMicrotask(() => {
+      if (isActive) {
+        setIsAuthSessionRestoring(true)
+      }
+    })
+
+    requestCognitoToken(tokenRequest.request)
+      .then((token) => requestCognitoBridgeSession(token.accessToken))
+      .then((state) => {
+        if (!isActive) {
+          return
+        }
+
+        const session = adaptApiAuthSessionSnapshot(state)
+
+        clearPendingOAuthLogin(window.sessionStorage, tokenRequest.provider)
+        setAuthFlowNotice(null)
+        setAuthAccessToken(session.accessToken)
+        setCurrentUser(session.user)
+        setHasCompletedPreference(session.onboardingCompleted)
+
+        if (session.preferenceProfile) {
+          setSelectedPreferenceProfile(session.preferenceProfile)
+        }
+
+        setIsAuthSessionRestoring(false)
+        navigate(session.onboardingCompleted ? '/home' : '/onboarding', { replace: true })
+      })
+      .catch(() => {
+        if (!isActive) {
+          return
+        }
+
+        clearPendingOAuthLogin(window.sessionStorage, tokenRequest.provider)
+        setAuthAccessToken(null)
+        setCurrentUser(null)
+        setHasCompletedPreference(false)
+        setAuthFlowNotice('OAuth 로그인을 완료하지 못했습니다. 다시 시도해 주세요.')
+        setIsAuthSessionRestoring(false)
+        navigate('/auth', { replace: true })
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [location.search, navigate, shouldHandleCognitoAuthCallback])
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -615,18 +895,74 @@ function App() {
   }
 
   const signInWithMockProvider = (provider: AuthProvider) => {
-    const mockUser = mockAuthUsers[provider]
+    if (isBackendAuthMode) {
+      return
+    }
+
+    const session = createMockAuthSessionSnapshot(provider, {
+      onboardingCompleted: Boolean(readStoredPreferenceProfile()),
+    })
+    const mockUser = session.user
     const hasStoredPreference = Boolean(readStoredPreferenceProfile())
 
     localStorage.setItem(authStorageKey, JSON.stringify(mockUser))
+    setAuthAccessToken(null)
     setCurrentUser(mockUser)
     setHasCompletedPreference(hasStoredPreference)
     navigateToView(hasStoredPreference ? 'home' : 'onboarding', { replace: true })
   }
 
-  const signOut = () => {
+  const startApiOAuthSignIn = async (provider: AuthProvider) => {
+    try {
+      setAuthFlowNotice(null)
+      // Provider secrets stay server-side; frontend only starts the public authorization request.
+      const authorizationRequest = await createOAuthAuthorizationRequest(provider, {
+        origin: window.location.origin,
+        storage: window.sessionStorage,
+      })
+
+      window.location.assign(authorizationRequest.authorizationUrl)
+    } catch (error) {
+      setAuthFlowNotice(
+        error instanceof OAuthRedirectConfigError && error.code === 'OAUTH_CLIENT_ID_MISSING'
+          ? 'OAuth provider client ID 설정이 필요합니다.'
+          : 'OAuth 로그인을 시작할 수 없습니다. 설정을 확인해 주세요.',
+      )
+    }
+  }
+
+  const startCognitoOAuthSignIn = async (provider: AuthProvider) => {
+    try {
+      setAuthFlowNotice(null)
+      const authorizationRequest = await createCognitoAuthorizationRequest(provider, {
+        origin: window.location.origin,
+        storage: window.sessionStorage,
+      })
+
+      window.location.assign(authorizationRequest.authorizationUrl)
+    } catch (error) {
+      setAuthFlowNotice(
+        error instanceof OAuthRedirectConfigError &&
+          (error.code === 'COGNITO_HOSTED_UI_BASE_URL_MISSING' || error.code === 'COGNITO_CLIENT_ID_MISSING')
+          ? 'Cognito Hosted UI 설정이 필요합니다.'
+          : 'OAuth 로그인을 시작할 수 없습니다. 설정을 확인해 주세요.',
+      )
+    }
+  }
+
+  const signOut = async () => {
     setIsSessionMenuOpen(false)
+
+    if (isBackendAuthMode) {
+      try {
+        await requestAuthLogout({ accessToken: authAccessToken })
+      } catch {
+        // Keep the UI from remaining on authenticated screens after a local sign-out action.
+      }
+    }
+
     localStorage.removeItem(authStorageKey)
+    setAuthAccessToken(null)
     setCurrentUser(null)
     navigateToView('auth', { replace: true })
   }
@@ -670,10 +1006,21 @@ function App() {
 
   const currentProviderLabel =
     currentUser?.provider === 'kakao'
-      ? 'Kakao mock'
+      ? isBackendAuthMode
+        ? 'Kakao'
+        : 'Kakao'
       : currentUser?.provider === 'google'
-        ? 'Google mock'
-        : 'Mock session'
+        ? isBackendAuthMode
+          ? 'Google'
+          : 'Google'
+        : '로그인 세션'
+
+  const authNotice = isBackendAuthMode
+    ? authFlowNotice ??
+      (isCognitoAuthMode
+        ? 'Google 또는 Kakao 계정으로 안전하게 로그인합니다.'
+        : 'API auth mode입니다. OAuth authorization_code callback으로 로그인합니다.')
+    : undefined
 
   const openChat = (event?: React.MouseEvent<HTMLElement>) => {
     event?.preventDefault()
@@ -1061,7 +1408,16 @@ function App() {
     <main className="lovv-app-shell lovv-warm-pattern lovv-ambient-background min-h-dvh bg-[#fff8ee] text-[#33271E]">
       <div className="lovv-app-content">
         {activeView === 'auth' ? (
-        <AuthView onSignIn={signInWithMockProvider} />
+        <AuthView
+          authNotice={authNotice}
+          onSignIn={
+            isCognitoAuthMode
+              ? startCognitoOAuthSignIn
+              : isApiAuthMode
+                ? startApiOAuthSignIn
+                : signInWithMockProvider
+          }
+        />
       ) : activeView === 'onboarding' || isPreferenceEditView ? (
         <OnboardingPreferenceView
           isPreferenceEditView={isPreferenceEditView}
@@ -1201,3 +1557,5 @@ function App() {
 }
 
 export default App
+
+// EOF: App.tsx

@@ -1,12 +1,26 @@
+/**
+ * @file AuthView.tsx
+ * @description Lovv social login entry view.
+ * @lastModified 2026-06-12
+ */
+
 import logoImage from '../../assets/lovv-logo.png'
 import type { AuthProvider } from '../../shared/types/app'
 import { authJourneyItems, authServiceBullets, authServiceCards } from './authModel'
 
 type AuthViewProps = {
+  authNotice?: string
+  isSignInDisabled?: boolean
   onSignIn: (provider: AuthProvider) => void
 }
 
-export function AuthView({ onSignIn }: AuthViewProps) {
+const googleButtonClassName =
+  'inline-flex min-h-[54px] items-center justify-center rounded-[14px] border border-[#EAE3E1] bg-[#fffffa] px-6 text-sm font-black text-[#33271E] shadow-[0_14px_32px_-18px_rgba(51,39,30,0.22)] transition hover:-translate-y-0.5 hover:border-[#F36B12] hover:bg-[#FFF0E4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:border-[#EAE3E1] disabled:hover:bg-[#fffffa]'
+
+const kakaoButtonClassName =
+  'inline-flex min-h-[54px] items-center justify-center rounded-[14px] border border-[#A92B10] bg-[#F36B12] px-6 text-sm font-black text-[#33271E] shadow-[0_14px_32px_-18px_rgba(51,39,30,0.45)] transition hover:-translate-y-0.5 hover:border-[#A92B10] hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:border-[#A92B10] disabled:hover:bg-[#F36B12]'
+
+export function AuthView({ authNotice, isSignInDisabled = false, onSignIn }: AuthViewProps) {
   return (
     <section
               aria-labelledby="auth-title"
@@ -22,7 +36,7 @@ export function AuthView({ onSignIn }: AuthViewProps) {
 
                 <div className="my-16 min-w-0 max-lg:my-10">
                   <p className="text-sm font-black uppercase tracking-[0.26em] text-[#33271E] max-sm:text-[12px]">
-                    Social mock signup
+                    Social login
                   </p>
                   <h1
                     id="auth-title"
@@ -38,22 +52,24 @@ export function AuthView({ onSignIn }: AuthViewProps) {
                   <div className="mt-8 flex w-full max-w-[340px] flex-col gap-3">
                     <button
                       type="button"
+                      disabled={isSignInDisabled}
                       onClick={() => onSignIn('google')}
-                      className="inline-flex min-h-[54px] items-center justify-center rounded-[14px] border border-[#EAE3E1] bg-[#fffffa] px-6 text-sm font-black text-[#33271E] shadow-[0_14px_32px_-18px_rgba(51,39,30,0.22)] transition hover:-translate-y-0.5 hover:border-[#F36B12] hover:bg-[#FFF0E4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                      className={googleButtonClassName}
                     >
                       Google 간편 로그인으로 시작하기
                     </button>
                     <button
                       type="button"
+                      disabled={isSignInDisabled}
                       onClick={() => onSignIn('kakao')}
-                      className="inline-flex min-h-[54px] items-center justify-center rounded-[14px] border border-[#A92B10] bg-[#F36B12] px-6 text-sm font-black text-[#33271E] shadow-[0_14px_32px_-18px_rgba(51,39,30,0.45)] transition hover:-translate-y-0.5 hover:border-[#A92B10] hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                      className={kakaoButtonClassName}
                     >
                       Kakao 간편 로그인으로 시작하기
                     </button>
                   </div>
                   <p className="mt-4 max-w-[340px] break-keep text-[12px] font-bold leading-5 text-[#33271E]/70">
-                    현재는 OAuth API 없이 mock session만 저장합니다. 실제 연동 시 이 버튼의 로그인
-                    함수만 교체하면 됩니다.
+                    {authNotice ??
+                      '현재는 로컬 세션으로 로그인 흐름을 확인합니다. 실제 OAuth 연동 시에도 같은 버튼으로 시작합니다.'}
                   </p>
                 </div>
 
@@ -147,3 +163,5 @@ export function AuthView({ onSignIn }: AuthViewProps) {
             </section>
   )
 }
+
+// EOF: AuthView.tsx
