@@ -13,6 +13,7 @@ import {
   createMockAuthSessionSnapshot,
   getDefaultAuthRuntimeMode,
 } from './features/auth/authFlow'
+import { getAuthExceptionNotice, type AuthExceptionNotice } from './features/auth/authException'
 import {
   clearPendingOAuthLogins,
   clearPendingOAuthLogin,
@@ -23,7 +24,6 @@ import {
   createOAuthAuthorizationRequest,
   getAuthCallbackProvider,
   isCognitoAuthCallbackPath,
-  OAuthRedirectConfigError,
 } from './features/auth/authRedirect'
 import { requestCognitoToken } from './features/auth/cognitoAuth'
 import { heroRotationIntervalMs, heroThemes, monthlyRecommendations } from './features/home/homeContent'
@@ -177,7 +177,7 @@ function App() {
   const [savedPlanNotice, setSavedPlanNotice] = useState<string | null>(null)
   const [preferenceNotice, setPreferenceNotice] = useState<string | null>(null)
   const [themeSelectionNotice, setThemeSelectionNotice] = useState<string | null>(null)
-  const [authFlowNotice, setAuthFlowNotice] = useState<string | null>(null)
+  const [authFlowNotice, setAuthFlowNotice] = useState<AuthExceptionNotice | null>(null)
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>(() => readStoredSavedPlans())
   const [savedPlanLikes, setSavedPlanLikes] = useState<SavedPlanLikeMap>(() => readStoredSavedPlanLikes())
   const [pendingSavedPlanLikeIds, setPendingSavedPlanLikeIds] = useState<string[]>([])
@@ -561,11 +561,7 @@ function App() {
         setAuthAccessToken(null)
         setCurrentUser(null)
         setHasCompletedPreference(false)
-        setAuthFlowNotice(
-          loginRequest.errorCode === 'OAUTH_STATE_INVALID'
-            ? '로그인 요청을 확인할 수 없습니다. 다시 시도해 주세요.'
-            : 'OAuth 로그인을 완료하지 못했습니다. 다시 시도해 주세요.',
-        )
+        setAuthFlowNotice(getAuthExceptionNotice(loginRequest.errorCode))
         setIsAuthSessionRestoring(false)
         navigate('/auth', { replace: true })
       })
@@ -602,7 +598,7 @@ function App() {
         setIsAuthSessionRestoring(false)
         navigate(session.onboardingCompleted ? '/home' : '/onboarding', { replace: true })
       })
-      .catch(() => {
+      .catch((error) => {
         if (!isActive) {
           return
         }
@@ -611,7 +607,7 @@ function App() {
         setAuthAccessToken(null)
         setCurrentUser(null)
         setHasCompletedPreference(false)
-        setAuthFlowNotice('OAuth 로그인을 완료하지 못했습니다. 다시 시도해 주세요.')
+        setAuthFlowNotice(getAuthExceptionNotice(error))
         setIsAuthSessionRestoring(false)
         navigate('/auth', { replace: true })
       })
@@ -651,11 +647,7 @@ function App() {
         setAuthAccessToken(null)
         setCurrentUser(null)
         setHasCompletedPreference(false)
-        setAuthFlowNotice(
-          tokenRequest.errorCode === 'OAUTH_STATE_INVALID'
-            ? '로그인 요청을 확인할 수 없습니다. 다시 시도해 주세요.'
-            : 'OAuth 로그인을 완료하지 못했습니다. 다시 시도해 주세요.',
-        )
+        setAuthFlowNotice(getAuthExceptionNotice(tokenRequest.errorCode))
         setIsAuthSessionRestoring(false)
         navigate('/auth', { replace: true })
       })
@@ -693,7 +685,7 @@ function App() {
         setIsAuthSessionRestoring(false)
         navigate(session.onboardingCompleted ? '/home' : '/onboarding', { replace: true })
       })
-      .catch(() => {
+      .catch((error) => {
         if (!isActive) {
           return
         }
@@ -702,7 +694,7 @@ function App() {
         setAuthAccessToken(null)
         setCurrentUser(null)
         setHasCompletedPreference(false)
-        setAuthFlowNotice('OAuth 로그인을 완료하지 못했습니다. 다시 시도해 주세요.')
+        setAuthFlowNotice(getAuthExceptionNotice(error))
         setIsAuthSessionRestoring(false)
         navigate('/auth', { replace: true })
       })
@@ -924,11 +916,7 @@ function App() {
 
       window.location.assign(authorizationRequest.authorizationUrl)
     } catch (error) {
-      setAuthFlowNotice(
-        error instanceof OAuthRedirectConfigError && error.code === 'OAUTH_CLIENT_ID_MISSING'
-          ? 'OAuth provider client ID 설정이 필요합니다.'
-          : 'OAuth 로그인을 시작할 수 없습니다. 설정을 확인해 주세요.',
-      )
+      setAuthFlowNotice(getAuthExceptionNotice(error))
     }
   }
 
@@ -942,12 +930,7 @@ function App() {
 
       window.location.assign(authorizationRequest.authorizationUrl)
     } catch (error) {
-      setAuthFlowNotice(
-        error instanceof OAuthRedirectConfigError &&
-          (error.code === 'COGNITO_HOSTED_UI_BASE_URL_MISSING' || error.code === 'COGNITO_CLIENT_ID_MISSING')
-          ? 'Cognito Hosted UI 설정이 필요합니다.'
-          : 'OAuth 로그인을 시작할 수 없습니다. 설정을 확인해 주세요.',
-      )
+      setAuthFlowNotice(getAuthExceptionNotice(error))
     }
   }
 
@@ -971,8 +954,8 @@ function App() {
       try {
         window.location.assign(createCognitoLogoutUrl({ origin: window.location.origin }))
         return
-      } catch {
-        setAuthFlowNotice('Cognito Hosted UI logout 설정이 필요합니다.')
+      } catch (error) {
+        setAuthFlowNotice(getAuthExceptionNotice(error))
       }
     }
 
@@ -1030,10 +1013,9 @@ function App() {
         : '로그인 세션'
 
   const authNotice = isBackendAuthMode
-    ? authFlowNotice ??
-      (isCognitoAuthMode
-        ? 'Google 또는 Kakao 계정으로 안전하게 로그인합니다.'
-        : 'API auth mode입니다. OAuth authorization_code callback으로 로그인합니다.')
+    ? isCognitoAuthMode
+      ? 'Google 또는 Kakao 계정으로 안전하게 로그인합니다.'
+      : 'API auth mode입니다. OAuth authorization_code callback으로 로그인합니다.'
     : undefined
 
   const openChat = (event?: React.MouseEvent<HTMLElement>) => {
@@ -1423,6 +1405,7 @@ function App() {
       <div className="lovv-app-content">
         {activeView === 'auth' ? (
         <AuthView
+          authExceptionNotice={authFlowNotice}
           authNotice={authNotice}
           onSignIn={
             isCognitoAuthMode

@@ -9,6 +9,12 @@ export type PreferenceApiRecord = {
   version?: number
   selectedThemeIds?: unknown
   selected_theme_ids?: unknown
+  mappedThemes?: unknown
+  mapped_themes?: unknown
+  countryTrack?: unknown
+  country_track?: unknown
+  onboardingCompleted?: unknown
+  onboarding_completed?: unknown
   themeIds?: unknown
   theme_ids?: unknown
   source?: unknown
@@ -53,6 +59,8 @@ export const adaptPreferenceApiRecord = (record: PreferenceApiRecord): Preferenc
   const selectedThemeIds = readThemeIds(
     record.selectedThemeIds,
     record.selected_theme_ids,
+    record.mappedThemes,
+    record.mapped_themes,
     record.themeIds,
     record.theme_ids,
   )

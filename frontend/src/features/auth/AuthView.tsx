@@ -6,9 +6,11 @@
 
 import logoImage from '../../assets/lovv-logo.png'
 import type { SocialAuthProvider } from '../../shared/types/app'
+import type { AuthExceptionNotice } from './authException'
 import { authJourneyItems, authServiceBullets, authServiceCards } from './authModel'
 
 type AuthViewProps = {
+  authExceptionNotice?: AuthExceptionNotice | null
   authNotice?: string
   isSignInDisabled?: boolean
   onSignIn: (provider: SocialAuthProvider) => void
@@ -20,7 +22,7 @@ const googleButtonClassName =
 const kakaoButtonClassName =
   'inline-flex min-h-[54px] items-center justify-center rounded-[14px] border border-[#A92B10] bg-[#F36B12] px-6 text-sm font-black text-[#33271E] shadow-[0_14px_32px_-18px_rgba(51,39,30,0.45)] transition hover:-translate-y-0.5 hover:border-[#A92B10] hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:border-[#A92B10] disabled:hover:bg-[#F36B12]'
 
-export function AuthView({ authNotice, isSignInDisabled = false, onSignIn }: AuthViewProps) {
+export function AuthView({ authExceptionNotice, authNotice, isSignInDisabled = false, onSignIn }: AuthViewProps) {
   return (
     <section
               aria-labelledby="auth-title"
@@ -49,6 +51,19 @@ export function AuthView({ authNotice, isSignInDisabled = false, onSignIn }: Aut
                   <p className="mt-6 break-keep text-sm font-bold text-[#33271E]">
                     회원가입하고 Lovv 시작하기
                   </p>
+                  {authExceptionNotice ? (
+                    <div
+                      role="alert"
+                      className="mt-6 max-w-[340px] rounded-[18px] border border-[#A92B10]/35 bg-[#FFF0E4] px-5 py-4 shadow-[0_16px_34px_-28px_rgba(51,39,30,0.38)]"
+                    >
+                      <p className="break-keep text-sm font-black text-[#A92B10]">
+                        {authExceptionNotice.title}
+                      </p>
+                      <p className="mt-2 break-keep text-[12px] font-bold leading-5 text-[#33271E]/75">
+                        {authExceptionNotice.description}
+                      </p>
+                    </div>
+                  ) : null}
                   <div className="mt-8 flex w-full max-w-[340px] flex-col gap-3">
                     <button
                       type="button"
@@ -67,10 +82,12 @@ export function AuthView({ authNotice, isSignInDisabled = false, onSignIn }: Aut
                       Kakao 간편 로그인으로 시작하기
                     </button>
                   </div>
-                  <p className="mt-4 max-w-[340px] break-keep text-[12px] font-bold leading-5 text-[#33271E]/70">
-                    {authNotice ??
-                      '현재는 로컬 세션으로 로그인 흐름을 확인합니다. 실제 OAuth 연동 시에도 같은 버튼으로 시작합니다.'}
-                  </p>
+                  {!authExceptionNotice ? (
+                    <p className="mt-4 max-w-[340px] break-keep text-[12px] font-bold leading-5 text-[#33271E]/70">
+                      {authNotice ??
+                        '현재는 로컬 세션으로 로그인 흐름을 확인합니다. 실제 OAuth 연동 시에도 같은 버튼으로 시작합니다.'}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap gap-x-4 gap-y-2 text-[12px] font-bold text-[#33271E]/80">

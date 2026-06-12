@@ -267,8 +267,9 @@ describe('MVP main entry screen', () => {
     fireEvent.click(googleButton)
 
     await waitFor(() => {
-      expect(screen.getByText('OAuth provider client ID 설정이 필요합니다.')).toBeInTheDocument()
+      expect(screen.getByText('로그인 설정이 필요합니다.')).toBeInTheDocument()
     })
+    expect(screen.getByRole('alert')).toHaveTextContent('현재 환경에서 소셜 로그인을 시작할 수 없습니다.')
 
     expect(requestAuthLogin).not.toHaveBeenCalled()
     expect(localStorage.getItem(authStorageKey)).toBeNull()
@@ -323,7 +324,8 @@ describe('MVP main entry screen', () => {
     expect(requestAuthLogin).not.toHaveBeenCalled()
     expect(requestAuthSession).not.toHaveBeenCalled()
     expect(sessionStorage.getItem('lovv.auth.oauth.kakao')).toBeNull()
-    expect(screen.getByText('로그인 요청을 확인할 수 없습니다. 다시 시도해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('로그인 요청이 만료되었습니다.')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('이전 로그인 요청을 더 이상 사용할 수 없습니다. 다시 시도해 주세요.')
   })
 
   it('exchanges Cognito callbacks through Hosted UI token exchange and backend bridge session', async () => {
@@ -386,7 +388,65 @@ describe('MVP main entry screen', () => {
     expect(requestCognitoBridgeSession).not.toHaveBeenCalled()
     expect(requestAuthLogin).not.toHaveBeenCalled()
     expect(localStorage.getItem(authStorageKey)).toBeNull()
-    expect(screen.getByText('로그인 요청을 확인할 수 없습니다. 다시 시도해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('로그인 요청이 만료되었습니다.')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('이전 로그인 요청을 더 이상 사용할 수 없습니다. 다시 시도해 주세요.')
+  })
+
+  it('shows a retryable Cognito session notice when PKCE metadata is missing', async () => {
+    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'cognito')
+    writePendingOAuthLogin(sessionStorage, {
+      provider: 'google',
+      state: 'state-1',
+      redirectUri: 'http://localhost/auth/callback/cognito',
+      createdAt: 1_800_000_000_000,
+    })
+
+    renderApp('/auth/callback/cognito?code=cognito-auth-code&state=state-1')
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/auth')
+    })
+
+    expect(requestCognitoToken).not.toHaveBeenCalled()
+    expect(requestCognitoBridgeSession).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('lovv.auth.oauth.google')).toBeNull()
+    expect(localStorage.getItem(authStorageKey)).toBeNull()
+    expect(screen.getByText('로그인 세션 정보가 없습니다.')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('브라우저의 로그인 세션 정보를 확인할 수 없습니다. 다시 시도해 주세요.')
+  })
+
+  it('shows a friendly backend Auth notice when Cognito bridge session fails', async () => {
+    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'cognito')
+    vi.mocked(requestCognitoToken).mockResolvedValue({
+      accessToken: 'cognito-access-token',
+      idToken: 'cognito-id-token',
+      refreshToken: null,
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+    })
+    vi.mocked(requestCognitoBridgeSession).mockRejectedValue({
+      code: 'PROVIDER_UNAVAILABLE',
+      message: 'upstream token endpoint unavailable',
+    })
+    writePendingOAuthLogin(sessionStorage, {
+      provider: 'google',
+      state: 'state-1',
+      redirectUri: 'http://localhost/auth/callback/cognito',
+      codeVerifier: 'cognito-pkce-verifier',
+      createdAt: 1_800_000_000_000,
+    })
+
+    renderApp('/auth/callback/cognito?code=cognito-auth-code&state=state-1')
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/auth')
+    })
+
+    expect(requestCognitoBridgeSession).toHaveBeenCalledWith('cognito-id-token')
+    expect(sessionStorage.getItem('lovv.auth.oauth.google')).toBeNull()
+    expect(localStorage.getItem(authStorageKey)).toBeNull()
+    expect(screen.getByText('외부 로그인 서버 응답이 지연되고 있습니다.')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('잠시 후 다시 시도해 주세요.')
   })
 
   it('renders the Lovv landing content from the MVP Figma frame', () => {
