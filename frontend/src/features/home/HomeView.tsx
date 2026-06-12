@@ -17,6 +17,12 @@ type HomeViewProps = {
   onToggleQuickActions: () => void
 }
 
+const getHeroSummaryLines = (summary: string) =>
+  summary
+    .split(/(?<=\.)\s+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
 export function HomeView({
   currentHeroTheme,
   selectedPreferenceProfile,
@@ -30,6 +36,8 @@ export function HomeView({
   onScrollToTop,
   onToggleQuickActions,
 }: HomeViewProps) {
+  const heroSummaryLines = getHeroSummaryLines(currentHeroTheme.summary)
+
   return (
     <>
                   <section
@@ -94,7 +102,11 @@ export function HomeView({
                       </h1>
 
                       <p className="mt-7 max-w-[680px] break-keep text-base font-semibold leading-8 text-[#4A3A31] max-sm:text-sm max-sm:leading-7">
-                        {currentHeroTheme.summary}
+                        {heroSummaryLines.map((line) => (
+                          <span key={line} className="block">
+                            {line}
+                          </span>
+                        ))}
                       </p>
 
                       <div aria-label="선택한 여행 테마" className="mt-6 flex max-w-full flex-wrap justify-center gap-2">
