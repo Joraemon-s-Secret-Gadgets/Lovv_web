@@ -373,7 +373,7 @@ export const createCognitoAuthorizationRequest = async (
   if (!hostedUiBaseUrl) {
     throw new OAuthRedirectConfigError(
       'COGNITO_HOSTED_UI_BASE_URL_MISSING',
-      'VITE_COGNITO_HOSTED_UI_BASE_URL is required for Cognito login.',
+      'VITE_COGNITO_DOMAIN is required for Cognito login.',
     )
   }
 
