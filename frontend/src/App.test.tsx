@@ -355,7 +355,9 @@ describe('MVP main entry screen', () => {
     })
 
     expect(localStorage.getItem(authStorageKey)).toBeNull()
-    expect(screen.getByRole('button', { name: '현재 세션: Google 메뉴 열기' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: '현재 세션: Google 메뉴 열기' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('처음엔 작게, 추천은 명확하게')).toBeInTheDocument()
   })
 
