@@ -1178,7 +1178,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
     expect(screen.getByText(/경주 중심으로 1박 2일 흐름을 잡아볼게요/)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '생성된 일정 상세' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '생성된 일정 요약' })).toBeInTheDocument()
     expect(screen.getByText(/경주 · 경북 1박 2일 초안/)).toBeInTheDocument()
     expect(screen.getByText(/선택한 소도시의 장소 단서와 여행 기간을 중심으로 구성합니다/)).toBeInTheDocument()
     expect(screen.queryByText('축제 제외 반영')).not.toBeInTheDocument()
@@ -1244,7 +1244,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByPlaceholderText('여행 예정 월을 먼저 선택해 주세요')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '6월' }))
 
-    expect(screen.getByRole('heading', { name: '생성된 일정 상세' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '생성된 일정 요약' })).toBeInTheDocument()
     expect(screen.getByText(/선택한 기간에 맞는 축제는 없어 일반 코스로 구성합니다/)).toBeInTheDocument()
   })
 
@@ -1559,7 +1559,10 @@ describe('MVP main entry screen', () => {
       'max-sm:text-lg',
       'max-sm:leading-6',
     )
-    expect(screen.getByText(/장소를 확정하기 전/)).toHaveClass('break-keep', 'max-sm:text-[13px]')
+    expect(screen.getByText(/채팅 옆에서는 전체 방향만 빠르게 확인하고/)).toHaveClass(
+      'break-keep',
+      'max-sm:text-[13px]',
+    )
   })
 
   it('shows onboarding after signup before the main screen on first entry', () => {
@@ -1701,11 +1704,11 @@ describe('MVP main entry screen', () => {
     expect(screen.getByRole('button', { name: '← 이전으로 돌아가기' })).toBeInTheDocument()
     expect(screen.getByTestId('chat-workspace')).toHaveClass('space-y-5')
     expect(screen.getByTestId('chat-planner-summary')).toHaveClass('rounded-[18px]')
-    expect(screen.getByTestId('chat-top-grid')).toHaveClass('grid-cols-[minmax(0,0.96fr)_minmax(360px,0.82fr)]')
+    expect(screen.getByTestId('chat-top-grid')).toHaveClass('grid-cols-[minmax(0,1.25fr)_minmax(420px,0.9fr)]')
     expect(screen.getByRole('region', { name: 'Planner State' })).toBeInTheDocument()
     expect(screen.getByTestId('chat-conversation-panel')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'AI 일정 결과' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '생성된 일정 상세' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '생성된 일정 요약' })).not.toBeInTheDocument()
     expect(screen.getByText('축제 포함 여부와 여행 기간을 고른 뒤 이번 여행 조건을 입력하면 일정 초안이 여기에 표시됩니다.')).toBeInTheDocument()
     expect(screen.queryByText('자연·트레킹 1일 초안')).not.toBeInTheDocument()
     expect(screen.queryByText('일정 다시짜기')).not.toBeInTheDocument()
@@ -1766,13 +1769,13 @@ describe('MVP main entry screen', () => {
     expect(within(chatLog).queryByText('일정 기간을 먼저 골라주세요')).not.toBeInTheDocument()
     expect(within(chatLog).queryByRole('button', { name: '1박 2일' })).not.toBeInTheDocument()
     expect(input).not.toBeDisabled()
-    expect(screen.queryByRole('region', { name: '생성된 일정 상세' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '생성된 일정 요약' })).not.toBeInTheDocument()
     expect(screen.getByText('동행, 관심사, 걷는 정도를 자연어로 입력해 주세요.')).toBeInTheDocument()
 
     fireEvent.change(input, { target: { value: '시장과 노포 중심으로 덜 걷고 싶어요' } })
     fireEvent.click(sendButton)
 
-    expect(screen.getByRole('region', { name: '생성된 일정 상세' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '생성된 일정 요약' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '미식·노포 1박 2일 초안' })).toBeInTheDocument()
     expect(screen.getByText('축제 포함 반영')).toBeInTheDocument()
     expect(screen.getByText(/지역 축제나 시즌 행사가 있으면 일정 후보에 함께 넣습니다/)).toBeInTheDocument()
@@ -1855,14 +1858,12 @@ describe('MVP main entry screen', () => {
       })
       expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
       if (index < expectedDurations.length - 1) {
-        fireEvent.click(screen.getByRole('button', { name: '새로운 추천받기' }))
+        fireEvent.click(screen.getByRole('button', { name: '일정 다시짜기' }))
       }
     })
     expect(screen.getByText('5일 구성')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: '1일차' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: '5일차' })).toHaveAttribute('aria-selected', 'false')
-    fireEvent.click(screen.getByRole('tab', { name: '5일차' }))
-    expect(screen.getByRole('tab', { name: '5일차' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('list', { name: '일차별 일정 요약' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: '1일차' })).not.toBeInTheDocument()
     expect(screen.getByText('5일차 추천 일정')).toBeInTheDocument()
     expect(screen.getByText('총 15개 코스')).toBeInTheDocument()
     const chatLog = screen.getByRole('log', { name: 'AI 일정 대화' })
@@ -1920,7 +1921,7 @@ describe('MVP main entry screen', () => {
 
     expect(JSON.parse(localStorage.getItem('lovv.savedPlans') ?? '[]')).toHaveLength(1)
 
-    fireEvent.click(screen.getByRole('button', { name: '새로운 추천받기' }))
+    fireEvent.click(screen.getByRole('button', { name: '일정 다시짜기' }))
 
     expect(screen.queryByRole('heading', { name: '온천·휴양 2박 3일 초안' })).not.toBeInTheDocument()
     expect(screen.getByText('축제 포함 여부와 여행 기간을 고른 뒤 이번 여행 조건을 입력하면 일정 초안이 여기에 표시됩니다.')).toBeInTheDocument()
