@@ -121,7 +121,6 @@ import type {
   FestivalThemeChoice,
   MockConditionExtraction,
   MonthlyRecommendation,
-  PlanDay,
   PlanDraft,
   SavedPlanLike,
   Preference,
@@ -217,7 +216,6 @@ function App() {
     createInitialChatMessages(selectedPreferenceLabel),
   )
   const [planDraft, setPlanDraft] = useState<PlanDraft>(() => createPlanDraft(selectedPreference))
-  const [selectedPlanDayNumber, setSelectedPlanDayNumber] = useState(1)
   const [smallCityCatalogState] = useState(() => createStaticSmallCityCatalogState())
   const [cityMapCountry, setCityMapCountry] = useState<SmallCityCountry>('KR')
   const [cityMapQuery, setCityMapQuery] = useState('')
@@ -309,16 +307,6 @@ function App() {
     () => (routePlanId ? savedPlans.find((plan) => plan.id === routePlanId) ?? null : null),
     [routePlanId, savedPlans],
   )
-  const selectedPlanDay = useMemo<PlanDay>(() => {
-    const fallbackDay: PlanDay = {
-      day: 1,
-      title: '1일차 추천 일정',
-      summary: '선택한 조건을 바탕으로 일차별 일정을 구성합니다.',
-      stops: [],
-    }
-
-    return planDraft.days.find((day) => day.day === selectedPlanDayNumber) ?? planDraft.days[0] ?? fallbackDay
-  }, [planDraft.days, selectedPlanDayNumber])
   const getSavedPlanLike = (planId: string): SavedPlanLike => savedPlanLikes[planId] ?? null
   const isSavedPlanLikePending = (planId: string) => pendingSavedPlanLikeIds.includes(planId)
   const getSavedPlanLikeError = (planId: string) => savedPlanLikeErrors[planId] ?? null
@@ -992,7 +980,6 @@ function App() {
     setPlannerContextText(nextPlannerContextText)
     setChatMessages(createInitialChatMessages(nextPlannerLabel, cityContext, shouldAskFestival))
     setPlanDraft(createPlanDraft(preference, nextPlannerContextText, nextFestivalThemeChoice, cityContext))
-    setSelectedPlanDayNumber(1)
     setSavedPlanNotice(null)
   }
 
@@ -1767,7 +1754,6 @@ function App() {
       setSelectedTravelMonth(null)
       setPlannerConditionExtraction(shouldAskTravelMonth ? null : nextExtraction)
       setPlanDraft(nextDraft)
-      setSelectedPlanDayNumber(1)
       setSavedPlanNotice(null)
       setChatInput('')
 
@@ -1811,7 +1797,6 @@ function App() {
       setPlannerContextText(nextPlannerContextText)
       setPlannerConditionExtraction(nextExtraction)
       setPlanDraft(nextDraft)
-      setSelectedPlanDayNumber(1)
       setSavedPlanNotice(null)
       setChatInput('')
 
@@ -1853,7 +1838,6 @@ function App() {
     setPlannerContextText(nextPlannerContextText)
     setPlannerConditionExtraction(nextExtraction)
     setPlanDraft(nextDraft)
-    setSelectedPlanDayNumber(1)
     setSavedPlanNotice(null)
     setChatInput('')
   }
@@ -2031,8 +2015,6 @@ function App() {
               submitChatForm={submitChatForm}
               currentPlanTitle={currentPlanTitle}
               plannerPreferenceProfile={plannerPreferenceProfile}
-              selectedPlanDay={selectedPlanDay}
-              setSelectedPlanDayNumber={setSelectedPlanDayNumber}
               openPlanDetailView={openPlanDetailView}
               isCurrentPlanLiked={isCurrentPlanLiked}
               toggleGeneratedPlanLike={toggleGeneratedPlanLike}

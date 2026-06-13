@@ -13,7 +13,6 @@ import type {
   ChatMessage,
   FestivalThemeChoice,
   MockConditionExtraction,
-  PlanDay,
   PlanDraft,
   PlannerStepStatus,
   PreferenceProfile,
@@ -51,8 +50,6 @@ type PlannerWorkspaceProps = {
   submitChatForm: (event: FormEvent<HTMLFormElement>) => void
   currentPlanTitle: string
   plannerPreferenceProfile: PreferenceProfile
-  selectedPlanDay: PlanDay
-  setSelectedPlanDayNumber: (dayNumber: number) => void
   openPlanDetailView: () => void
   isCurrentPlanLiked: boolean
   toggleGeneratedPlanLike: () => void
@@ -86,8 +83,6 @@ export function PlannerWorkspace({
   submitChatForm,
   currentPlanTitle,
   plannerPreferenceProfile,
-  selectedPlanDay,
-  setSelectedPlanDayNumber,
   openPlanDetailView,
   isCurrentPlanLiked,
   toggleGeneratedPlanLike,
@@ -183,18 +178,18 @@ export function PlannerWorkspace({
       onClick: () => void
     }[],
   ) => (
-    <div className="flex max-w-[720px] items-start gap-3">
+    <div className="flex max-w-[760px] items-start gap-3">
       <span
-        className="mt-6 flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] shadow-[0_8px_20px_-16px_rgba(51,39,30,0.5)]"
+        className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] shadow-[0_10px_22px_-16px_rgba(51,39,30,0.55)]"
         aria-hidden="true"
       >
         <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 rounded-[20px] border border-[#F3B489]/45 bg-white/78 p-3 shadow-[0_16px_34px_-28px_rgba(51,39,30,0.32)]">
         <p className="mb-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#315B3E]">
           Lovv AI
         </p>
-        <div className="inline-flex max-w-full rounded-[18px] border border-transparent bg-white px-5 py-4 text-sm font-bold leading-6 text-[#33271E] shadow-[0_12px_24px_-20px_rgba(51,39,30,0.28)] max-sm:text-[13px] max-sm:leading-6">
+        <div className="inline-flex max-w-full rounded-[16px] border border-transparent bg-[#fffffa] px-5 py-4 text-sm font-bold leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-6">
           {promptText}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -222,9 +217,9 @@ export function PlannerWorkspace({
     <section
       aria-labelledby="chat-title"
       data-testid="chat-conversation-panel"
-      className="flex min-h-[660px] min-w-0 flex-col overflow-hidden rounded-[18px] border border-transparent bg-[#fffffa] shadow-[0_18px_42px_-28px_rgba(51,39,30,0.22)]"
+      className="flex min-h-[720px] min-w-0 flex-col overflow-hidden rounded-[22px] border border-[#F3B489]/40 bg-[#fffffa]/96 shadow-[0_24px_56px_-34px_rgba(51,39,30,0.32)]"
     >
-      <header className="bg-[#FFF8F6] px-6 py-5">
+      <header className="border-b border-[#F3B489]/35 bg-[#FFF8F6]/92 px-6 py-5">
         <div className="flex items-start justify-between gap-5">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#A92B10]">
@@ -233,16 +228,26 @@ export function PlannerWorkspace({
             <h3 className="mt-2 break-keep text-2xl font-black leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7">
               여행 조건을 대화로 정리하기
             </h3>
+            <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#6E5A50] max-sm:text-[13px]">
+              대화에서 조건을 좁히고, 오른쪽 패널에서 일정 초안을 바로 확인합니다.
+            </p>
           </div>
-          <span
-            className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] shadow-[0_8px_20px_-16px_rgba(51,39,30,0.55)]"
-            aria-hidden="true"
-          >
-            <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
-          </span>
+          <div className="flex shrink-0 items-center gap-2 rounded-full border border-[#F3B489]/55 bg-[#fffffa] px-3 py-2 shadow-[0_12px_24px_-22px_rgba(51,39,30,0.35)]">
+            <span
+              className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4]"
+              aria-hidden="true"
+            >
+              <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
+            </span>
+            <span className="text-[12px] font-black text-[#33271E] max-sm:hidden">대화 우선</span>
+          </div>
         </div>
       </header>
-      <div role="log" aria-label="AI 일정 대화" className="flex-1 space-y-5 px-6 py-6">
+      <div
+        role="log"
+        aria-label="AI 일정 대화"
+        className="flex-1 space-y-5 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,250,0.94),rgba(255,248,246,0.88))] px-6 py-6"
+      >
         {chatMessages.map((message) => {
           const isAssistant = message.role === 'assistant'
 
@@ -253,13 +258,17 @@ export function PlannerWorkspace({
             >
               {isAssistant ? (
                 <span
-                  className="mt-6 flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] shadow-[0_8px_20px_-16px_rgba(51,39,30,0.5)]"
+                  className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] shadow-[0_10px_22px_-16px_rgba(51,39,30,0.55)]"
                   aria-hidden="true"
                 >
                   <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
                 </span>
               ) : null}
-              <div className={`min-w-0 max-w-[620px] ${isAssistant ? '' : 'items-end text-right'}`}>
+              <div
+                className={`min-w-0 ${
+                  isAssistant ? 'max-w-[min(720px,82%)]' : 'max-w-[min(600px,76%)] items-end text-right'
+                }`}
+              >
                 <p
                   className={`mb-1 text-[11px] font-black uppercase tracking-[0.12em] ${
                     isAssistant ? 'text-[#315B3E]' : 'text-[#A92B10]'
@@ -268,10 +277,10 @@ export function PlannerWorkspace({
                   {isAssistant ? 'Lovv AI' : '내 조건'}
                 </p>
                 <div
-                  className={`break-keep rounded-[18px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-[0_12px_24px_-20px_rgba(51,39,30,0.25)] max-sm:text-[13px] max-sm:leading-6 ${
+                  className={`break-keep rounded-[20px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-[0_16px_34px_-26px_rgba(51,39,30,0.28)] max-sm:text-[13px] max-sm:leading-6 ${
                     isAssistant
-                      ? 'border-transparent bg-white'
-                      : 'ml-auto border-transparent bg-[#F36B12] font-semibold'
+                      ? 'border-[#F3B489]/30 bg-white'
+                      : 'ml-auto border-transparent bg-[#F36B12] font-bold'
                   }`}
                 >
                   {message.content}
@@ -353,10 +362,10 @@ export function PlannerWorkspace({
           </div>
         ) : null}
       </div>
-      <div className="bg-[#FFF8F6] p-5">
+      <div className="border-t border-[#F3B489]/35 bg-[#FFF8F6]/95 p-5">
         <form
           onSubmit={submitChatForm}
-          className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-full border border-[#F3B489]/70 bg-[#fffffa] p-2 shadow-[0_16px_32px_-26px_rgba(51,39,30,0.35)] max-sm:grid-cols-1 max-sm:rounded-[22px]"
+          className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[24px] border border-[#F3B489]/70 bg-[#fffffa] p-2 shadow-[0_16px_32px_-26px_rgba(51,39,30,0.35)] max-sm:grid-cols-1 max-sm:rounded-[22px]"
         >
           <input
             aria-label="여행 조건 입력"
@@ -374,13 +383,13 @@ export function PlannerWorkspace({
                   ? '축제 포함 여부와 여행 기간을 먼저 선택해 주세요'
                   : '여행 기간을 먼저 선택해 주세요'
             }
-            className="min-h-11 min-w-0 rounded-full border-0 bg-transparent px-4 py-2 break-keep text-sm leading-5 text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-65 focus:bg-[#FFF8F6] max-sm:text-[13px]"
+            className="min-h-12 min-w-0 rounded-[18px] border-0 bg-transparent px-4 py-2 break-keep text-sm leading-5 text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-65 focus:bg-[#FFF8F6] max-sm:text-[13px]"
           />
           <button
             type="submit"
             aria-label="메시지 보내기"
             disabled={!canSubmitChatInput}
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-6 text-sm font-bold text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-[#A92B10] disabled:hover:bg-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+            className="inline-flex min-h-12 items-center justify-center rounded-[18px] border border-[#A92B10] bg-[#F36B12] px-6 text-sm font-black text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-[#A92B10] disabled:hover:bg-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
           >
             보내기
           </button>
@@ -394,7 +403,7 @@ export function PlannerWorkspace({
       return (
         <section
           aria-label="AI 일정 결과"
-          className="flex min-h-[660px] flex-col justify-between rounded-[18px] border border-transparent bg-[#fffffa] p-6 shadow-[0_12px_28px_-14px_rgba(33,46,33,0.14)]"
+          className="flex min-h-[720px] flex-col justify-between rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 p-6 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28"
         >
           <div>
             <p className="text-sm font-semibold text-[#33271E]">맞춤 일정 결과</p>
@@ -428,7 +437,7 @@ export function PlannerWorkspace({
     return (
       <section
         aria-labelledby="generated-plan-title"
-        className="min-h-[660px] overflow-hidden rounded-[18px] border border-transparent bg-[#fffffa] shadow-[0_12px_28px_-14px_rgba(33,46,33,0.14)]"
+        className="min-h-[720px] overflow-hidden rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28"
       >
         <div className="bg-[#FFF0E4] px-6 py-6">
           <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">
@@ -438,7 +447,7 @@ export function PlannerWorkspace({
                 id="generated-plan-title"
                 className="mt-2 break-keep text-2xl font-bold leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7"
               >
-                생성된 일정 상세
+                생성된 일정 요약
               </h3>
               <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
                 챗봇에서 정리된 조건을 바탕으로, 오른쪽 일정 패널에 결과를 보여줍니다.
@@ -471,12 +480,12 @@ export function PlannerWorkspace({
         <div className="px-6 py-6">
           <div className="grid grid-cols-[1fr_auto] items-start gap-4 max-md:grid-cols-1">
             <div>
-              <p className="text-sm font-bold text-[#33271E]">일차별 추천 일정</p>
+              <p className="text-sm font-bold text-[#33271E]">추천 흐름 요약</p>
               <h4 className="mt-2 break-keep text-xl font-bold leading-7 text-[#33271E] max-sm:text-lg max-sm:leading-6">
                 {currentPlanTitle}
               </h4>
               <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
-                장소를 확정하기 전, 취향에 맞는 전체 여행 흐름과 이동 강도를 먼저 확인합니다.{' '}
+                채팅 옆에서는 전체 방향만 빠르게 확인하고, 장소별 시간표와 추천 이유는 세부 화면에서 확인합니다.{' '}
                 {planDraft.summary}
               </p>
             </div>
@@ -485,115 +494,64 @@ export function PlannerWorkspace({
             </span>
           </div>
 
-          <div className="mt-6 grid grid-cols-[140px_minmax(0,1fr)] gap-5 max-md:grid-cols-1">
-            <div className="rounded-[18px] bg-[#FFF7F0] p-3">
-              <p className="px-2 text-[12px] font-black uppercase text-[#897163]">Days</p>
-              <div
-                role="tablist"
-                aria-label="일차 선택"
-                className="mt-3 flex flex-col gap-2 max-md:flex-row max-md:overflow-x-auto max-md:pb-1"
-              >
-                {planDraft.days.map((day) => {
-                  const isSelectedDay = day.day === selectedPlanDay.day
-
-                  return (
-                    <button
-                      key={day.day}
-                      type="button"
-                      role="tab"
-                      id={`generated-plan-day-tab-${day.day}`}
-                      aria-selected={isSelectedDay}
-                      aria-controls={`generated-plan-day-panel-${day.day}`}
-                      onClick={() => setSelectedPlanDayNumber(day.day)}
-                      className={`inline-flex min-h-10 shrink-0 items-center justify-center rounded-full px-4 text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
-                        isSelectedDay
-                          ? 'bg-[#F36B12] text-[#33271E] shadow-[0_10px_22px_-18px_rgba(51,39,30,0.45)]'
-                          : 'bg-[#fffffa] text-[#33271E] hover:bg-[#FFE0CA]'
-                      }`}
-                    >
-                      {day.day}일차
-                    </button>
-                  )
-                })}
+          <section
+            aria-labelledby="generated-plan-summary-title"
+            className="mt-6 rounded-[20px] bg-[#FFF7F0] p-5"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#F36B12]">
+                  Summary
+                </p>
+                <h5
+                  id="generated-plan-summary-title"
+                  className="mt-2 break-keep text-lg font-black leading-7 text-[#33271E]"
+                >
+                  일차별 핵심 흐름
+                </h5>
               </div>
+              <span className="rounded-full bg-[#fffffa] px-4 py-2 text-[12px] font-bold text-[#33271E]">
+                {planDraft.dayCount}일 요약
+              </span>
             </div>
 
-            <section
-              id={`generated-plan-day-panel-${selectedPlanDay.day}`}
-              role="tabpanel"
-              aria-labelledby={`generated-plan-day-tab-${selectedPlanDay.day}`}
-              className="min-w-0 rounded-[20px] bg-[#FFF7F0] p-5"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#F36B12]">
-                    Day {selectedPlanDay.day}
-                  </p>
-                  <h5
-                    id={`generated-plan-day-${selectedPlanDay.day}`}
-                    className="mt-2 break-keep text-lg font-black leading-7 text-[#33271E] max-sm:text-base"
-                  >
-                    {selectedPlanDay.title}
-                  </h5>
-                  <p className="mt-1 break-keep text-sm font-semibold leading-6 text-[#33271E]/75">
-                    {selectedPlanDay.summary}
-                  </p>
-                </div>
-                <span className="rounded-full bg-[#fffffa] px-4 py-2 text-[12px] font-bold text-[#33271E]">
-                  {selectedPlanDay.stops.length}개 코스
-                </span>
-              </div>
+            <ol className="mt-4 grid gap-3" aria-label="일차별 일정 요약">
+              {planDraft.days.map((day) => (
+                <li
+                  key={day.day}
+                  className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-start gap-3 rounded-[16px] bg-[#fffffa] px-4 py-3 max-sm:grid-cols-[38px_minmax(0,1fr)]"
+                >
+                  <span className="flex size-9 items-center justify-center rounded-full bg-[#F36B12] text-sm font-black text-[#33271E]">
+                    {day.day}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="break-keep text-sm font-black leading-6 text-[#33271E]">
+                      {day.title}
+                    </p>
+                    <p className="mt-1 line-clamp-2 break-keep text-[13px] font-semibold leading-5 text-[#6E5A50]">
+                      {day.summary}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[#FFF0E4] px-3 py-1 text-[12px] font-bold text-[#33271E] max-sm:col-start-2 max-sm:w-fit">
+                    {day.stops.length}개 코스
+                  </span>
+                </li>
+              ))}
+            </ol>
 
-              <div className="mt-5 space-y-4">
-                {selectedPlanDay.stops.map((item, index) => (
-                  <article
-                    key={`${selectedPlanDay.day}-${item.time}`}
-                    className="grid grid-cols-[38px_minmax(0,1fr)] gap-4"
-                  >
-                    <div className="flex flex-col items-center">
-                      <span className="flex size-9 items-center justify-center rounded-full bg-[#F36B12] text-sm font-black text-[#33271E] shadow-[0_8px_18px_-14px_rgba(51,39,30,0.5)]">
-                        {index + 1}
-                      </span>
-                      {index < selectedPlanDay.stops.length - 1 ? (
-                        <span className="mt-2 h-full w-px bg-[#F3B489]/45" />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0 rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-bold leading-4 text-[#33271E]">
-                          {item.time}
-                        </span>
-                        <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-semibold leading-4 text-[#33271E]">
-                          다음 장소까지 {item.move}
-                        </span>
-                      </div>
-                      <h6 className="mt-4 break-keep text-lg font-bold leading-7 text-[#33271E] max-sm:text-base max-sm:leading-6">
-                        {item.title}
-                      </h6>
-                      <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
-                        {item.body}
-                      </p>
-                      <div className="mt-4 rounded-[14px] border border-transparent bg-[#fffffa] px-4 py-3">
-                        <p className="text-[12px] font-bold text-[#33271E]">추천 이유</p>
-                        <p className="mt-1 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
-                          {item.reason}
-                        </p>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          <div className="mt-6 grid grid-cols-3 gap-3 max-md:grid-cols-1">
             <button
               type="button"
               onClick={openPlanDetailView}
-              className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-bold text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+              className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
             >
               세부 일정 보기
             </button>
+            <p className="mt-3 break-keep text-center text-[12px] font-bold leading-5 text-[#6E5A50]">
+              시간대별 장소, 이동 시간, 추천 이유는 세부 화면에서 확인할 수 있어요.
+            </p>
+          </section>
+
+          <div className="mt-5 grid grid-cols-2 gap-3 max-md:grid-cols-1">
             <button
               type="button"
               aria-pressed={isCurrentPlanLiked}
@@ -608,58 +566,30 @@ export function PlannerWorkspace({
             </button>
             <button
               type="button"
+              onClick={saveGeneratedPlan}
+              disabled={isCurrentPlanSaved}
+              className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-default disabled:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+            >
+              {isCurrentPlanSaved ? '마이페이지에 저장됨' : '마이페이지에 저장'}
+            </button>
+            <button
+              type="button"
               onClick={() => resetPlannerFlow()}
-              className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-bold text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+              className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-bold text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:col-span-1 md:col-span-2"
             >
               일정 다시짜기
             </button>
           </div>
 
-          <section
-            aria-labelledby="save-plan-cta-title"
-            className="mt-6 rounded-[20px] border border-transparent bg-[#FFF0E4] p-5"
-          >
-            <p className="text-center text-2xl font-black leading-8 text-[#F36B12]" aria-hidden="true">
-              ♥
-            </p>
-            <h5
-              id="save-plan-cta-title"
-              className="mt-2 break-keep text-center text-xl font-black leading-7 text-[#33271E] max-sm:text-lg"
-            >
-              추천 일정이 마음에 드세요?
-            </h5>
-            <p className="mt-2 break-keep text-center text-sm font-semibold leading-6 text-[#33271E] max-sm:text-[13px]">
-              담은 일정은 마이페이지에서 다시 확인하고 리뷰를 남길 수 있어요.
-            </p>
+          {isCurrentPlanSaved ? (
             <button
               type="button"
-              onClick={saveGeneratedPlan}
-              disabled={isCurrentPlanSaved}
-              className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-default disabled:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+              onClick={openMyPage}
+              className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-4 text-sm font-bold text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
             >
-              {isCurrentPlanSaved ? '마이페이지에 저장됨' : '마이페이지에 저장'}
+              마이페이지 보기
             </button>
-            <div className="mt-3 grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-              <button
-                type="button"
-                onClick={() => resetPlannerFlow()}
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-4 text-sm font-bold text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
-              >
-                새로운 추천받기
-              </button>
-              <button
-                type="button"
-                onClick={isCurrentPlanSaved ? openMyPage : goHome}
-                className={`inline-flex min-h-11 items-center justify-center rounded-full border px-4 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
-                  isCurrentPlanSaved
-                    ? 'border-[#A92B10] bg-[#F36B12] text-[#33271E] hover:bg-[#FF8A2A]'
-                    : 'border-[#F3B489] bg-[#fffffa] text-[#33271E] hover:border-[#F36B12] hover:bg-[#FFE0CA]'
-                }`}
-              >
-                {isCurrentPlanSaved ? '마이페이지 보기' : '다시하기'}
-              </button>
-            </div>
-          </section>
+          ) : null}
           {savedPlanNotice ? (
             <p aria-live="polite" className="mt-4 break-keep text-sm font-bold leading-6 text-[#33271E]">
               {savedPlanNotice}
@@ -675,7 +605,7 @@ export function PlannerWorkspace({
     <section
       id="chat"
       aria-labelledby="chat-title"
-      className="mx-auto min-h-dvh max-w-[1440px] px-16 pb-16 pt-28 max-lg:px-8 max-sm:px-5"
+      className="mx-auto min-h-dvh max-w-[1500px] px-16 pb-16 pt-28 max-lg:px-8 max-sm:px-5"
     >
       <div data-testid="chat-workspace" className="space-y-5">
         <button
@@ -688,7 +618,7 @@ export function PlannerWorkspace({
         {renderPlannerStateHeader()}
         <div
           data-testid="chat-top-grid"
-          className="grid min-h-[660px] grid-cols-[minmax(0,0.96fr)_minmax(360px,0.82fr)] items-start gap-6 max-xl:grid-cols-1"
+          className="grid min-h-[720px] grid-cols-[minmax(0,1.25fr)_minmax(420px,0.9fr)] items-start gap-6 max-xl:grid-cols-1"
         >
           {renderChatConversationPanel()}
           {renderItineraryPanel()}
