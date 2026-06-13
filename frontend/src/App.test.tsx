@@ -232,6 +232,19 @@ const newCognitoAuthState: AuthApiState = {
   onboardingCompleted: false,
 }
 
+const newApiAuthState: AuthApiState = {
+  ...newCognitoAuthState,
+  accessToken: 'new-api-access-token',
+  sessionId: 'session-new-api',
+  user: {
+    id: 'api-new-google-user',
+    name: 'New API Google User',
+    email: 'new-api-google@example.com',
+    avatarInitial: 'N',
+    provider: 'google',
+  },
+}
+
 const unauthenticatedApiState: AuthApiState = {
   authenticated: false,
   accessToken: null,
@@ -483,6 +496,37 @@ describe('MVP main entry screen', () => {
     })
 
     expect(requestAuthSession).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('lovv.auth.oauth.google')).toBeNull()
+    expect(localStorage.getItem(authStorageKey)).toBeNull()
+  })
+
+  it('routes first API-mode login to onboarding after committing auth state', async () => {
+    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
+    vi.mocked(requestAuthLogin).mockResolvedValue(newApiAuthState)
+    writePendingOAuthLogin(sessionStorage, {
+      provider: 'google',
+      state: 'state-1',
+      redirectUri: 'http://localhost/auth/callback/google',
+      codeVerifier: 'google-pkce-verifier',
+      createdAt: 1_800_000_000_000,
+    })
+
+    renderApp('/auth/callback/google?code=google-auth-code&state=state-1')
+
+    await waitFor(() => {
+      expect(requestAuthLogin).toHaveBeenCalledWith('google', {
+        credentialType: 'authorization_code',
+        credential: 'google-auth-code',
+        redirectUri: 'http://localhost/auth/callback/google',
+        codeVerifier: 'google-pkce-verifier',
+      })
+    })
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/onboarding')
+    })
+
+    expect(screen.getByRole('heading', { name: '여행의 분위기를 골라주세요' })).toBeInTheDocument()
+    expect(screen.queryByText('회원가입하고 Lovv 시작하기')).not.toBeInTheDocument()
     expect(sessionStorage.getItem('lovv.auth.oauth.google')).toBeNull()
     expect(localStorage.getItem(authStorageKey)).toBeNull()
   })
