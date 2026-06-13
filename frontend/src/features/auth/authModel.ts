@@ -29,11 +29,11 @@ export const authServiceBullets = [
 export const authServiceCards = [
   {
     title: '숨겨진 장소',
-    body: '관광객은 모르는 현지 감각의 작은 도시와 동네를 먼저 제안합니다.',
+    body: '관광객이 모르는 작은 도시와 동네를 먼저 제안합니다.',
   },
   {
     title: '취향 큐레이션',
-    body: 'AI가 사용자의 속도와 장면 선택을 바탕으로 일정 후보를 정리합니다.',
+    body: 'AI가 사용자의 테마 선택을 바탕으로 일정 후보를 정리합니다.',
   },
 ]
 

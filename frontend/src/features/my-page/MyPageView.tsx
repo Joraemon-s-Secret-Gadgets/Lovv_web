@@ -41,6 +41,8 @@ export function MyPageView({
   openPreferenceEdit,
   signOut,
 }: MyPageViewProps) {
+  const currentUserName = currentUser?.name?.trim() || '사용자'
+
   return (
     <section
                   aria-labelledby="mypage-title"
@@ -67,9 +69,7 @@ export function MyPageView({
                         마이페이지
                       </h1>
                       <p className="mt-5 max-w-[680px] break-keep text-base font-semibold leading-8 text-[#33271E] max-sm:text-sm max-sm:leading-7">
-                        현재는 실제 회원 API 없이 mock session으로 로그인 상태만 확인합니다. 실제
-                        Kakao/Google 연동이 붙으면 이 페이지에서 저장 일정과 취향 데이터를 계정 기준으로
-                        매핑하면 됩니다.
+                        {currentUserName}님, 밑에 생성된 일정을 확인해보세요.
                       </p>
                       {preferenceNotice ? (
                         <p
@@ -224,7 +224,7 @@ export function MyPageView({
 
                     <aside className="rounded-[22px] border border-transparent bg-[#fffffa] p-7 shadow-[0_14px_36px_-24px_rgba(51,39,30,0.28)]">
                       <p className="text-sm font-black uppercase tracking-[0.18em] text-[#F36B12]">
-                        Mock account
+                        My Account
                       </p>
                       <div className="mt-5 flex items-center gap-4">
                         <span className="flex size-14 items-center justify-center rounded-full bg-[#F36B12] text-xl font-black text-[#33271E] shadow-[0_10px_22px_-16px_rgba(51,39,30,0.5)]">
@@ -242,8 +242,7 @@ export function MyPageView({
                       <div className="mt-7 rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
                         <p className="text-sm font-black text-[#33271E]">연동 상태</p>
                         <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#33271E]">
-                          API 호출 없이 더미 사용자만 저장 중입니다. 실제 OAuth 연동 시 mock auth
-                          adapter만 provider API 호출로 교체합니다.
+                          {currentProviderLabel}로 로그인되어 있습니다.
                         </p>
                       </div>
                       <div className="mt-7 grid gap-3">

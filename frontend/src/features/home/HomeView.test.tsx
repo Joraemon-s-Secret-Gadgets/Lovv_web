@@ -44,6 +44,43 @@ describe('MonthlyRecommendationMedia', () => {
   })
 })
 
+describe('HomeView hero summary', () => {
+  it('keeps responsive line breaks between hero summary sentences', () => {
+    render(
+      <HomeView
+        currentHeroTheme={heroThemes[1]}
+        selectedPreferenceProfile={{
+          version: 2,
+          selectedThemeIds: [monthlyRecommendations[0].preference.themeId],
+          source: 'onboarding',
+          updatedAt: '2026-06-12T00:00:00.000Z',
+        }}
+        selectedThemeHashtags={[]}
+        recommendationBasisHashtags={[]}
+        openChat={vi.fn()}
+        openMap={vi.fn()}
+        onOpenMonthlyRecommendationDetail={vi.fn()}
+        isQuickActionsOpen={false}
+        onOpenChatFromQuickAction={vi.fn()}
+        onScrollToTop={vi.fn()}
+        onToggleQuickActions={vi.fn()}
+      />,
+    )
+
+    const summary = screen.getByTestId('hero-summary')
+    expect(summary).toHaveTextContent(
+      '탁 트인 바다와 청량한 바람이 머무는 곳. Lovv와 함께 파도 소리에 맞춰 걷는 특별한 여정을 찾아보세요.',
+    )
+
+    const responsiveBreak = summary.querySelector('br')
+    expect(responsiveBreak).toHaveClass('max-sm:hidden')
+
+    const mobileSpacer = summary.querySelector('br + span')
+    expect(mobileSpacer).toHaveClass('hidden')
+    expect(mobileSpacer).toHaveClass('max-sm:inline')
+  })
+})
+
 describe('HomeView monthly recommendations', () => {
   it('rotates each monthly recommendation into the featured card position', () => {
     vi.useFakeTimers()

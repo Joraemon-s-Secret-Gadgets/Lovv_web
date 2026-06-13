@@ -148,10 +148,19 @@ export function HomeView({
                         </span>
                       </h1>
 
-                      <p className="mt-7 max-w-[680px] break-keep text-base font-semibold leading-8 text-[#4A3A31] max-sm:text-sm max-sm:leading-7">
-                        {heroSummaryLines.map((line) => (
-                          <span key={line} className="block">
+                      <p
+                        data-testid="hero-summary"
+                        className="mt-7 max-w-[680px] break-keep text-base font-semibold leading-8 text-[#4A3A31] max-sm:text-sm max-sm:leading-7"
+                      >
+                        {heroSummaryLines.map((line, index) => (
+                          <span key={line}>
                             {line}
+                            {index < heroSummaryLines.length - 1 ? (
+                              <>
+                                <br className="max-sm:hidden" />
+                                <span className="hidden max-sm:inline"> </span>
+                              </>
+                            ) : null}
                           </span>
                         ))}
                       </p>

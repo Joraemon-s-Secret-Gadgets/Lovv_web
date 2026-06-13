@@ -111,6 +111,7 @@ export type MockConditionExtraction = {
 
 export type SavedPlan = {
   id: string
+  sourceRecommendationId?: string
   ownerId: string
   title: string
   cityPair: string

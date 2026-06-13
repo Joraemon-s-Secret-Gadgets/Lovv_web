@@ -316,6 +316,32 @@ describe('auth API adapter', () => {
     })
   })
 
+  it('prefers linked social provider over Cognito wrapper provider when present', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        authenticated: true,
+        accessToken: 'lovv-access-token',
+        user: {
+          userId: 'user-7',
+          displayName: 'Kakao Cognito User',
+          email: 'kakao-cognito@example.com',
+          provider: 'cognito',
+        },
+        linkedProvider: 'kakao',
+        onboardingCompleted: true,
+      }),
+    })
+
+    const result = await requestCognitoBridgeSession('cognito-id-token', {
+      baseUrl: 'https://api.lovv.example',
+      fetchImpl,
+    })
+
+    expect(result.user?.provider).toBe('kakao')
+  })
+
   it('passes an in-memory bearer token for auth/me without persisting it', async () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,

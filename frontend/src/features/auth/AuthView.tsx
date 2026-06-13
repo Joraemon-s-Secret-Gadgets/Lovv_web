@@ -1,7 +1,7 @@
 /**
  * @file AuthView.tsx
  * @description Lovv social login entry view.
- * @lastModified 2026-06-12
+ * @lastModified 2026-06-13
  */
 
 import logoImage from '../../assets/lovv-logo.png'
@@ -13,6 +13,7 @@ type AuthViewProps = {
   authExceptionNotice?: AuthExceptionNotice | null
   authNotice?: string
   isSignInDisabled?: boolean
+  signInPendingProvider?: SocialAuthProvider | null
   onSignIn: (provider: SocialAuthProvider) => void
 }
 
@@ -22,7 +23,18 @@ const googleButtonClassName =
 const kakaoButtonClassName =
   'inline-flex min-h-[54px] items-center justify-center rounded-[14px] border border-[#A92B10] bg-[#F36B12] px-6 text-sm font-black text-[#33271E] shadow-[0_14px_32px_-18px_rgba(51,39,30,0.45)] transition hover:-translate-y-0.5 hover:border-[#A92B10] hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:border-[#A92B10] disabled:hover:bg-[#F36B12]'
 
-export function AuthView({ authExceptionNotice, authNotice, isSignInDisabled = false, onSignIn }: AuthViewProps) {
+export function AuthView({
+  authExceptionNotice,
+  authNotice,
+  isSignInDisabled = false,
+  signInPendingProvider = null,
+  onSignIn,
+}: AuthViewProps) {
+  const isSignInPending = Boolean(signInPendingProvider)
+  const isGoogleSignInPending = signInPendingProvider === 'google'
+  const isKakaoSignInPending = signInPendingProvider === 'kakao'
+  const isAuthButtonDisabled = isSignInDisabled || isSignInPending
+
   return (
     <section
               aria-labelledby="auth-title"
@@ -67,19 +79,25 @@ export function AuthView({ authExceptionNotice, authNotice, isSignInDisabled = f
                   <div className="mt-8 flex w-full max-w-[340px] flex-col gap-3">
                     <button
                       type="button"
-                      disabled={isSignInDisabled}
+                      disabled={isAuthButtonDisabled}
+                      aria-busy={isGoogleSignInPending || undefined}
                       onClick={() => onSignIn('google')}
                       className={googleButtonClassName}
                     >
-                      Google 간편 로그인으로 시작하기
+                      {isGoogleSignInPending
+                        ? 'Google 로그인 페이지로 이동 중...'
+                        : 'Google 간편 로그인으로 시작하기'}
                     </button>
                     <button
                       type="button"
-                      disabled={isSignInDisabled}
+                      disabled={isAuthButtonDisabled}
+                      aria-busy={isKakaoSignInPending || undefined}
                       onClick={() => onSignIn('kakao')}
                       className={kakaoButtonClassName}
                     >
-                      Kakao 간편 로그인으로 시작하기
+                      {isKakaoSignInPending
+                        ? 'Kakao 로그인 페이지로 이동 중...'
+                        : 'Kakao 간편 로그인으로 시작하기'}
                     </button>
                   </div>
                   {!authExceptionNotice ? (
@@ -123,10 +141,17 @@ export function AuthView({ authExceptionNotice, authNotice, isSignInDisabled = f
                   <h2 className="mt-8 max-w-[560px] break-keep text-[44px] font-black leading-[54px] text-[#33271E] max-sm:text-[32px] max-sm:leading-10">
                     소도시 여행의 새로운 기준, Lovv
                   </h2>
-                  <p className="mt-7 max-w-[610px] break-keep text-base font-semibold leading-8 text-[#33271E] max-sm:text-sm max-sm:leading-7">
-                    익숙한 대도시의 화려함 뒤에 숨겨진 진짜 로컬의 매력을 발견하세요.
-                    Lovv는 한국과 일본의 작지만 보석 같은 도시들을 연결하여 당신만의 특별한 여행
-                    이야기를 만들어냅니다.
+                  <p
+                    data-testid="auth-story-summary"
+                    className="mt-7 max-w-[610px] break-keep text-base font-semibold leading-8 text-[#33271E] max-sm:text-sm max-sm:leading-7"
+                  >
+                    <span>익숙한 대도시의 화려함 뒤에 숨겨진 진짜 로컬의 매력을 발견하세요.</span>
+                    <br className="max-sm:hidden" />
+                    <span className="hidden max-sm:inline"> </span>
+                    <span>
+                      Lovv는 한국과 일본의 작지만 보석 같은 도시들을 연결하여 당신만의 특별한 여행
+                      이야기를 만들어냅니다.
+                    </span>
                   </p>
 
                   <ul
