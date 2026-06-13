@@ -51,6 +51,7 @@ describe('HomeView hero summary', () => {
         currentHeroTheme={heroThemes[1]}
         selectedPreferenceProfile={{
           version: 2,
+          countryTrack: 'KR',
           selectedThemeIds: [monthlyRecommendations[0].preference.themeId],
           source: 'onboarding',
           updatedAt: '2026-06-12T00:00:00.000Z',
@@ -90,6 +91,7 @@ describe('HomeView monthly recommendations', () => {
         currentHeroTheme={heroThemes[0]}
         selectedPreferenceProfile={{
           version: 2,
+          countryTrack: 'KR',
           selectedThemeIds: [monthlyRecommendations[0].preference.themeId],
           source: 'onboarding',
           updatedAt: '2026-06-12T00:00:00.000Z',

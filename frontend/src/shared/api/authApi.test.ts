@@ -128,6 +128,7 @@ describe('auth API adapter', () => {
     })
     expect(result.preferenceProfile).toEqual({
       version: 2,
+      countryTrack: 'KR',
       selectedThemeIds: ['history_tradition'],
       source: 'onboarding',
       updatedAt: '2026-06-11T00:00:00Z',

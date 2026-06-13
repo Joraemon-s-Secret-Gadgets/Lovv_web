@@ -117,6 +117,7 @@ import {
 } from './shared/components/viewRouting'
 import type {
   ChatMessage,
+  CountryTrack,
   FestivalThemeChoice,
   MockConditionExtraction,
   MonthlyRecommendation,
@@ -230,6 +231,7 @@ function App() {
     [pendingPreferenceProfile],
   )
   const activePreferenceProfile = isPreferenceEditView ? pendingPreferenceProfile : selectedPreferenceProfile
+  const activeCountryTrack = activePreferenceProfile.countryTrack
   const activeThemeIds =
     isPreferenceEditView || hasSelectedCover ? activePreferenceProfile.selectedThemeIds : []
   const activeThemeLabels = getThemeLabels(activeThemeIds)
@@ -1496,7 +1498,7 @@ function App() {
   const createSinglePreferenceProfile = (
     preference: Preference,
     source: PreferenceProfileSource,
-  ) => createPreferenceProfile([preference.themeId], source)
+  ) => createPreferenceProfile([preference.themeId], source, selectedPreferenceProfile.countryTrack)
 
   const openMonthlyRecommendationDetail = (recommendation: MonthlyRecommendation) => {
     setActiveMonthlyRecommendation(recommendation)
@@ -1635,6 +1637,20 @@ function App() {
     }
   }
 
+  const selectPreferenceCountryTrack = (countryTrack: CountryTrack) => {
+    const nextProfile = {
+      ...activePreferenceProfile,
+      countryTrack,
+      updatedAt: new Date().toISOString(),
+    }
+
+    if (isPreferenceEditView) {
+      setPendingPreferenceProfile(nextProfile)
+    } else {
+      setSelectedPreferenceProfile(nextProfile)
+    }
+  }
+
   const togglePreferenceTheme = (themeId: ThemeId) => {
     const source = isPreferenceEditView ? 'preference_edit' : 'onboarding'
     const currentThemeIds = activeThemeIds
@@ -1650,7 +1666,7 @@ function App() {
       return
     }
 
-    const nextProfile = createPreferenceProfile(nextThemeIds, source)
+    const nextProfile = createPreferenceProfile(nextThemeIds, source, activePreferenceProfile.countryTrack)
 
     if (isPreferenceEditView) {
       setPendingPreferenceProfile(nextProfile)
@@ -1902,6 +1918,7 @@ function App() {
           activeThemeIds={activeThemeIds}
           activeThemeLabels={activeThemeLabels}
           activeThemePreferences={activeThemePreferences}
+          activeCountryTrack={activeCountryTrack}
           hasValidThemeSelection={hasValidThemeSelection}
           themeSelectionNotice={themeSelectionNotice}
           isPreferenceSaving={isPreferenceSaving}
@@ -1912,6 +1929,7 @@ function App() {
           selectedPreviewThumbnails={selectedPreviewThumbnails}
           isPreviewTrayOpen={isPreviewTrayOpen}
           onToggleTheme={togglePreferenceTheme}
+          onSelectCountryTrack={selectPreferenceCountryTrack}
           onCancelPreferenceEdit={cancelPreferenceEdit}
           onSavePreferenceEdit={savePreferenceEdit}
           onEnterMainWithPreference={enterMainWithPreference}

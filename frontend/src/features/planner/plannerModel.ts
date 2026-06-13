@@ -514,6 +514,7 @@ export const createSinglePreferenceProfile = (
   source: PreferenceProfile['source'],
 ) => ({
   version: 2,
+  countryTrack: 'KR',
   selectedThemeIds: [preference.themeId],
   source,
   updatedAt: new Date().toISOString(),

@@ -15,6 +15,8 @@ export type ThemeId =
 
 export type PreferenceProfileSource = 'onboarding' | 'preference_edit' | 'legacy_migration'
 
+export type CountryTrack = 'KR' | 'JP'
+
 export type ThemeDefinition = {
   id: ThemeId
   label: string
@@ -25,6 +27,7 @@ export type ThemeDefinition = {
 
 export type PreferenceProfile = {
   version: 2
+  countryTrack: CountryTrack
   selectedThemeIds: ThemeId[]
   source: PreferenceProfileSource
   updatedAt: string

@@ -107,6 +107,7 @@ const seedPreference = (cityPair = '아산/온양 · 벳푸') => {
     preferenceStorageKey,
     JSON.stringify({
       version: 2,
+      countryTrack: 'KR',
       selectedThemeIds: [themeIdsByCityPair[cityPair] ?? 'hot_spring_rest'],
       source: 'onboarding',
       updatedAt: '2026-06-05T00:00:00.000Z',
@@ -132,9 +133,10 @@ const createOAuthCryptoMock = () =>
     },
   }) as unknown as Crypto
 
-const expectStoredThemeIds = (themeIds: string[]) => {
+const expectStoredThemeIds = (themeIds: string[], countryTrack = 'KR') => {
   expect(readPreferenceProfile()).toMatchObject({
     version: 2,
+    countryTrack,
     selectedThemeIds: themeIds,
   })
 }
@@ -218,6 +220,7 @@ const restoredGoogleAuthState: AuthApiState = {
   },
   preferenceProfile: {
     version: 2,
+    countryTrack: 'KR',
     selectedThemeIds: ['history_tradition'],
     source: 'onboarding',
     updatedAt: '2026-06-11T00:00:00.000Z',
@@ -674,11 +677,13 @@ describe('MVP main entry screen', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: /바다·해안/ }))
+    fireEvent.click(screen.getByRole('button', { name: '일본 기본 추천' }))
     fireEvent.click(screen.getByRole('button', { name: '이 취향으로 Lovv 시작하기' }))
 
     await waitFor(() => {
       expect(requestUpdatePreference).toHaveBeenCalledWith(
         expect.objectContaining({
+          countryTrack: 'JP',
           selectedThemeIds: ['sea_coast'],
         }),
         { accessToken: 'new-cognito-access-token' },
@@ -687,7 +692,7 @@ describe('MVP main entry screen', () => {
     await waitFor(() => {
       expect(window.location.pathname).toBe('/home')
     })
-    expectStoredThemeIds(['sea_coast'])
+    expectStoredThemeIds(['sea_coast'], 'JP')
   })
 
   it('rejects invalid Cognito callback state without falling back to mock auth', async () => {

@@ -1,4 +1,4 @@
-import type { PreferenceProfile, PreferenceProfileSource, ThemeId } from '../types/app'
+import type { CountryTrack, PreferenceProfile, PreferenceProfileSource, ThemeId } from '../types/app'
 
 export const preferencesApiEndpoints = {
   get: '/api/v1/me/preferences',
@@ -66,6 +66,7 @@ const validSources = new Set<PreferenceProfileSource>([
   'preference_edit',
   'legacy_migration',
 ])
+const validCountryTracks = new Set<CountryTrack>(['KR', 'JP'])
 
 const readThemeIds = (...values: unknown[]) => {
   const rawThemeIds = values.find((value): value is unknown[] => Array.isArray(value)) ?? []
@@ -80,6 +81,14 @@ const readSource = (source: unknown): PreferenceProfileSource =>
   typeof source === 'string' && validSources.has(source as PreferenceProfileSource)
     ? (source as PreferenceProfileSource)
     : 'onboarding'
+
+const readCountryTrack = (...values: unknown[]): CountryTrack => {
+  const countryTrack = values.find(
+    (value): value is CountryTrack => typeof value === 'string' && validCountryTracks.has(value as CountryTrack),
+  )
+
+  return countryTrack ?? 'KR'
+}
 
 const readString = (...values: unknown[]) =>
   values.find((value): value is string => typeof value === 'string' && value.trim().length > 0)?.trim() ?? ''
@@ -173,6 +182,7 @@ export const adaptPreferenceApiRecord = (record: PreferenceApiRecord): Preferenc
 
   return {
     version: preferenceProfileVersion,
+    countryTrack: readCountryTrack(record.countryTrack, record.country_track),
     selectedThemeIds,
     source: readSource(record.source),
     updatedAt: readUpdatedAt(record.updatedAt, record.updated_at),
@@ -180,6 +190,7 @@ export const adaptPreferenceApiRecord = (record: PreferenceApiRecord): Preferenc
 }
 
 export const serializePreferenceProfileForApi = (profile: PreferenceProfile) => ({
+  countryTrack: profile.countryTrack,
   selectedThemeIds: profile.selectedThemeIds,
 })
 

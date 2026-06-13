@@ -10,12 +10,14 @@ describe('preferences API adapter', () => {
   it('adapts the backend preference shape into the frontend profile model', () => {
     expect(
       adaptPreferenceApiRecord({
+        countryTrack: 'JP',
         selected_theme_ids: ['sea_coast', 'food_local', 'sea_coast', 'unknown'],
         source: 'preference_edit',
         updated_at: '2026-06-11T00:00:00.000Z',
       }),
     ).toEqual({
       version: 2,
+      countryTrack: 'JP',
       selectedThemeIds: ['sea_coast', 'food_local'],
       source: 'preference_edit',
       updatedAt: '2026-06-11T00:00:00.000Z',
@@ -31,12 +33,26 @@ describe('preferences API adapter', () => {
     expect(
       serializePreferenceProfileForApi({
         version: 2,
+        countryTrack: 'KR',
         selectedThemeIds: ['history_tradition', 'art_emotion'],
         source: 'preference_edit',
         updatedAt: '2026-06-11T00:00:00.000Z',
       }),
     ).toEqual({
+      countryTrack: 'KR',
       selectedThemeIds: ['history_tradition', 'art_emotion'],
+    })
+  })
+
+  it('defaults missing or unsupported countryTrack to KR instead of sending BOTH', () => {
+    expect(
+      adaptPreferenceApiRecord({
+        countryTrack: 'BOTH',
+        mappedThemes: ['history_tradition'],
+      }),
+    ).toMatchObject({
+      countryTrack: 'KR',
+      selectedThemeIds: ['history_tradition'],
     })
   })
 
@@ -50,6 +66,7 @@ describe('preferences API adapter', () => {
       status: 200,
       json: async () => ({
         preferences: {
+          countryTrack: 'JP',
           mappedThemes: ['sea_coast'],
           source: 'onboarding',
           updatedAt: '2026-06-13T00:00:00.000Z',
@@ -61,6 +78,7 @@ describe('preferences API adapter', () => {
       requestUpdatePreference(
         {
           version: 2,
+          countryTrack: 'JP',
           selectedThemeIds: ['sea_coast'],
           source: 'onboarding',
           updatedAt: '2026-06-12T00:00:00.000Z',
@@ -73,6 +91,7 @@ describe('preferences API adapter', () => {
       ),
     ).resolves.toEqual({
       version: 2,
+      countryTrack: 'JP',
       selectedThemeIds: ['sea_coast'],
       source: 'onboarding',
       updatedAt: '2026-06-13T00:00:00.000Z',
@@ -85,7 +104,7 @@ describe('preferences API adapter', () => {
           'Content-Type': 'application/json',
           Authorization: 'Bearer access-token',
         },
-        body: JSON.stringify({ selectedThemeIds: ['sea_coast'] }),
+        body: JSON.stringify({ countryTrack: 'JP', selectedThemeIds: ['sea_coast'] }),
         credentials: 'include',
       }),
     )

@@ -11,6 +11,7 @@ import okinawaImage from '../../assets/cities/okinawa.jpg'
 import onyangImage from '../../assets/cities/onyang.jpg'
 import osakaImage from '../../assets/cities/osaka.jpg'
 import type {
+  CountryTrack,
   Preference,
   PreferenceProfile,
   PreferenceProfileSource,
@@ -20,6 +21,11 @@ import type {
 
 export const preferenceStorageKey = 'lovv.preference'
 export const preferenceProfileVersion = 2
+export const defaultCountryTrack: CountryTrack = 'KR'
+export const countryTrackOptions: { id: CountryTrack; label: string; description: string }[] = [
+  { id: 'KR', label: '한국', description: '한국 소도시를 먼저 추천합니다.' },
+  { id: 'JP', label: '일본', description: '일본 소도시를 먼저 추천합니다.' },
+]
 
 export const themeDefinitions: ThemeDefinition[] = [
   {
@@ -171,6 +177,9 @@ export const isThemeId = (value: unknown): value is ThemeId =>
 export const isPreferenceProfileSource = (value: unknown): value is PreferenceProfileSource =>
   value === 'onboarding' || value === 'preference_edit' || value === 'legacy_migration'
 
+export const isCountryTrack = (value: unknown): value is CountryTrack =>
+  value === 'KR' || value === 'JP'
+
 export const normalizeThemeIds = (themeIds: unknown): ThemeId[] => {
   if (!Array.isArray(themeIds)) {
     return []
@@ -182,8 +191,10 @@ export const normalizeThemeIds = (themeIds: unknown): ThemeId[] => {
 export const createPreferenceProfile = (
   selectedThemeIds: ThemeId[],
   source: PreferenceProfileSource,
+  countryTrack: CountryTrack = defaultCountryTrack,
 ): PreferenceProfile => ({
   version: preferenceProfileVersion,
+  countryTrack,
   selectedThemeIds: normalizeThemeIds(selectedThemeIds).slice(0, 3),
   source,
   updatedAt: new Date().toISOString(),
@@ -232,6 +243,9 @@ export const readStoredPreferenceProfile = (): PreferenceProfile | null => {
     if (parsedPreference.version === preferenceProfileVersion && normalizedThemeIds.length > 0) {
       return {
         version: preferenceProfileVersion,
+        countryTrack: isCountryTrack(parsedPreference.countryTrack)
+          ? parsedPreference.countryTrack
+          : defaultCountryTrack,
         selectedThemeIds: normalizedThemeIds,
         source: isPreferenceProfileSource(parsedPreference.source)
           ? parsedPreference.source
