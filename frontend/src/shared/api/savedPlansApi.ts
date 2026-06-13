@@ -129,6 +129,14 @@ export type SavedPlanApiCreateResult = {
   duplicate: boolean
 }
 
+export type SavedPlanApiReactionResponse = {
+  itineraryId?: unknown
+  reactionType?: unknown
+  isLiked?: unknown
+  changed?: unknown
+  updatedAt?: unknown
+}
+
 export class SavedPlansApiRequestError extends Error {
   statusCode: number
   code: string
@@ -287,6 +295,76 @@ export const requestDeleteSavedPlan = async (
 ) => {
   await requestSavedPlansApi(
     savedPlansApiEndpoints.delete(itineraryId),
+    {
+      method: 'DELETE',
+      headers: createSavedPlansHeaders(options),
+    },
+    options,
+  )
+
+  return true
+}
+
+export const requestListSavedPlans = async (options: SavedPlansApiRequestOptions = {}) => {
+  const response = await requestSavedPlansApiJson<SavedPlanApiListResponse>(
+    savedPlansApiEndpoints.list,
+    {
+      method: 'GET',
+      headers: createSavedPlansHeaders(options),
+    },
+    options,
+  )
+
+  return adaptSavedPlanApiListResponse(response)
+}
+
+export const requestGetSavedPlan = async (
+  itineraryId: string,
+  options: SavedPlansApiRequestOptions = {},
+) => {
+  const response = await requestSavedPlansApiJson<SavedPlanApiRecord>(
+    savedPlansApiEndpoints.detail(itineraryId),
+    {
+      method: 'GET',
+      headers: createSavedPlansHeaders(options),
+    },
+    options,
+  )
+  const savedPlan = adaptSavedPlanApiRecord(response)
+
+  if (!savedPlan) {
+    throw new SavedPlansApiRequestError(
+      200,
+      'INVALID_SAVED_PLAN_DETAIL_RESPONSE',
+      'Saved plan detail response is missing required fields',
+    )
+  }
+
+  return savedPlan
+}
+
+export const requestLikeSavedPlan = async (
+  itineraryId: string,
+  options: SavedPlansApiRequestOptions = {},
+) => {
+  await requestSavedPlansApiJson<SavedPlanApiReactionResponse>(
+    savedPlansApiEndpoints.like(itineraryId),
+    {
+      method: 'PUT',
+      headers: createSavedPlansHeaders(options),
+    },
+    options,
+  )
+
+  return true
+}
+
+export const requestUnlikeSavedPlan = async (
+  itineraryId: string,
+  options: SavedPlansApiRequestOptions = {},
+) => {
+  await requestSavedPlansApi(
+    savedPlansApiEndpoints.unlike(itineraryId),
     {
       method: 'DELETE',
       headers: createSavedPlansHeaders(options),

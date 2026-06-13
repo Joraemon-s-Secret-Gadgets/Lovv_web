@@ -16,8 +16,15 @@ import {
   writePendingOAuthLogin,
 } from './authRedirect'
 
-const createCryptoMock = () => {
-  const digest = vi.fn().mockResolvedValue(new Uint8Array([2, 3, 4]).buffer)
+const createCryptoMock = ({ digestDelayMs = 0 }: { digestDelayMs?: number } = {}) => {
+  const digestResult = new Uint8Array([2, 3, 4]).buffer
+  const digest = vi.fn(() =>
+    digestDelayMs > 0
+      ? new Promise<ArrayBuffer>((resolve) => {
+          setTimeout(() => resolve(digestResult), digestDelayMs)
+        })
+      : Promise.resolve(digestResult),
+  )
 
   return {
     getRandomValues: <T extends ArrayBufferView>(array: T) => {
@@ -175,6 +182,39 @@ describe('OAuth redirect helpers', () => {
     expect(request.pending.provider).toBe('google')
     expect(request.pending.codeVerifier).toBeTruthy()
     expect(readPendingOAuthLogin(sessionStorage, 'google')).toEqual(request.pending)
+  })
+
+  it('keeps Cognito authorization creation pending while PKCE digest is delayed', async () => {
+    vi.useFakeTimers()
+
+    try {
+      let isResolved = false
+      const requestPromise = createCognitoAuthorizationRequest('google', {
+        origin: 'https://lovv.example',
+        env: {
+          VITE_COGNITO_DOMAIN: 'https://lovv-test.auth.ap-northeast-2.amazoncognito.com/',
+          VITE_COGNITO_CLIENT_ID: 'lovv-cognito-client-id',
+        },
+        storage: sessionStorage,
+        crypto: createCryptoMock({ digestDelayMs: 1_500 }),
+        now: 1_800_000_000_000,
+      }).then((request) => {
+        isResolved = true
+
+        return request
+      })
+
+      await vi.advanceTimersByTimeAsync(1_499)
+      expect(isResolved).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(1)
+      const request = await requestPromise
+
+      expect(isResolved).toBe(true)
+      expect(new URL(request.authorizationUrl).searchParams.get('identity_provider')).toBe('Google')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('builds Cognito Hosted UI logout URLs without provider secrets', () => {

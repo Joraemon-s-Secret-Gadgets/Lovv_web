@@ -124,7 +124,7 @@ export const adaptAuthApiUserRecord = (
   }
 
   const id = readString(record.id, record.userId, record.user_id)
-  const provider = readProvider(record.provider, providerHint)
+  const provider = readProvider(providerHint, record.provider)
 
   if (!id || !provider) {
     return null
@@ -144,7 +144,7 @@ export const adaptAuthApiUserRecord = (
 
 export const adaptAuthApiResponse = (response: AuthApiResponse): AuthApiState => {
   // Backend may return either direct login or restored-session shapes; normalize both here.
-  const providerHint = readProvider(response.user?.provider, response.linkedProvider, response.linked_provider)
+  const providerHint = readProvider(response.linkedProvider, response.linked_provider, response.user?.provider)
   const user = adaptAuthApiUserRecord(response.user, providerHint)
   const preferenceProfile = response.preferences ? adaptPreferenceApiRecord(response.preferences) : null
   const authenticated = Boolean(user) && (readBoolean(response.authenticated) ?? true)

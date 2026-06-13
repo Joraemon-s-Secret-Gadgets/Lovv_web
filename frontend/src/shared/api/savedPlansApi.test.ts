@@ -3,6 +3,10 @@ import {
   adaptSavedPlanApiListResponse,
   requestCreateSavedPlan,
   requestDeleteSavedPlan,
+  requestGetSavedPlan,
+  requestLikeSavedPlan,
+  requestListSavedPlans,
+  requestUnlikeSavedPlan,
   savedPlansApiEndpoints,
 } from './savedPlansApi'
 
@@ -204,6 +208,167 @@ describe('saved plans API adapter', () => {
     ).resolves.toBe(true)
 
     expect(fetchImpl).toHaveBeenCalledWith('https://api.lovv.example/api/v1/me/itineraries/plan%2Fa', {
+      method: 'DELETE',
+      headers: {
+        Authorization: 'Bearer access-token',
+      },
+      credentials: 'include',
+    })
+  })
+
+  it('loads saved itinerary lists through the backend API and adapts likes', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        items: [
+          {
+            itineraryId: 'server-plan-1',
+            userId: 'user-1',
+            title: '서버 저장 일정',
+            destination: { nameKo: '강릉' },
+            durationLabel: '1박 2일',
+            themes: ['바다'],
+            itinerary: {
+              days: [
+                {
+                  day: 1,
+                  title: '1일차',
+                  stops: [
+                    {
+                      time: '아침',
+                      move: '도보 10분',
+                      title: '안목해변',
+                      body: '바다를 봅니다.',
+                      reason: '바다 테마와 맞습니다.',
+                    },
+                  ],
+                },
+              ],
+            },
+            isLiked: true,
+            savedAt: '2026-06-13T00:00:00Z',
+          },
+        ],
+      }),
+    }))
+
+    await expect(
+      requestListSavedPlans({
+        baseUrl: 'https://api.lovv.example/',
+        accessToken: 'access-token',
+        fetchImpl,
+      }),
+    ).resolves.toMatchObject({
+      savedPlans: [
+        {
+          id: 'server-plan-1',
+          title: '서버 저장 일정',
+          cityPair: '강릉',
+          isLiked: true,
+        },
+      ],
+      likes: {
+        'server-plan-1': 'like',
+      },
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith('https://api.lovv.example/api/v1/me/itineraries', {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer access-token',
+      },
+      credentials: 'include',
+    })
+  })
+
+  it('loads a saved itinerary detail through the backend API', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        itineraryId: 'server-plan-1',
+        userId: 'user-1',
+        title: '서버 상세 일정',
+        destination: { nameKo: '경주' },
+        durationLabel: '당일치기',
+        themes: ['전통'],
+        itinerary: {
+          days: [
+            {
+              day: 1,
+              title: '1일차',
+              stops: [
+                {
+                  time: '점심',
+                  move: '도보 8분',
+                  title: '황리단길',
+                  body: '골목을 걷습니다.',
+                  reason: '전통 테마와 맞습니다.',
+                },
+              ],
+            },
+          ],
+        },
+        isLiked: false,
+        savedAt: '2026-06-13T00:00:00Z',
+      }),
+    }))
+
+    await expect(
+      requestGetSavedPlan('server-plan-1', {
+        accessToken: 'Bearer access-token',
+        fetchImpl,
+      }),
+    ).resolves.toMatchObject({
+      id: 'server-plan-1',
+      title: '서버 상세 일정',
+      cityPair: '경주',
+      isLiked: false,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/v1/me/itineraries/server-plan-1', {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer access-token',
+      },
+      credentials: 'include',
+    })
+  })
+
+  it('sends saved itinerary like and unlike requests to the backend', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        itineraryId: 'server-plan-1',
+        reactionType: 'like',
+        isLiked: true,
+      }),
+    }))
+
+    await expect(
+      requestLikeSavedPlan('server-plan-1', {
+        accessToken: 'access-token',
+        fetchImpl,
+      }),
+    ).resolves.toBe(true)
+
+    await expect(
+      requestUnlikeSavedPlan('server-plan-1', {
+        accessToken: 'access-token',
+        fetchImpl,
+      }),
+    ).resolves.toBe(true)
+
+    expect(fetchImpl).toHaveBeenNthCalledWith(1, '/api/v1/me/itineraries/server-plan-1/reactions/like', {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer access-token',
+      },
+      credentials: 'include',
+    })
+    expect(fetchImpl).toHaveBeenNthCalledWith(2, '/api/v1/me/itineraries/server-plan-1/reactions/like', {
       method: 'DELETE',
       headers: {
         Authorization: 'Bearer access-token',
