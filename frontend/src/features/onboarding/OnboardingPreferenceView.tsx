@@ -1,6 +1,6 @@
 import logoImage from '../../assets/lovv-logo.png'
-import type { CityCoverImage, Preference, ThemeId } from '../../shared/types/app'
-import { getPreferenceByThemeId, themeDefinitions } from './preferenceModel'
+import type { CityCoverImage, CountryTrack, Preference, ThemeId } from '../../shared/types/app'
+import { countryTrackOptions, getPreferenceByThemeId, themeDefinitions } from './preferenceModel'
 
 type PreferencePreviewImage = CityCoverImage & {
   key: string
@@ -14,8 +14,10 @@ type OnboardingPreferenceViewProps = {
   activeThemeIds: ThemeId[]
   activeThemeLabels: string[]
   activeThemePreferences: Preference[]
+  activeCountryTrack: CountryTrack
   hasValidThemeSelection: boolean
   themeSelectionNotice: string | null
+  isPreferenceSaving: boolean
   selectedPreviewThemePosition: string
   selectedPreviewPreference: Preference
   selectedPreviewPrimaryImage: PreferencePreviewImage
@@ -23,6 +25,7 @@ type OnboardingPreferenceViewProps = {
   selectedPreviewThumbnails: PreferencePreviewImage[]
   isPreviewTrayOpen: boolean
   onToggleTheme: (themeId: ThemeId) => void
+  onSelectCountryTrack: (countryTrack: CountryTrack) => void
   onCancelPreferenceEdit: () => void
   onSavePreferenceEdit: () => void
   onEnterMainWithPreference: () => void
@@ -36,8 +39,10 @@ export function OnboardingPreferenceView({
   activeThemeIds,
   activeThemeLabels,
   activeThemePreferences,
+  activeCountryTrack,
   hasValidThemeSelection,
   themeSelectionNotice,
+  isPreferenceSaving,
   selectedPreviewThemePosition,
   selectedPreviewPreference,
   selectedPreviewPrimaryImage,
@@ -45,6 +50,7 @@ export function OnboardingPreferenceView({
   selectedPreviewThumbnails,
   isPreviewTrayOpen,
   onToggleTheme,
+  onSelectCountryTrack,
   onCancelPreferenceEdit,
   onSavePreferenceEdit,
   onEnterMainWithPreference,
@@ -87,6 +93,45 @@ export function OnboardingPreferenceView({
                     </div>
 
                   <section className="mt-9">
+                    <div className="mb-7 rounded-[22px] border border-transparent bg-[#fffffa] p-5 shadow-[0_18px_50px_-34px_rgba(51,39,30,0.24)]">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-5 max-md:grid-cols-1">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-[#33271E]">Default country</p>
+                          <h2 className="mt-2 break-keep text-[24px] font-bold leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7">
+                            기본 국가 선호
+                          </h2>
+                          <p className="mt-2 break-keep text-sm leading-6 text-[#6E5A50]">
+                            처음 추천 기준으로 사용할 국가를 선택하세요.
+                          </p>
+                        </div>
+                        <div
+                          role="group"
+                          aria-label="기본 국가 선호"
+                          className="grid grid-cols-2 gap-2 rounded-[16px] bg-[#FFF0E4] p-1 max-sm:grid-cols-1"
+                        >
+                          {countryTrackOptions.map((option) => {
+                            const isSelected = activeCountryTrack === option.id
+
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                aria-pressed={isSelected}
+                                aria-label={`${option.label} 기본 추천`}
+                                onClick={() => onSelectCountryTrack(option.id)}
+                                className={`min-h-11 min-w-[112px] rounded-[12px] px-4 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                                  isSelected
+                                    ? 'bg-[#F36B12] text-[#33271E] shadow-[0_10px_24px_-20px_rgba(51,39,30,0.5)]'
+                                    : 'bg-transparent text-[#6E5A50] hover:bg-[#FFF8F6]'
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex items-end justify-between gap-5 max-md:block">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-[#33271E]">Choose your cover story</p>
@@ -176,10 +221,14 @@ export function OnboardingPreferenceView({
                         <button
                           type="button"
                           onClick={isPreferenceEditView ? onSavePreferenceEdit : onEnterMainWithPreference}
-                          disabled={!hasValidThemeSelection}
+                          disabled={!hasValidThemeSelection || isPreferenceSaving}
                           className="inline-flex h-auto min-h-[48px] w-[220px] items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-center text-sm font-semibold leading-5 text-[#33271E] shadow-[0_2px_3px_rgba(0,0,0,0.04)] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:w-full"
                         >
-                          {isPreferenceEditView ? '이 취향으로 저장하기' : '이 취향으로 Lovv 시작하기'}
+                          {isPreferenceSaving
+                            ? '취향 저장 중'
+                            : isPreferenceEditView
+                              ? '이 취향으로 저장하기'
+                              : '이 취향으로 Lovv 시작하기'}
                         </button>
                       </div>
                     </div>

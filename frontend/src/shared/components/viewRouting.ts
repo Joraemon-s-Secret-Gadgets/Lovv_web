@@ -12,6 +12,10 @@ export const canonicalRoutePaths = {
   preferences: '/preferences',
 } as const
 
+export const routeAliases = {
+  savedPlans: '/saved-plans',
+} as const
+
 const canonicalPathViews = new Map<string, View>([
   [canonicalRoutePaths.auth, 'auth'],
   [canonicalRoutePaths.onboarding, 'onboarding'],
@@ -20,6 +24,7 @@ const canonicalPathViews = new Map<string, View>([
   [canonicalRoutePaths.planner, 'planner'],
   [canonicalRoutePaths.mypage, 'mypage'],
   [canonicalRoutePaths.preferences, 'preferences'],
+  [routeAliases.savedPlans, 'mypage'],
 ])
 
 export const createPlanDetailPath = (planId: string) => `/plans/${encodeURIComponent(planId)}`

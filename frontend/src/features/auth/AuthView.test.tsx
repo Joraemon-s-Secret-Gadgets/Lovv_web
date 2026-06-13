@@ -9,7 +9,7 @@ describe('AuthView', () => {
     const summary = screen.getByTestId('auth-story-summary')
 
     expect(summary).toHaveTextContent(
-      '익숙한 대도시의 화려함 뒤에 숨겨진 진짜 로컬의 매력을 발견하세요. Lovv는 한국과 일본의 작지만 보석 같은 도시들을 연결하여 당신만의 특별한 여행 이야기를 만들어냅니다.',
+      '익숙한 대도시의 화려함 뒤에 숨겨진 진짜 로컬의 매력을 발견하세요. Lovv는 작지만 보석 같은 도시들을 연결하여 당신만의 특별한 여행 이야기를 만들어냅니다.',
     )
 
     const responsiveBreak = summary.querySelector('br')

@@ -149,7 +149,7 @@ export function AuthView({
                     <br className="max-sm:hidden" />
                     <span className="hidden max-sm:inline"> </span>
                     <span>
-                      Lovv는 한국과 일본의 작지만 보석 같은 도시들을 연결하여 당신만의 특별한 여행
+                      Lovv는 작지만 보석 같은 도시들을 연결하여 당신만의 특별한 여행
                       이야기를 만들어냅니다.
                     </span>
                   </p>
