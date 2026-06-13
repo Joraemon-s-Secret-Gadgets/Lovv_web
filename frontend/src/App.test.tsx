@@ -16,6 +16,7 @@ import {
   requestListSavedPlans,
   requestUnlikeSavedPlan,
 } from './shared/api/savedPlansApi'
+import { requestUpdatePreference } from './shared/api/preferencesApi'
 import App from './App'
 import { requestCognitoToken } from './features/auth/cognitoAuth'
 import { writePendingOAuthLogin } from './features/auth/authRedirect'
@@ -50,6 +51,15 @@ vi.mock('./shared/api/savedPlansApi', async (importOriginal) => {
     requestLikeSavedPlan: vi.fn(),
     requestListSavedPlans: vi.fn(),
     requestUnlikeSavedPlan: vi.fn(),
+  }
+})
+
+vi.mock('./shared/api/preferencesApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./shared/api/preferencesApi')>()
+
+  return {
+    ...actual,
+    requestUpdatePreference: vi.fn(),
   }
 })
 
@@ -180,6 +190,7 @@ beforeEach(() => {
   vi.stubEnv('VITE_COGNITO_REDIRECT_URI', '')
   vi.stubEnv('VITE_COGNITO_LOGOUT_URI', '')
   vi.mocked(requestListSavedPlans).mockResolvedValue({ savedPlans: [], likes: {} })
+  vi.mocked(requestUpdatePreference).mockImplementation(async (profile) => profile)
 })
 
 afterEach(() => {
@@ -634,6 +645,51 @@ describe('MVP main entry screen', () => {
     expect(localStorage.getItem(authStorageKey)).toBeNull()
   })
 
+  it('persists Cognito onboarding preferences before entering the app', async () => {
+    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'cognito')
+    vi.mocked(requestCognitoToken).mockResolvedValue({
+      accessToken: 'cognito-access-token',
+      idToken: 'cognito-id-token',
+      refreshToken: null,
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+    })
+    vi.mocked(requestCognitoBridgeSession).mockResolvedValue(newCognitoAuthState)
+    vi.mocked(requestUpdatePreference).mockImplementation(async (profile) => ({
+      ...profile,
+      updatedAt: '2026-06-13T00:00:00.000Z',
+    }))
+    writePendingOAuthLogin(sessionStorage, {
+      provider: 'google',
+      state: 'state-1',
+      redirectUri: 'http://localhost/auth/callback/cognito',
+      codeVerifier: 'cognito-pkce-verifier',
+      createdAt: 1_800_000_000_000,
+    })
+
+    renderApp('/auth/callback/cognito?code=cognito-auth-code&state=state-1')
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/onboarding')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /바다·해안/ }))
+    fireEvent.click(screen.getByRole('button', { name: '이 취향으로 Lovv 시작하기' }))
+
+    await waitFor(() => {
+      expect(requestUpdatePreference).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedThemeIds: ['sea_coast'],
+        }),
+        { accessToken: 'new-cognito-access-token' },
+      )
+    })
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/home')
+    })
+    expectStoredThemeIds(['sea_coast'])
+  })
+
   it('rejects invalid Cognito callback state without falling back to mock auth', async () => {
     vi.stubEnv('VITE_LOVV_AUTH_MODE', 'cognito')
     writePendingOAuthLogin(sessionStorage, {
@@ -877,6 +933,16 @@ describe('MVP main entry screen', () => {
     await waitFor(() => {
       expect(window.location.pathname).toBe('/home')
     })
+
+    cleanup()
+    seedUser()
+    seedPreference('경주 · 교토')
+    renderApp('/saved-plans')
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/saved-plans')
+    })
+    expect(screen.getByRole('heading', { name: '마이페이지' })).toBeInTheDocument()
   })
 
   it('opens monthly recommendation detail before starting the planner', () => {

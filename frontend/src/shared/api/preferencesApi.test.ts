@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   adaptPreferenceApiRecord,
   preferencesApiEndpoints,
+  requestUpdatePreference,
   serializePreferenceProfileForApi,
 } from './preferencesApi'
 
@@ -41,5 +42,52 @@ describe('preferences API adapter', () => {
 
   it('ignores unusable preference records', () => {
     expect(adaptPreferenceApiRecord({ selected_theme_ids: ['not-a-theme'] })).toBeNull()
+  })
+
+  it('updates backend preferences with cookie credentials and bearer auth', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        preferences: {
+          mappedThemes: ['sea_coast'],
+          source: 'onboarding',
+          updatedAt: '2026-06-13T00:00:00.000Z',
+        },
+      }),
+    })
+
+    await expect(
+      requestUpdatePreference(
+        {
+          version: 2,
+          selectedThemeIds: ['sea_coast'],
+          source: 'onboarding',
+          updatedAt: '2026-06-12T00:00:00.000Z',
+        },
+        {
+          baseUrl: 'https://api.example.com',
+          accessToken: 'access-token',
+          fetchImpl,
+        },
+      ),
+    ).resolves.toEqual({
+      version: 2,
+      selectedThemeIds: ['sea_coast'],
+      source: 'onboarding',
+      updatedAt: '2026-06-13T00:00:00.000Z',
+    })
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.example.com/api/v1/me/preferences',
+      expect.objectContaining({
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer access-token',
+        },
+        body: JSON.stringify({ selectedThemeIds: ['sea_coast'] }),
+        credentials: 'include',
+      }),
+    )
   })
 })

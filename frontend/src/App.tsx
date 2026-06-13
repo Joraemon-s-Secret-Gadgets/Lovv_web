@@ -107,6 +107,7 @@ import {
   requestUnlikeSavedPlan,
   type SavedPlanApiCreatePayload,
 } from './shared/api/savedPlansApi'
+import { requestUpdatePreference } from './shared/api/preferencesApi'
 import {
   getCanonicalViewFromPath,
   getGuardRedirectPath,
@@ -189,6 +190,7 @@ function App() {
   const [savedPlanNotice, setSavedPlanNotice] = useState<string | null>(null)
   const [preferenceNotice, setPreferenceNotice] = useState<string | null>(null)
   const [themeSelectionNotice, setThemeSelectionNotice] = useState<string | null>(null)
+  const [isPreferenceSaving, setIsPreferenceSaving] = useState(false)
   const [authFlowNotice, setAuthFlowNotice] = useState<AuthExceptionNotice | null>(null)
   const [signInPendingProvider, setSignInPendingProvider] = useState<SocialAuthProvider | null>(null)
   const [preparedAuthRedirectUrls, setPreparedAuthRedirectUrls] =
@@ -1578,33 +1580,59 @@ function App() {
     navigateToView('planner')
   }
 
-  const enterMainWithPreference = () => {
+  const enterMainWithPreference = async () => {
     if (!hasValidThemeSelection) {
       setThemeSelectionNotice('원하는 테마를 1개 이상 선택해 주세요.')
       return
     }
 
-    storePreferenceProfile(selectedPreferenceProfile)
-    setHasCompletedPreference(true)
-    navigateToView('home', { replace: true })
+    setIsPreferenceSaving(true)
+    setThemeSelectionNotice(null)
+
+    try {
+      const preferenceProfile = isBackendAuthMode
+        ? await requestUpdatePreference(selectedPreferenceProfile, { accessToken: authAccessToken })
+        : selectedPreferenceProfile
+
+      storePreferenceProfile(preferenceProfile)
+      setSelectedPreferenceProfile(preferenceProfile)
+      setHasCompletedPreference(true)
+      navigateToView('home', { replace: true })
+    } catch {
+      setThemeSelectionNotice('취향 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setIsPreferenceSaving(false)
+    }
   }
 
-  const savePreferenceEdit = () => {
+  const savePreferenceEdit = async () => {
     if (!hasValidThemeSelection) {
       setThemeSelectionNotice('원하는 테마를 1개 이상 선택해 주세요.')
       return
     }
 
-    storePreferenceProfile(pendingPreferenceProfile)
-    setSelectedPreferenceProfile(pendingPreferenceProfile)
-    setHasCompletedPreference(true)
-    resetPlannerFlow(getPrimaryPreference(pendingPreferenceProfile), null, pendingPreferenceProfile)
-    setSelectedPreviewImageKey(null)
-    setIsPreviewTrayOpen(false)
-    setHasSelectedCover(false)
+    setIsPreferenceSaving(true)
     setThemeSelectionNotice(null)
-    setPreferenceNotice('취향이 변경됐어요. 다음 AI 일정부터 반영됩니다.')
-    navigateToView('mypage', { replace: true })
+
+    try {
+      const preferenceProfile = isBackendAuthMode
+        ? await requestUpdatePreference(pendingPreferenceProfile, { accessToken: authAccessToken })
+        : pendingPreferenceProfile
+
+      storePreferenceProfile(preferenceProfile)
+      setSelectedPreferenceProfile(preferenceProfile)
+      setHasCompletedPreference(true)
+      resetPlannerFlow(getPrimaryPreference(preferenceProfile), null, preferenceProfile)
+      setSelectedPreviewImageKey(null)
+      setIsPreviewTrayOpen(false)
+      setHasSelectedCover(false)
+      setPreferenceNotice('취향이 변경됐어요. 다음 AI 일정부터 반영됩니다.')
+      navigateToView('mypage', { replace: true })
+    } catch {
+      setThemeSelectionNotice('취향 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setIsPreferenceSaving(false)
+    }
   }
 
   const togglePreferenceTheme = (themeId: ThemeId) => {
@@ -1876,6 +1904,7 @@ function App() {
           activeThemePreferences={activeThemePreferences}
           hasValidThemeSelection={hasValidThemeSelection}
           themeSelectionNotice={themeSelectionNotice}
+          isPreferenceSaving={isPreferenceSaving}
           selectedPreviewThemePosition={selectedPreviewThemePosition}
           selectedPreviewPreference={selectedPreviewPreference}
           selectedPreviewPrimaryImage={selectedPreviewPrimaryImage}

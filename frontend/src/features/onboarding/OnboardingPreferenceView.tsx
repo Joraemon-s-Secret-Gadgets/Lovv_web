@@ -16,6 +16,7 @@ type OnboardingPreferenceViewProps = {
   activeThemePreferences: Preference[]
   hasValidThemeSelection: boolean
   themeSelectionNotice: string | null
+  isPreferenceSaving: boolean
   selectedPreviewThemePosition: string
   selectedPreviewPreference: Preference
   selectedPreviewPrimaryImage: PreferencePreviewImage
@@ -38,6 +39,7 @@ export function OnboardingPreferenceView({
   activeThemePreferences,
   hasValidThemeSelection,
   themeSelectionNotice,
+  isPreferenceSaving,
   selectedPreviewThemePosition,
   selectedPreviewPreference,
   selectedPreviewPrimaryImage,
@@ -176,10 +178,14 @@ export function OnboardingPreferenceView({
                         <button
                           type="button"
                           onClick={isPreferenceEditView ? onSavePreferenceEdit : onEnterMainWithPreference}
-                          disabled={!hasValidThemeSelection}
+                          disabled={!hasValidThemeSelection || isPreferenceSaving}
                           className="inline-flex h-auto min-h-[48px] w-[220px] items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-center text-sm font-semibold leading-5 text-[#33271E] shadow-[0_2px_3px_rgba(0,0,0,0.04)] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:w-full"
                         >
-                          {isPreferenceEditView ? '이 취향으로 저장하기' : '이 취향으로 Lovv 시작하기'}
+                          {isPreferenceSaving
+                            ? '취향 저장 중'
+                            : isPreferenceEditView
+                              ? '이 취향으로 저장하기'
+                              : '이 취향으로 Lovv 시작하기'}
                         </button>
                       </div>
                     </div>
