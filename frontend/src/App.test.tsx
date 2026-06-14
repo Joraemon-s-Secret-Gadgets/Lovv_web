@@ -472,6 +472,18 @@ describe('MVP main entry screen', () => {
     expect(window.location.pathname).toBe('/auth')
   })
 
+  it('keeps the auth entry screen visible during passive backend session restore', () => {
+    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'cognito')
+    vi.mocked(requestAuthSession).mockReturnValue(new Promise<AuthApiState>(() => {}))
+
+    renderApp('/auth')
+
+    expect(screen.queryByText('로그인 정보를 확인하고 있어요')).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Google로 계속하기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Kakao로 계속하기' })).toBeDisabled()
+  })
+
   it('prepares Cognito redirect metadata before the first social login click', async () => {
     vi.stubEnv('VITE_LOVV_AUTH_MODE', 'cognito')
     vi.stubEnv('VITE_COGNITO_DOMAIN', 'https://lovv-test.auth.ap-northeast-2.amazoncognito.com')
@@ -573,7 +585,7 @@ describe('MVP main entry screen', () => {
     expect(requestAuthLogin).not.toHaveBeenCalled()
     expect(requestAuthSession).not.toHaveBeenCalled()
     expect(sessionStorage.getItem('lovv.auth.oauth.kakao')).toBeNull()
-    expect(screen.getByText('로그인 요청이 만료되었습니다.')).toBeInTheDocument()
+    expect(await screen.findByText('로그인 요청이 만료되었습니다.')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('이전 로그인 요청을 더 이상 사용할 수 없습니다. 다시 시도해 주세요.')
   })
 
@@ -655,7 +667,9 @@ describe('MVP main entry screen', () => {
       expect(window.location.pathname).toBe('/onboarding')
     })
 
-    expect(screen.getByRole('heading', { name: '여행의 분위기를 골라주세요' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: '여행의 분위기를 골라주세요' }),
+    ).toBeInTheDocument()
     expect(screen.queryByText('회원가입하고 Lovv 시작하기')).not.toBeInTheDocument()
     expect(sessionStorage.getItem('lovv.auth.oauth.kakao')).toBeNull()
     expect(localStorage.getItem(authStorageKey)).toBeNull()

@@ -1950,8 +1950,7 @@ function App() {
 
 
   const isAuthCallbackLoading = isBackendAuthMode && shouldHandleAuthCallback
-  const isAuthRestoreLoading = isBackendAuthMode && activeView === 'auth' && isAuthSessionRestoring
-  const shouldShowAuthLoadingView = isAuthCallbackLoading || isAuthRestoreLoading
+  const shouldShowAuthLoadingView = isAuthCallbackLoading
 
   return (
     <main className="lovv-app-shell lovv-warm-pattern lovv-ambient-background min-h-dvh bg-[#fff8ee] text-[#33271E]">
