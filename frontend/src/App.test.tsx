@@ -323,8 +323,8 @@ describe('MVP main entry screen', () => {
     expect(screen.getByRole('heading', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
     expect(screen.getByText('회원가입하고 Lovv 시작하기')).toBeInTheDocument()
     expect(screen.queryByText(/저장한 취향과 여행 일정/)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Google 간편 로그인으로 시작하기' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Kakao 간편 로그인으로 시작하기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Google로 계속하기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kakao로 계속하기' })).toBeInTheDocument()
     expect(screen.getByText(/로컬 세션으로 로그인 흐름을 확인합니다/)).toBeInTheDocument()
     expect(screen.queryByText('MVP mock session')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '여행의 분위기를 골라주세요' })).not.toBeInTheDocument()
@@ -354,7 +354,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByText('취향 큐레이션')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Lovv의 여정' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Google 간편 로그인으로 시작하기' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Google로 계속하기' }))
 
     expect(localStorage.getItem(authStorageKey)).toContain('Lovv Google User')
     expect(localStorage.getItem(authStorageKey)).toContain('google')
@@ -365,7 +365,7 @@ describe('MVP main entry screen', () => {
     vi.stubEnv('VITE_LOVV_AUTH_MODE', 'mock')
     renderApp('/auth')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Kakao 간편 로그인으로 시작하기' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Kakao로 계속하기' }))
 
     expect(localStorage.getItem(authStorageKey)).toContain('Lovv Kakao User')
     expect(localStorage.getItem(authStorageKey)).toContain('kakao')
@@ -457,7 +457,7 @@ describe('MVP main entry screen', () => {
       expect(requestAuthSession).toHaveBeenCalledTimes(1)
     })
 
-    const googleButton = screen.getByRole('button', { name: 'Google 간편 로그인으로 시작하기' })
+    const googleButton = screen.getByRole('button', { name: 'Google로 계속하기' })
 
     expect(googleButton).toBeEnabled()
     fireEvent.click(googleButton)
@@ -1635,7 +1635,7 @@ describe('MVP main entry screen', () => {
 
   it('shows onboarding after signup before the main screen on first entry', () => {
     renderApp()
-    fireEvent.click(screen.getByRole('button', { name: 'Google 간편 로그인으로 시작하기' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Google로 계속하기' }))
 
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /나만 아는 여행 앱, Lovv/i })).not.toBeInTheDocument()

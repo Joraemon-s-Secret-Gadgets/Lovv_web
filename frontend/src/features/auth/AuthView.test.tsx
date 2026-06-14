@@ -12,6 +12,10 @@ describe('AuthView', () => {
     expect(authRegion).toHaveClass('lovv-auth-liquid-shell')
     expect(screen.getByTestId('auth-fixed-panel')).toHaveClass('lovv-liquid-panel')
     expect(screen.getByTestId('auth-scroll-panel')).toHaveClass('lovv-liquid-panel')
+    expect(screen.getByRole('button', { name: 'Google로 계속하기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kakao로 계속하기' })).toBeInTheDocument()
+    expect(screen.getByTestId('google-brand-mark')).toBeInTheDocument()
+    expect(screen.getByTestId('kakao-brand-mark')).toBeInTheDocument()
     expect(summary).toHaveTextContent(
       '익숙한 대도시의 화려함 뒤에 숨겨진 진짜 로컬의 매력을 발견하세요. Lovv는 작지만 보석 같은 도시들을 연결하여 당신만의 특별한 여행 이야기를 만들어냅니다.',
     )
@@ -39,7 +43,7 @@ describe('AuthView', () => {
       'true',
     )
     expect(screen.getByTestId('auth-button-spinner')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Kakao 간편 로그인으로 시작하기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Kakao로 계속하기' })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Google로 이동 중...' }))
     expect(onSignIn).not.toHaveBeenCalled()
