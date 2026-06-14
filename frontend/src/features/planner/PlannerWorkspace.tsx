@@ -217,7 +217,7 @@ export function PlannerWorkspace({
     <section
       aria-labelledby="chat-title"
       data-testid="chat-conversation-panel"
-      className="flex min-h-[720px] min-w-0 flex-col overflow-hidden rounded-[22px] border border-[#F3B489]/40 bg-[#fffffa]/96 shadow-[0_24px_56px_-34px_rgba(51,39,30,0.32)]"
+      className="flex h-full min-h-[680px] min-w-0 flex-col overflow-hidden rounded-[22px] border border-[#F3B489]/40 bg-[#fffffa]/96 shadow-[0_24px_56px_-34px_rgba(51,39,30,0.32)] xl:min-h-0"
     >
       <header className="border-b border-[#F3B489]/35 bg-[#FFF8F6]/92 px-6 py-5">
         <div className="flex items-start justify-between gap-5">
@@ -229,7 +229,7 @@ export function PlannerWorkspace({
               여행 조건을 대화로 정리하기
             </h3>
             <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#6E5A50] max-sm:text-[13px]">
-              대화에서 조건을 좁히고, 오른쪽 패널에서 일정 초안을 바로 확인합니다.
+              대화에서 조건을 좁히고, 옆 요약 패널에서 일정 초안을 바로 확인합니다.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 rounded-full border border-[#F3B489]/55 bg-[#fffffa] px-3 py-2 shadow-[0_12px_24px_-22px_rgba(51,39,30,0.35)]">
@@ -347,7 +347,7 @@ export function PlannerWorkspace({
               ))}
             </div>
             <p className="mt-3 break-keep text-sm font-semibold leading-6 text-[#33271E] max-sm:text-[13px]">
-              하단 일정 상세에 반영했어요. 시간대별 동선과 추천 이유를 이어서 확인해 주세요.
+              요약 패널에 반영했어요. 시간대별 동선과 추천 이유는 세부 일정에서 이어서 확인해 주세요.
             </p>
             {plannerConditionExtraction?.softPreferences.length ? (
               <p className="mt-2 break-keep text-[12px] font-bold leading-5 text-[#6E5A50]">
@@ -403,7 +403,7 @@ export function PlannerWorkspace({
       return (
         <section
           aria-label="AI 일정 결과"
-          className="flex min-h-[720px] flex-col justify-between rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 p-6 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28"
+          className="flex h-full min-h-[680px] flex-col justify-between overflow-hidden rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 p-6 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28 xl:min-h-0"
         >
           <div>
             <p className="text-sm font-semibold text-[#33271E]">맞춤 일정 결과</p>
@@ -437,9 +437,9 @@ export function PlannerWorkspace({
     return (
       <section
         aria-labelledby="generated-plan-title"
-        className="min-h-[720px] overflow-hidden rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28"
+        className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28 xl:min-h-0"
       >
-        <div className="bg-[#FFF0E4] px-6 py-6">
+        <div className="shrink-0 bg-[#FFF0E4] px-6 py-6">
           <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">
             <div>
               <p className="text-sm font-semibold text-[#33271E]">맞춤 일정 결과</p>
@@ -450,7 +450,7 @@ export function PlannerWorkspace({
                 생성된 일정 요약
               </h3>
               <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
-                챗봇에서 정리된 조건을 바탕으로, 오른쪽 일정 패널에 결과를 보여줍니다.
+                챗봇에서 정리된 조건을 바탕으로, 핵심 흐름만 압축해서 보여줍니다.
               </p>
             </div>
             <span className="inline-flex h-10 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-[12px] font-bold text-[#33271E]">
@@ -477,7 +477,7 @@ export function PlannerWorkspace({
           </div>
         </div>
 
-        <div className="px-6 py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
           <div className="grid grid-cols-[1fr_auto] items-start gap-4 max-md:grid-cols-1">
             <div>
               <p className="text-sm font-bold text-[#33271E]">추천 흐름 요약</p>
@@ -485,13 +485,21 @@ export function PlannerWorkspace({
                 {currentPlanTitle}
               </h4>
               <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
-                채팅 옆에서는 전체 방향만 빠르게 확인하고, 장소별 시간표와 추천 이유는 세부 화면에서 확인합니다.{' '}
-                {planDraft.summary}
+                채팅 옆에서는 전체 방향만 빠르게 확인하고, 장소별 시간표와 추천 이유는 세부 화면에서 확인합니다.
               </p>
             </div>
             <span className="rounded-full bg-[#FFF0E4] px-4 py-2 text-[12px] font-bold text-[#33271E]">
               총 {planDraft.stops.length}개 코스
             </span>
+          </div>
+
+          <div className="mt-4 rounded-[16px] border border-transparent bg-[#FFF8F6] p-4">
+            <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#A92B10]">
+              핵심 추천 기준
+            </p>
+            <p className="mt-2 line-clamp-3 break-keep text-sm font-semibold leading-6 text-[#33271E] max-sm:text-[13px]">
+              {planDraft.summary}
+            </p>
           </div>
 
           <section
@@ -618,7 +626,7 @@ export function PlannerWorkspace({
         {renderPlannerStateHeader()}
         <div
           data-testid="chat-top-grid"
-          className="grid min-h-[720px] grid-cols-[minmax(0,1.25fr)_minmax(420px,0.9fr)] items-start gap-6 max-xl:grid-cols-1"
+          className="grid min-h-[680px] grid-cols-[minmax(0,1.6fr)_minmax(360px,0.74fr)] items-stretch gap-6 xl:h-[min(760px,calc(100dvh-9rem))] max-xl:grid-cols-1"
         >
           {renderChatConversationPanel()}
           {renderItineraryPanel()}

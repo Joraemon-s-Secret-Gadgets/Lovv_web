@@ -1797,7 +1797,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByRole('button', { name: '← 이전으로 돌아가기' })).toBeInTheDocument()
     expect(screen.getByTestId('chat-workspace')).toHaveClass('space-y-5')
     expect(screen.getByTestId('chat-planner-summary')).toHaveClass('rounded-[18px]')
-    expect(screen.getByTestId('chat-top-grid')).toHaveClass('grid-cols-[minmax(0,1.25fr)_minmax(420px,0.9fr)]')
+    expect(screen.getByTestId('chat-top-grid')).toHaveClass('grid-cols-[minmax(0,1.6fr)_minmax(360px,0.74fr)]')
     expect(screen.getByRole('region', { name: 'Planner State' })).toBeInTheDocument()
     expect(screen.getByTestId('chat-conversation-panel')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'AI 일정 결과' })).toBeInTheDocument()

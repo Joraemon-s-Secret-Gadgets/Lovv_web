@@ -22,7 +22,7 @@ export function AppHeader({
   signOut,
 }: AppHeaderProps) {
   return (
-    <header className="fixed inset-x-0 top-0 z-20 border-b border-[#F3B489]/35 bg-white/95 shadow-[0_3px_10.5px_rgba(51,39,30,0.05)] backdrop-blur">
+    <header className="fixed inset-x-0 top-0 z-20 border-b border-white/45 bg-white/35 shadow-[0_14px_34px_-30px_rgba(51,39,30,0.45)] backdrop-blur-xl">
                 <div className="mx-auto flex min-h-[72px] max-w-[1440px] flex-wrap items-center gap-3 px-9 py-2 max-lg:px-8 max-sm:px-5">
                   <a
                     href="/home"
