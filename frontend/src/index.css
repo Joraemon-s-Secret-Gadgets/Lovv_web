@@ -150,6 +150,21 @@ body {
   border-left-color: transparent;
 }
 
+@media (min-width: 1024px) {
+  .lovv-auth-left-panel.lovv-liquid-panel,
+  .lovv-auth-story-panel.lovv-liquid-panel {
+    height: calc(100dvh - 2.5rem);
+    min-height: 0;
+  }
+
+  .lovv-auth-story-panel.lovv-liquid-panel {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+}
+
 .lovv-liquid-panel::before {
   background:
     linear-gradient(120deg, rgb(255 255 255 / 0.72), transparent 18% 62%, rgb(243 107 18 / 0.08)),
