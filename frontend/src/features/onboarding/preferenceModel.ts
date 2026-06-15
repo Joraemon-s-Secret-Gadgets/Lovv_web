@@ -29,7 +29,7 @@ export const countryTrackOptions: { id: CountryTrack; label: string; description
 
 export const themeDefinitions: ThemeDefinition[] = [
   {
-    id: 'hot_spring_rest',
+    id: 'healing_rest',
     label: '온천·휴양',
     shortLabel: '온천',
     description: '숙소 체류, 온천, 스파처럼 회복감이 있는 장면을 먼저 봅니다.',
@@ -64,7 +64,7 @@ export const themeDefinitions: ThemeDefinition[] = [
     keywords: ['자연', '트레킹', '숲', '산', '폭포'],
   },
   {
-    id: 'art_emotion',
+    id: 'art_sense',
     label: '예술·감성',
     shortLabel: '예술',
     description: '공예, 정원, 카페, 전시처럼 기록하고 싶은 장면을 우선합니다.',
@@ -74,7 +74,7 @@ export const themeDefinitions: ThemeDefinition[] = [
 
 export const preferences: Preference[] = [
   {
-    themeId: 'hot_spring_rest',
+    themeId: 'healing_rest',
     cityPair: '아산/온양 · 벳푸',
     legacyCityPairs: ['온양 · 벳푸', '벳푸 · 온양'],
     description: '온양온천, 스파 휴양 · 온천 수도, 지옥 순례',
@@ -154,7 +154,7 @@ export const preferences: Preference[] = [
     ],
   },
   {
-    themeId: 'art_emotion',
+    themeId: 'art_sense',
     cityPair: '강릉 · 가나자와',
     legacyCityPairs: ['서울 · 도쿄', '도쿄 · 서울'],
     description: '감성 카페, 안목해변, 정동진 · 히가시차야, 겐로쿠엔, 공예',

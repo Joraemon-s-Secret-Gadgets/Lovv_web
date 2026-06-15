@@ -6,6 +6,7 @@ export type SmallCityTheme = (typeof smallCityThemes)[number]
 
 export type SmallCity = {
   id: string
+  agentCoreId?: string
   country: SmallCityCountry
   countryLabel: '한국' | '일본'
   region: string
@@ -84,6 +85,7 @@ export type SmallCityMapMarker = {
 
 export type PlannerCityContext = {
   cityId: string
+  agentCoreId?: string
   cityName: string
   country: SmallCityCountry
   countryLabel: '한국' | '일본'
@@ -100,6 +102,7 @@ type CitySeed = {
   region: string
   nameKo: string
   nameLocal?: string
+  agentCoreId?: string
   latitude: number
   longitude: number
   themes: SmallCityTheme[]
@@ -154,6 +157,7 @@ const koreanCitySeeds: CitySeed[] = [
     region: '충남',
     nameKo: '아산',
     nameLocal: '온양',
+    agentCoreId: 'KR-Asan',
     latitude: 36.7898,
     longitude: 127.0049,
     themes: ['온천', '산책'],
@@ -163,6 +167,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경남',
     nameKo: '남해',
+    agentCoreId: 'KR-Namhae',
     latitude: 34.8377,
     longitude: 127.8926,
     themes: ['바다', '자연'],
@@ -172,6 +177,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '전북',
     nameKo: '완주',
+    agentCoreId: 'KR-Wanju',
     latitude: 35.9053,
     longitude: 127.1621,
     themes: ['자연', '전통'],
@@ -181,6 +187,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '전남',
     nameKo: '담양',
+    agentCoreId: 'KR-Damyang',
     latitude: 35.3212,
     longitude: 126.9882,
     themes: ['자연', '산책'],
@@ -190,6 +197,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '전남',
     nameKo: '순천',
+    agentCoreId: 'KR-Suncheon',
     latitude: 34.9506,
     longitude: 127.4874,
     themes: ['자연', '산책'],
@@ -199,6 +207,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경북',
     nameKo: '안동',
+    agentCoreId: 'KR-Andong',
     latitude: 36.5684,
     longitude: 128.7294,
     themes: ['전통', '미식'],
@@ -208,6 +217,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경북',
     nameKo: '경주',
+    agentCoreId: 'KR-Gyeongju',
     latitude: 35.8562,
     longitude: 129.2247,
     themes: ['전통', '산책'],
@@ -217,6 +227,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '강원',
     nameKo: '고성',
+    agentCoreId: 'KR-Goseong',
     latitude: 38.3806,
     longitude: 128.4676,
     themes: ['바다', '자연'],
@@ -226,6 +237,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '강원',
     nameKo: '양양',
+    agentCoreId: 'KR-Yangyang',
     latitude: 38.0754,
     longitude: 128.619,
     themes: ['바다', '축제'],
@@ -235,6 +247,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '강원',
     nameKo: '정선',
+    agentCoreId: 'KR-Jeongseon',
     latitude: 37.3806,
     longitude: 128.6609,
     themes: ['자연', '미식'],
@@ -244,6 +257,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '충북',
     nameKo: '단양',
+    agentCoreId: 'KR-Danyang',
     latitude: 36.9846,
     longitude: 128.3657,
     themes: ['자연', '산책'],
@@ -253,6 +267,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '충북',
     nameKo: '제천',
+    agentCoreId: 'KR-Jecheon',
     latitude: 37.1326,
     longitude: 128.191,
     themes: ['자연', '온천'],
@@ -262,6 +277,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '충남',
     nameKo: '공주',
+    agentCoreId: 'KR-Gongju',
     latitude: 36.4466,
     longitude: 127.119,
     themes: ['전통', '산책'],
@@ -271,6 +287,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '충남',
     nameKo: '부여',
+    agentCoreId: 'KR-Buyeo',
     latitude: 36.2747,
     longitude: 126.9096,
     themes: ['전통', '산책'],
@@ -280,6 +297,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '전북',
     nameKo: '군산',
+    agentCoreId: 'KR-Gunsan',
     latitude: 35.9677,
     longitude: 126.7366,
     themes: ['전통', '미식'],
@@ -289,6 +307,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '전북',
     nameKo: '고창',
+    agentCoreId: 'KR-Gochang',
     latitude: 35.4358,
     longitude: 126.7021,
     themes: ['자연', '전통'],
@@ -298,6 +317,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '전남',
     nameKo: '보성',
+    agentCoreId: 'KR-Boseong',
     latitude: 34.7715,
     longitude: 127.0801,
     themes: ['자연', '미식'],
@@ -307,6 +327,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '전남',
     nameKo: '여수',
+    agentCoreId: 'KR-Yeosu',
     latitude: 34.7604,
     longitude: 127.6622,
     themes: ['바다', '축제'],
@@ -316,6 +337,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경남',
     nameKo: '통영',
+    agentCoreId: 'KR-Tongyeong',
     latitude: 34.8544,
     longitude: 128.4332,
     themes: ['바다', '예술'],
@@ -325,6 +347,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경남',
     nameKo: '하동',
+    agentCoreId: 'KR-Hadong',
     latitude: 35.0672,
     longitude: 127.7513,
     themes: ['자연', '전통'],
@@ -334,6 +357,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경남',
     nameKo: '거제',
+    agentCoreId: 'KR-Geoje',
     latitude: 34.8805,
     longitude: 128.6212,
     themes: ['바다', '자연'],
@@ -343,6 +367,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경북',
     nameKo: '영주',
+    agentCoreId: 'KR-Yeongju',
     latitude: 36.8057,
     longitude: 128.6241,
     themes: ['전통', '자연'],
@@ -352,6 +377,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경북',
     nameKo: '문경',
+    agentCoreId: 'KR-Mungyeong',
     latitude: 36.5866,
     longitude: 128.1868,
     themes: ['자연', '예술', '산책'],
@@ -361,6 +387,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경북',
     nameKo: '영덕',
+    agentCoreId: 'KR-Yeongdeok',
     latitude: 36.4151,
     longitude: 129.3653,
     themes: ['바다', '미식'],
@@ -370,6 +397,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '강원',
     nameKo: '태백',
+    agentCoreId: 'KR-Taebaek',
     latitude: 37.1641,
     longitude: 128.9856,
     themes: ['자연', '축제'],
@@ -379,6 +407,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '강원',
     nameKo: '평창',
+    agentCoreId: 'KR-Pyeongchang',
     latitude: 37.3705,
     longitude: 128.3904,
     themes: ['자연', '예술', '축제'],
@@ -388,6 +417,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '강원',
     nameKo: '인제',
+    agentCoreId: 'KR-Inje',
     latitude: 38.0695,
     longitude: 128.1707,
     themes: ['자연', '산책'],
@@ -397,6 +427,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '제주',
     nameKo: '서귀포',
+    agentCoreId: 'KR-Seogwipo',
     latitude: 33.2539,
     longitude: 126.5596,
     themes: ['바다', '자연'],
@@ -406,6 +437,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '제주',
     nameKo: '성산',
+    agentCoreId: 'KR-Seongsan',
     latitude: 33.4609,
     longitude: 126.9336,
     themes: ['바다', '자연'],
@@ -415,6 +447,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '부산',
     nameKo: '기장',
+    agentCoreId: 'KR-Gijang',
     latitude: 35.2446,
     longitude: 129.2223,
     themes: ['바다', '미식'],
@@ -424,6 +457,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '울산',
     nameKo: '울주',
+    agentCoreId: 'KR-Ulju',
     latitude: 35.5221,
     longitude: 129.2422,
     themes: ['자연', '전통'],
@@ -433,6 +467,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경기',
     nameKo: '가평',
+    agentCoreId: 'KR-Gapyeong',
     latitude: 37.8315,
     longitude: 127.5099,
     themes: ['자연', '산책'],
@@ -442,6 +477,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경기',
     nameKo: '양평',
+    agentCoreId: 'KR-Yangpyeong',
     latitude: 37.4912,
     longitude: 127.4876,
     themes: ['자연', '산책'],
@@ -451,6 +487,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '인천',
     nameKo: '강화',
+    agentCoreId: 'KR-Ganghwa',
     latitude: 37.7463,
     longitude: 126.4878,
     themes: ['전통', '바다'],
@@ -460,6 +497,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '전남',
     nameKo: '목포',
+    agentCoreId: 'KR-Mokpo',
     latitude: 34.8118,
     longitude: 126.3922,
     themes: ['바다', '미식'],
@@ -469,6 +507,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '전남',
     nameKo: '해남',
+    agentCoreId: 'KR-Haenam',
     latitude: 34.5734,
     longitude: 126.5988,
     themes: ['자연', '바다'],
@@ -478,6 +517,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '전북',
     nameKo: '남원',
+    agentCoreId: 'KR-Namwon',
     latitude: 35.4164,
     longitude: 127.3905,
     themes: ['전통', '축제'],
@@ -487,6 +527,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경남',
     nameKo: '진주',
+    agentCoreId: 'KR-Jinju',
     latitude: 35.1802,
     longitude: 128.1076,
     themes: ['축제', '전통'],
@@ -507,6 +548,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경북',
     nameKo: '청송',
+    agentCoreId: 'KR-Cheongsong',
     latitude: 36.4356,
     longitude: 129.057,
     themes: ['자연', '산책'],
@@ -516,6 +558,7 @@ const koreanCitySeeds: CitySeed[] = [
   {
     region: '경북',
     nameKo: '울진',
+    agentCoreId: 'KR-Uljin',
     latitude: 36.9931,
     longitude: 129.4005,
     themes: ['바다', '온천'],
@@ -584,6 +627,7 @@ const createCity = (
 
   return {
     id: `${country.toLowerCase()}-${String(index + 1).padStart(3, '0')}`,
+    agentCoreId: seed.agentCoreId,
     country,
     countryLabel,
     region: seed.region,
@@ -709,17 +753,18 @@ export const createPlannerCityContext = (
   const festivalCount = detail?.festivalCount ?? city.festivalCount ?? festivals.length
 
   return {
-  cityId: city.id,
-  cityName: city.nameKo,
-  country: city.country,
-  countryLabel: city.countryLabel,
-  region: city.region,
-  themes: city.themes,
-  routeSeed: city.routeSeed,
-  summary: city.summary,
-  festivals,
-  festivalCount,
-  hasFestivalContent: festivalCount > 0 || festivals.length > 0,
+    cityId: city.id,
+    agentCoreId: city.agentCoreId,
+    cityName: city.nameKo,
+    country: city.country,
+    countryLabel: city.countryLabel,
+    region: city.region,
+    themes: city.themes,
+    routeSeed: city.routeSeed,
+    summary: city.summary,
+    festivals,
+    festivalCount,
+    hasFestivalContent: festivalCount > 0 || festivals.length > 0,
   }
 }
 

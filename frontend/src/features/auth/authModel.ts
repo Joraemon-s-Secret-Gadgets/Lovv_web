@@ -1,4 +1,4 @@
-import type { AuthProvider, LovvUser, SocialAuthProvider } from '../../shared/types/app'
+import type { AuthProvider, LovvRole, LovvUser, SocialAuthProvider } from '../../shared/types/app'
 
 export const authStorageKey = 'lovv.auth.user'
 export const socialAuthProviderStorageKey = 'lovv.auth.socialProvider'
@@ -32,6 +32,18 @@ export const storeSocialAuthProvider = (provider: SocialAuthProvider) => {
 
 export const clearStoredSocialAuthProvider = () => {
   localStorage.removeItem(socialAuthProviderStorageKey)
+}
+
+const validRoles = new Set<LovvRole>(['R-USER', 'R-ADMIN'])
+
+export const readStoredRoles = (value: unknown): LovvRole[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const roles = value.filter((role): role is LovvRole => typeof role === 'string' && validRoles.has(role as LovvRole))
+
+  return roles.length > 0 ? roles : undefined
 }
 
 export const authServiceBullets = [
@@ -93,6 +105,7 @@ export const readStoredUser = (): LovvUser | null => {
       email: parsedUser.email,
       avatarInitial: parsedUser.avatarInitial,
       provider,
+      roles: readStoredRoles(parsedUser.roles),
     }
   } catch {
     return null

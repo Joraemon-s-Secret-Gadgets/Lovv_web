@@ -90,6 +90,7 @@ describe('auth API adapter', () => {
         email: 'mina@example.com',
         avatarInitial: 'M',
         provider: 'google',
+        roles: ['R-USER'],
       },
       preferenceProfile: null,
       onboardingCompleted: false,
@@ -135,6 +136,22 @@ describe('auth API adapter', () => {
     })
     expect(result.onboardingCompleted).toBe(true)
     expect(result.authenticated).toBe(true)
+  })
+
+  it('preserves backend roles from auth responses for frontend route guards', () => {
+    const result = adaptAuthApiResponse({
+      authenticated: true,
+      linkedProvider: 'google',
+      user: {
+        userId: 'admin-1',
+        displayName: 'Admin User',
+        email: 'admin@example.com',
+        provider: 'google',
+        roles: ['R-ADMIN', 'R-USER', 'raw-role'],
+      },
+    })
+
+    expect(result.user?.roles).toEqual(['R-ADMIN', 'R-USER'])
   })
 
   it('adapts auth/me user responses without requiring a refreshed access token', () => {

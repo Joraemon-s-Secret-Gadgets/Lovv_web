@@ -54,12 +54,12 @@ export class PreferenceApiRequestError extends Error {
 
 const preferenceProfileVersion = 2
 const validThemeIds = new Set<ThemeId>([
-  'hot_spring_rest',
+  'healing_rest',
   'sea_coast',
   'history_tradition',
   'food_local',
   'nature_trekking',
-  'art_emotion',
+  'art_sense',
 ])
 const validSources = new Set<PreferenceProfileSource>([
   'onboarding',

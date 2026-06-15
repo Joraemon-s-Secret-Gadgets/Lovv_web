@@ -34,13 +34,13 @@ describe('preferences API adapter', () => {
       serializePreferenceProfileForApi({
         version: 2,
         countryTrack: 'KR',
-        selectedThemeIds: ['history_tradition', 'art_emotion'],
+        selectedThemeIds: ['history_tradition', 'art_sense'],
         source: 'preference_edit',
         updatedAt: '2026-06-11T00:00:00.000Z',
       }),
     ).toEqual({
       countryTrack: 'KR',
-      selectedThemeIds: ['history_tradition', 'art_emotion'],
+      selectedThemeIds: ['history_tradition', 'art_sense'],
     })
   })
 

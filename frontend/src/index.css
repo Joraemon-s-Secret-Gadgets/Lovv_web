@@ -29,6 +29,16 @@
   --lovv-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+@keyframes lovv-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+@keyframes lovv-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
 * {
   box-sizing: border-box;
 }

@@ -1,4 +1,5 @@
 import foxFaceImage from '../../assets/foxhead-smile.png'
+import { useState, useEffect } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
 import {
   durationGuidePrompts,
@@ -17,6 +18,83 @@ import type {
   PlannerStepStatus,
   PreferenceProfile,
 } from '../../shared/types/app'
+
+function getLoadingMessages(query: string): string[] {
+  const q = query.toLowerCase()
+  const matched: string[] = []
+
+  if (/오토바이|바이크|자전거|드라이브|렌트카|차로/.test(q)) {
+    matched.push('이동 경로를 반영 중이에요', '코스 동선을 최적화 중이에요')
+  }
+  if (/맛집|음식|먹|식당|카페|노포|로컬|해산물|술/.test(q)) {
+    matched.push('맛집 코스를 구성 중이에요', '로컬 맛집을 찾는 중이에요')
+  }
+  if (/바다|해변|해수욕|해안|서핑|스노클/.test(q)) {
+    matched.push('바다 일정을 짜는 중이에요')
+  }
+  if (/여자친구|남자친구|커플|연인|데이트|둘이|같이/.test(q)) {
+    matched.push('둘만의 코스를 고르는 중이에요')
+  }
+  if (/가족|아이|애|자녀|부모|아빠|엄마/.test(q)) {
+    matched.push('가족 동선을 반영 중이에요')
+  }
+  if (/온천|쉬|휴양|힐링|느긋|천천|느리/.test(q)) {
+    matched.push('여유로운 일정을 배치 중이에요')
+  }
+  if (/걷|트레킹|등산|하이킹|산/.test(q)) {
+    matched.push('걷기 좋은 동선을 고르는 중이에요')
+  }
+  if (/사진|인생샷|포토|뷰|경치|풍경/.test(q)) {
+    matched.push('포토 스팟을 찾는 중이에요')
+  }
+  if (/야경|밤|저녁|노을|일몰/.test(q)) {
+    matched.push('저녁 코스를 구성 중이에요')
+  }
+  if (/혼자|솔로|1인/.test(q)) {
+    matched.push('나만의 코스를 짜는 중이에요')
+  }
+
+  return [
+    ...matched,
+    '일정을 생성 중이에요',
+    '추천 장소를 선별 중이에요',
+    'AI가 최적 코스를 찾는 중이에요',
+    '잠시만 기다려 주세요',
+  ]
+}
+
+function LoadingBubble({ query }: { query: string }) {
+  const messages = getLoadingMessages(query)
+  const [index, setIndex] = useState(0)
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisible(false)
+      setTimeout(() => {
+        setIndex((i) => (i + 1) % messages.length)
+        setVisible(true)
+      }, 300)
+    }, 2500)
+    return () => clearInterval(interval)
+  }, [messages.length])
+
+  return (
+    <span className="flex flex-col gap-2">
+      <span className="flex items-center gap-1.5 py-0.5" aria-label="AI가 일정을 생성하고 있습니다">
+        <span className="size-2 rounded-full bg-[#F36B12] opacity-60" style={{ animation: 'lovv-bounce 1.2s ease-in-out infinite', animationDelay: '0ms' }} />
+        <span className="size-2 rounded-full bg-[#F36B12] opacity-60" style={{ animation: 'lovv-bounce 1.2s ease-in-out infinite', animationDelay: '200ms' }} />
+        <span className="size-2 rounded-full bg-[#F36B12] opacity-60" style={{ animation: 'lovv-bounce 1.2s ease-in-out infinite', animationDelay: '400ms' }} />
+      </span>
+      <span
+        className="text-[13px] font-semibold text-[#6E5A50]"
+        style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.3s ease' }}
+      >
+        {messages[index]}
+      </span>
+    </span>
+  )
+}
 
 export type PlannerStateStep = {
   id: string
@@ -58,6 +136,7 @@ type PlannerWorkspaceProps = {
   isCurrentPlanSaved: boolean
   openMyPage: () => void
   savedPlanNotice: string | null
+  isPlannerLoading: boolean
 }
 
 export function PlannerWorkspace({
@@ -91,6 +170,7 @@ export function PlannerWorkspace({
   isCurrentPlanSaved,
   openMyPage,
   savedPlanNotice,
+  isPlannerLoading,
 }: PlannerWorkspaceProps) {
   const renderPlannerStateHeader = () => (
     <section
@@ -250,6 +330,7 @@ export function PlannerWorkspace({
       >
         {chatMessages.map((message) => {
           const isAssistant = message.role === 'assistant'
+          const isLoading = message.id === 'loading-assistant'
 
           return (
             <article
@@ -283,7 +364,11 @@ export function PlannerWorkspace({
                       : 'ml-auto border-transparent bg-[#F36B12] font-bold'
                   }`}
                 >
-                  {message.content}
+                  {isLoading ? (
+                    <LoadingBubble query={message.content} />
+                  ) : (
+                    message.content
+                  )}
                 </div>
               </div>
             </article>
@@ -333,9 +418,6 @@ export function PlannerWorkspace({
               </span>
               <span className="rounded-[5px] bg-[#FFF0E4] px-3 py-1 text-[12px] font-bold text-[#33271E]">
                 {planDraft.durationLabel}
-              </span>
-              <span className="rounded-[5px] bg-[#FFF0E4] px-3 py-1 text-[12px] font-bold text-[#33271E]">
-                {planDraft.intensityLabel} 반영
               </span>
               {plannerConditionExtraction?.activeRequiredThemes.map((themeId) => (
                 <span
@@ -398,7 +480,74 @@ export function PlannerWorkspace({
     </section>
   )
 
+  const renderSkeletonItineraryPanel = () => (
+    <section
+      aria-label="AI 일정 생성 중"
+      aria-busy="true"
+      className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28 xl:min-h-0"
+    >
+      <div className="shrink-0 bg-[#FFF0E4] px-6 py-6">
+        <div className="grid grid-cols-[1fr_auto] items-start gap-5">
+          <div>
+            <div className="h-4 w-20 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
+            <div className="mt-3 h-7 w-40 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '100ms' }} />
+            <div className="mt-2 h-4 w-56 rounded-md bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '200ms' }} />
+          </div>
+          <div className="h-10 w-16 rounded-full bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-11 rounded-[14px] bg-[#fffffa]" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${i * 80}ms` }} />
+          ))}
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div className="h-4 w-24 rounded-md bg-[#F3B489]/35" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
+        <div className="mt-2 h-6 w-48 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '100ms' }} />
+
+        <div className="mt-4 rounded-[16px] bg-[#FFF8F6] p-4">
+          <div className="h-3 w-20 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
+          <div className="mt-2 h-4 w-full rounded-md bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '80ms' }} />
+          <div className="mt-1 h-4 w-3/4 rounded-md bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '160ms' }} />
+        </div>
+
+        <div className="mt-6 rounded-[20px] bg-[#FFF7F0] p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="h-3 w-16 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
+              <div className="mt-2 h-6 w-28 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '100ms' }} />
+            </div>
+            <div className="h-8 w-16 rounded-full bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
+          </div>
+
+          <ol className="mt-4 grid gap-3" aria-label="일정 로딩 중">
+            {[1, 2, 3].map((day) => (
+              <li
+                key={day}
+                className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-start gap-3 rounded-[16px] bg-[#fffffa] px-4 py-3"
+              >
+                <div className="size-9 rounded-full bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100}ms` }} />
+                <div>
+                  <div className="h-4 w-32 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100 + 50}ms` }} />
+                  <div className="mt-1 h-3 w-48 rounded-md bg-[#F3B489]/25" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100 + 100}ms` }} />
+                </div>
+                <div className="h-6 w-14 rounded-full bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100 + 150}ms` }} />
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-5 h-12 w-full rounded-full bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
+        </div>
+      </div>
+    </section>
+  )
+
   const renderItineraryPanel = () => {
+    if (isPlannerLoading && hasGuidedPlannerChoices) {
+      return renderSkeletonItineraryPanel()
+    }
+
     if (!isPlannerReady) {
       return (
         <section
@@ -460,7 +609,6 @@ export function PlannerWorkspace({
 
           <div className="mt-5 grid grid-cols-2 gap-3 max-md:grid-cols-1">
             {[
-              planDraft.intensityLabel,
               plannerCityContext
                 ? `${plannerCityContext.cityName} 중심`
                 : `${plannerPreferenceLabel} 중심`,
@@ -475,6 +623,14 @@ export function PlannerWorkspace({
               </span>
             ))}
           </div>
+
+          {planDraft.userNotice && planDraft.userNotice.length > 0 && (
+            <div className="mt-4 rounded-[12px] bg-[#FFF3E0] px-4 py-3 text-[13px] leading-5 text-[#7A4F2D]">
+              {planDraft.userNotice.map((notice, i) => (
+                <p key={i}>{notice}</p>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">

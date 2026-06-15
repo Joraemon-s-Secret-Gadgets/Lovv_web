@@ -95,21 +95,21 @@ export const resolveFestivalThemeChoice = (
 }
 
 const themeExtractionPatterns: Record<ThemeId, RegExp> = {
-  hot_spring_rest: /온천|스파|휴양|숙소|료칸|회복|쉬고|휴식/,
+  healing_rest: /온천|스파|휴양|숙소|료칸|회복|쉬고|휴식/,
   sea_coast: /바다|해변|해안|리조트|항구|섬|오션/,
   history_tradition: /역사|전통|사찰|절|고택|한옥|문화재|골목/,
   food_local: /미식|맛집|노포|시장|식당|음식|비빔밥|타코야키|로컬\s*식탁/,
   nature_trekking: /자연|숲|산|트레킹|올레|폭포|계곡|걷|산책/,
-  art_emotion: /예술|감성|공예|전시|편집숍|갤러리|정원|카페|사진/,
+  art_sense: /예술|감성|공예|전시|편집숍|갤러리|정원|카페|사진/,
 }
 
 export const cityThemeToThemeId: Partial<Record<SmallCityTheme, ThemeId>> = {
-  온천: 'hot_spring_rest',
+  온천: 'healing_rest',
   바다: 'sea_coast',
   미식: 'food_local',
   전통: 'history_tradition',
   자연: 'nature_trekking',
-  예술: 'art_emotion',
+  예술: 'art_sense',
 }
 
 export const getPlannerBaselineThemeIds = (
@@ -413,23 +413,14 @@ export const createPlanDraft = (
 export const createInitialChatMessages = (
   basisLabel: string,
   cityContext: PlannerCityContext | null = null,
-  shouldAskFestival = true,
+  _shouldAskFestival?: boolean,
 ): ChatMessage[] => [
   {
     id: createMessageId('assistant', 0),
     role: 'assistant',
     content: cityContext
-      ? shouldAskFestival
-        ? `${cityContext.cityName}(${cityContext.countryLabel} ${cityContext.region})를 기준으로 시작할게요. 먼저 축제를 일정 테마에 포함할까요?`
-        : `${cityContext.cityName}(${cityContext.countryLabel} ${cityContext.region})를 기준으로 시작할게요. 이 소도시 안에서 구성할 여행 기간을 먼저 골라주세요.`
-      : `${basisLabel} 기준 테마로 시작할게요. 먼저 축제를 일정 테마에 포함할까요?`,
-  },
-  {
-    id: createMessageId('user', 1),
-    role: 'user',
-    content: cityContext
-      ? `${cityContext.cityName}로 세부 일정을 짜고 싶어요.`
-      : '대화로 먼저 여행 조건을 좁혀보고 싶어요.',
+      ? `${cityContext.cityName}(${cityContext.countryLabel} ${cityContext.region})를 기준으로 시작할게요. 여행 기간을 먼저 골라주세요.`
+      : `${basisLabel} 기준 테마로 시작할게요. 여행 기간을 먼저 골라주세요.`,
   },
 ]
 

@@ -10,6 +10,7 @@ export const canonicalRoutePaths = {
   planner: '/planner',
   mypage: '/mypage',
   preferences: '/preferences',
+  admin: '/admin',
 } as const
 
 export const routeAliases = {
@@ -24,6 +25,7 @@ const canonicalPathViews = new Map<string, View>([
   [canonicalRoutePaths.planner, 'planner'],
   [canonicalRoutePaths.mypage, 'mypage'],
   [canonicalRoutePaths.preferences, 'preferences'],
+  [canonicalRoutePaths.admin, 'admin'],
   [routeAliases.savedPlans, 'mypage'],
 ])
 
@@ -62,6 +64,7 @@ export const getPathForView = (view: View, planId?: string) => {
     case 'planner':
     case 'mypage':
     case 'preferences':
+    case 'admin':
       return canonicalRoutePaths[view]
     case 'chat':
       return canonicalRoutePaths.planner
@@ -122,6 +125,10 @@ export const getGuardRedirectPath = ({
 
   if (!isAuthenticated) {
     return canonicalRoutePaths.auth
+  }
+
+  if (canonicalView === 'admin') {
+    return null
   }
 
   if (canonicalView === 'onboarding') {

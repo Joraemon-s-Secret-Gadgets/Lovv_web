@@ -6,12 +6,12 @@ export type CityCoverImage = {
 export type FestivalThemeChoice = 'undecided' | 'include' | 'exclude'
 
 export type ThemeId =
-  | 'hot_spring_rest'
+  | 'healing_rest'
   | 'sea_coast'
   | 'history_tradition'
   | 'food_local'
   | 'nature_trekking'
-  | 'art_emotion'
+  | 'art_sense'
 
 export type PreferenceProfileSource = 'onboarding' | 'preference_edit' | 'legacy_migration'
 
@@ -99,6 +99,7 @@ export type PlanDraft = {
   summary: string
   days: PlanDay[]
   stops: PlanStop[]
+  userNotice?: string[]
 }
 
 export type SavedPlanLike = 'like' | null
@@ -136,12 +137,15 @@ export type SocialAuthProvider = 'google' | 'kakao'
 
 export type AuthProvider = SocialAuthProvider | 'cognito'
 
+export type LovvRole = 'R-USER' | 'R-ADMIN'
+
 export type LovvUser = {
   id: string
   name: string
   email: string
   avatarInitial: string
   provider: AuthProvider
+  roles?: LovvRole[]
 }
 
 export type View =
@@ -156,3 +160,4 @@ export type View =
   | 'preferences'
   | 'preferenceEdit'
   | 'themeDetail'
+  | 'admin'

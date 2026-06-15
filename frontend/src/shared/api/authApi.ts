@@ -4,7 +4,7 @@
  * @lastModified 2026-06-12
  */
 
-import type { AuthProvider, LovvUser, PreferenceProfile, SocialAuthProvider } from '../types/app'
+import type { AuthProvider, LovvRole, LovvUser, PreferenceProfile, SocialAuthProvider } from '../types/app'
 import { adaptPreferenceApiRecord, type PreferenceApiRecord } from './preferencesApi'
 
 export const authApiEndpoints = {
@@ -79,6 +79,7 @@ export type AuthApiState = {
 }
 
 const validAuthProviders = new Set<AuthProvider>(['google', 'kakao', 'cognito'])
+const validRoles = new Set<LovvRole>(['R-USER', 'R-ADMIN'])
 
 const readString = (...values: unknown[]) =>
   values.find((value): value is string => typeof value === 'string' && value.trim().length > 0)?.trim() ?? ''
@@ -98,6 +99,12 @@ const readProvider = (...values: unknown[]) => {
   )
 
   return provider ?? null
+}
+
+const readRoles = (...values: unknown[]): LovvRole[] => {
+  const roles = values.find(Array.isArray) ?? []
+
+  return roles.filter((role): role is LovvRole => typeof role === 'string' && validRoles.has(role as LovvRole))
 }
 
 const avatarInitialFrom = (...values: unknown[]) => {
@@ -133,12 +140,15 @@ export const adaptAuthApiUserRecord = (
   const name = readString(record.name, record.displayName, record.display_name, record.email) || 'Lovv User'
   const email = readString(record.email)
 
+  const roles = readRoles(record.roles)
+
   return {
     id,
     name,
     email,
     avatarInitial: avatarInitialFrom(name, email, provider),
     provider,
+    ...(roles.length > 0 ? { roles } : {}),
   }
 }
 
