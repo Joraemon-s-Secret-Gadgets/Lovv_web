@@ -8,6 +8,8 @@ type PlanDetailViewProps = {
   currentPlanTitle: string
   planDraft: PlanDraft
   plannerBasisLabel: string
+  cityImageUrl?: string
+  destinationName?: string
   planId: string
   planLike: SavedPlanLike
   onSelectSavedPlanLike: (planId: string, like: Exclude<SavedPlanLike, null>) => void
@@ -16,6 +18,7 @@ type PlanDetailViewProps = {
   isSavedPlanDetailLoading?: boolean
   saveGeneratedPlan: () => void
   isCurrentPlanSaved: boolean
+  isPlanSaving?: boolean
   savedPlanDeletePending?: boolean
   onDeleteSavedPlan: (planId: string, options?: { navigateToMyPage?: boolean }) => void
   openMyPage: () => void
@@ -29,6 +32,8 @@ export function PlanDetailView({
   currentPlanTitle,
   planDraft,
   plannerBasisLabel,
+  cityImageUrl,
+  destinationName,
   planId,
   planLike,
   onSelectSavedPlanLike,
@@ -37,6 +42,7 @@ export function PlanDetailView({
   isSavedPlanDetailLoading = false,
   saveGeneratedPlan,
   isCurrentPlanSaved,
+  isPlanSaving = false,
   savedPlanDeletePending = false,
   onDeleteSavedPlan,
   openMyPage,
@@ -58,10 +64,10 @@ export function PlanDetailView({
               Plan detail
             </p>
             <h1 className="mt-4 break-keep text-[36px] font-black leading-[46px] text-[#33271E] max-sm:text-[28px] max-sm:leading-9">
-              저장 일정을 불러오고 있어요
+              일정 상세를 불러오고 있어요
             </h1>
             <p className="mt-5 break-keep text-sm font-semibold leading-6 text-[#33271E]">
-              저장된 일정 상세를 확인한 뒤 화면을 열어둘게요.
+              잠시만 기다려 주세요.
             </p>
           </div>
         </section>
@@ -105,21 +111,47 @@ export function PlanDetailView({
           aria-labelledby="plan-detail-title"
           className="overflow-hidden rounded-[24px] border border-transparent bg-[#fffffa] shadow-[0_18px_48px_-32px_rgba(51,39,30,0.35)]"
         >
+          {cityImageUrl && (
+            <div className="relative h-52 w-full overflow-hidden max-sm:h-36">
+              <img
+                src={cityImageUrl}
+                alt={currentPlanTitle}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#33271E]/40 to-transparent" />
+            </div>
+          )}
           <div className="bg-[#FFF0E4] px-8 py-7 max-sm:px-5">
             <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">
               <div className="min-w-0">
                 <p className="text-sm font-black uppercase tracking-[0.18em] text-[#F36B12]">
                   Plan detail
                 </p>
-                <h1
-                  id="plan-detail-title"
-                  className="mt-4 break-keep text-[34px] font-black leading-[44px] text-[#33271E] max-sm:text-[28px] max-sm:leading-9"
-                >
-                  세부 일정 상세
-                </h1>
-                <h2 className="mt-3 break-keep text-[30px] font-black leading-10 text-[#33271E] max-sm:text-2xl max-sm:leading-8">
-                  {currentPlanTitle}
-                </h2>
+                {destinationName ? (
+                  <>
+                    <h1
+                      id="plan-detail-title"
+                      className="mt-4 break-keep text-[34px] font-black leading-[44px] text-[#33271E] max-sm:text-[28px] max-sm:leading-9"
+                    >
+                      {destinationName}
+                    </h1>
+                    <h2 className="mt-2 break-keep text-xl font-bold leading-8 text-[#33271E]/70 max-sm:text-lg">
+                      {currentPlanTitle}
+                    </h2>
+                  </>
+                ) : (
+                  <>
+                    <h1
+                      id="plan-detail-title"
+                      className="mt-4 break-keep text-[34px] font-black leading-[44px] text-[#33271E] max-sm:text-[28px] max-sm:leading-9"
+                    >
+                      세부 일정 상세
+                    </h1>
+                    <h2 className="mt-3 break-keep text-[30px] font-black leading-10 text-[#33271E] max-sm:text-2xl max-sm:leading-8">
+                      {currentPlanTitle}
+                    </h2>
+                  </>
+                )}
                 <p className="mt-4 max-w-[760px] break-keep text-sm font-semibold leading-7 text-[#33271E]">
                   {planDraft.summary}
                 </p>
@@ -247,10 +279,22 @@ export function PlanDetailView({
                 <button
                   type="button"
                   onClick={saveGeneratedPlan}
-                  disabled={isCurrentPlanSaved}
-                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] disabled:cursor-default disabled:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                  disabled={isCurrentPlanSaved || isPlanSaving}
+                  className={`inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                    isCurrentPlanSaved
+                      ? 'disabled:cursor-default disabled:bg-[#FF8A2A]'
+                      : isPlanSaving
+                      ? 'disabled:cursor-wait disabled:opacity-75'
+                      : ''
+                  }`}
                 >
-                  {isCurrentPlanSaved ? '마이페이지에 저장됨' : '마이페이지에 저장'}
+                  {isPlanSaving && (
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-[#33271E]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  )}
+                  {isCurrentPlanSaved ? '마이페이지에 저장됨' : isPlanSaving ? '저장 중...' : '마이페이지에 저장'}
                 </button>
                 {isCurrentPlanSaved ? (
                   <button
