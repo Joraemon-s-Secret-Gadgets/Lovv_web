@@ -307,6 +307,16 @@ function App() {
     [],
   )
   const [plannerPreferenceProfile, setPlannerPreferenceProfile] = useState(() => selectedPreferenceProfile)
+
+  // Keep plannerPreferenceProfile in sync when the global profile changes (e.g. after session restore).
+  // Only sync when the planner is idle (no city context and no stops generated yet).
+  useEffect(() => {
+    if (!plannerCityContext && planDraft.stops.length === 0) {
+      setPlannerPreferenceProfile(selectedPreferenceProfile)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPreferenceProfile])
+
   const plannerPreferences = useMemo(
     () => getPreferencesForProfile(plannerPreferenceProfile),
     [plannerPreferenceProfile],
@@ -322,6 +332,7 @@ function App() {
     createInitialChatMessages(selectedPreferenceLabel),
   )
   const [planDraft, setPlanDraft] = useState<PlanDraft>(() => createPlanDraft(selectedPreference))
+  const [generatedPlanDestinationName, setGeneratedPlanDestinationName] = useState<string | null>(null)
   const [isPlannerLoading, setIsPlannerLoading] = useState(false)
   const [smallCityCatalogState] = useState(() => createStaticSmallCityCatalogState())
   const [cityMapCountry, setCityMapCountry] = useState<SmallCityCountry>('KR')
@@ -1972,7 +1983,7 @@ function App() {
         ? '선택한 축제 데이터가 월별로 달라요. 여행 예정 월을 골라주세요.'
         : nextExtraction
           ? createAssistantReply(plannerBasisLabel, nextDraft, nextExtraction, plannerCityContext)
-        : `${nextSelectedDurationLabel}로 잡아둘게요. 이제 동행, 관심사, 걷는 정도를 한 문장으로 알려주세요.`
+        : `${nextSelectedDurationLabel}로 잡아둘게요. 여행하는 달을 알려주세요.`
 
       setChatMessages((currentMessages) => [
         ...currentMessages,
@@ -2082,7 +2093,7 @@ function App() {
         entryType: 'chat',
         country: plannerCityContext?.country || 'KR',
         tripType: mappedTripType,
-        themes: plannerPreferenceProfile.selectedThemeIds,
+        themes: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
         includeFestivals: false,
         destinationId: plannerCityContext?.agentCoreId ?? plannerCityContext?.cityId,
         naturalLanguageQuery: trimmedMessage,
@@ -2092,12 +2103,22 @@ function App() {
 
       const realDraft = mapRecommendationToDraft(response)
 
+      // 백엔드가 준 userNotice가 itinerary.summary와 겹치는 경우 중복 표시 방지
+      const filteredNotices = (realDraft.userNotice || []).filter(
+        (notice) => notice !== response.itinerary?.summary
+      )
+
+      const userNoticeText =
+        filteredNotices.length > 0
+          ? '\n\n' + filteredNotices.join('\n')
+          : ''
+
       setChatMessages((currentMessages) => [
         ...currentMessages.filter((m) => m.id !== assistantLoadingMessageId),
         {
           id: createMessageId('assistant', currentMessages.length),
           role: 'assistant',
-          content: `${response.itinerary?.summary || '일정이 성공적으로 생성되었습니다.'} 지도를 참고하여 일정을 둘러보세요.`,
+          content: `${response.itinerary?.summary || '일정이 성공적으로 생성되었습니다.'} 지도를 참고하여 일정을 둘러보세요.${userNoticeText}`,
         },
       ])
 
@@ -2105,6 +2126,10 @@ function App() {
       setPlannerConditionExtraction(nextExtraction)
       setPlanDraft(realDraft)
       setSavedPlanNotice(null)
+      const destName = response.destination?.name
+      if (destName && !String(destName).toLowerCase().includes('mock')) {
+        setGeneratedPlanDestinationName(destName)
+      }
     } catch (err) {
       console.error('API integration failed, falling back to mock logic:', err)
       
@@ -2122,7 +2147,7 @@ function App() {
         {
           id: createMessageId('assistant', currentMessages.length),
           role: 'assistant',
-          content: '추천 서버 연동 과정에서 지연이 발생하여, 오프라인으로 준비된 추천 일정 초안을 불러왔습니다. 상세 일정 수정을 시작해 보세요!',
+          content: '추천 서버 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요.',
         },
       ])
 
@@ -2262,6 +2287,8 @@ function App() {
               currentPlanTitle={activePlanDetailTitle}
               planDraft={activePlanDetailDraft}
               plannerBasisLabel={activePlanDetailBasisLabel}
+              cityImageUrl={plannerCityContext?.imageUrl ?? undefined}
+              destinationName={plannerCityContext?.cityName ?? generatedPlanDestinationName ?? undefined}
               planId={activePlanDetailId}
               planLike={activeSavedPlanDetailLike}
               onSelectSavedPlanLike={selectSavedPlanLike}
