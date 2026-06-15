@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import type { MouseEvent } from 'react'
 import type { LovvUser, SavedPlanLike, SavedPlan } from '../../shared/types/app'
 import { SavedPlanLikeControls } from '../saved-plans/SavedPlanLikeControls'
@@ -43,6 +44,10 @@ export function MyPageView({
   openPreferenceEdit,
   signOut,
 }: MyPageViewProps) {
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [])
+
   const currentUserName = currentUser?.name?.trim() || '사용자'
 
   return (

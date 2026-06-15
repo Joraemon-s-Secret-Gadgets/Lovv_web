@@ -1,5 +1,5 @@
 import foxFaceImage from '../../assets/foxhead-smile.png'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
 import {
   durationGuidePrompts,
@@ -138,6 +138,7 @@ type PlannerWorkspaceProps = {
   openMyPage: () => void
   savedPlanNotice: string | null
   isPlannerLoading: boolean
+  planDestinationName?: string
 }
 
 export function PlannerWorkspace({
@@ -173,7 +174,26 @@ export function PlannerWorkspace({
   openMyPage,
   savedPlanNotice,
   isPlannerLoading,
+  planDestinationName,
 }: PlannerWorkspaceProps) {
+  const chatScrollRef = useRef<HTMLDivElement | null>(null)
+  const planResultPanelRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const el = chatScrollRef.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [chatMessages])
+
+  useEffect(() => {
+    if (!isPlannerReady) return
+    const el = planResultPanelRef.current
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [isPlannerReady])
+
   const renderPlannerStateHeader = () => (
     <section
       aria-label="Planner State"
@@ -259,6 +279,7 @@ export function PlannerWorkspace({
       selected?: boolean
       onClick: () => void
     }[],
+    optionsClassName = 'flex flex-wrap gap-2',
   ) => (
     <div className="flex max-w-[760px] items-start gap-3">
       <span
@@ -274,7 +295,7 @@ export function PlannerWorkspace({
         <div className="inline-flex max-w-full rounded-[16px] border border-transparent bg-[#fffffa] px-5 py-4 text-sm font-bold leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-6">
           {promptText}
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className={`mt-3 ${optionsClassName}`}>
           {options.map((option) => (
             <button
               key={option.key}
@@ -326,6 +347,7 @@ export function PlannerWorkspace({
         </div>
       </header>
       <div
+        ref={chatScrollRef}
         role="log"
         aria-label="AI 일정 대화"
         className="flex-1 space-y-5 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,250,0.94),rgba(255,248,246,0.88))] px-6 py-6"
@@ -409,6 +431,7 @@ export function PlannerWorkspace({
                 selected: selectedTravelMonth === month,
                 onClick: () => submitChatMessage(getTravelMonthLabel(month)),
               })),
+              'grid grid-cols-6 gap-2',
             )
           : null}
 
@@ -587,6 +610,7 @@ export function PlannerWorkspace({
 
     return (
       <section
+        ref={planResultPanelRef}
         aria-labelledby="generated-plan-title"
         className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28 xl:min-h-0"
       >
@@ -598,7 +622,7 @@ export function PlannerWorkspace({
                 id="generated-plan-title"
                 className="mt-2 break-keep text-2xl font-bold leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7"
               >
-                생성된 일정 요약
+                {planDestinationName ?? '생성된 일정 요약'}
               </h3>
               <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
                 챗봇에서 정리된 조건을 바탕으로, 핵심 흐름만 압축해서 보여줍니다.

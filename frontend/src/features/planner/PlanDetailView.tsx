@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import type { PlanDraft, SavedPlanLike } from '../../shared/types/app'
 import { SavedPlanLikeControls } from '../saved-plans/SavedPlanLikeControls'
 
@@ -48,7 +49,11 @@ export function PlanDetailView({
   openMyPage,
   savedPlanNotice,
 }: PlanDetailViewProps) {
-    if (isSavedPlanDetailLoading) {
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [])
+
+  if (isSavedPlanDetailLoading) {
       return (
         <section
           role="status"
