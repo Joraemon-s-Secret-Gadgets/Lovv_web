@@ -134,6 +134,7 @@ type PlannerWorkspaceProps = {
   resetPlannerFlow: () => void
   saveGeneratedPlan: () => void
   isCurrentPlanSaved: boolean
+  isPlanSaving?: boolean
   openMyPage: () => void
   savedPlanNotice: string | null
   isPlannerLoading: boolean
@@ -168,6 +169,7 @@ export function PlannerWorkspace({
   resetPlannerFlow,
   saveGeneratedPlan,
   isCurrentPlanSaved,
+  isPlanSaving = false,
   openMyPage,
   savedPlanNotice,
   isPlannerLoading,
@@ -358,7 +360,7 @@ export function PlannerWorkspace({
                   {isAssistant ? 'Lovv AI' : '내 조건'}
                 </p>
                 <div
-                  className={`break-keep rounded-[20px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-[0_16px_34px_-26px_rgba(51,39,30,0.28)] max-sm:text-[13px] max-sm:leading-6 ${
+                  className={`break-keep whitespace-pre-wrap rounded-[20px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-[0_16px_34px_-26px_rgba(51,39,30,0.28)] max-sm:text-[13px] max-sm:leading-6 ${
                     isAssistant
                       ? 'border-[#F3B489]/30 bg-white'
                       : 'ml-auto border-transparent bg-[#F36B12] font-bold'
@@ -573,7 +575,7 @@ export function PlannerWorkspace({
               {shouldShowFestivalPrompt
                 ? '축제 테마를 포함할지 먼저 골라주세요.'
                 : shouldShowDurationPrompt
-                  ? '당일치기부터 4박 5일까지 여행 기간을 선택해 주세요.'
+                  ? '당일치기부터 2박 3일까지 여행 기간을 선택해 주세요.'
                   : shouldShowTravelMonthPrompt
                     ? '여행 예정 월을 선택해 주세요.'
                   : '동행, 관심사, 걷는 정도를 자연어로 입력해 주세요.'}
@@ -641,7 +643,7 @@ export function PlannerWorkspace({
                 {currentPlanTitle}
               </h4>
               <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
-                채팅 옆에서는 전체 방향만 빠르게 확인하고, 장소별 시간표와 추천 이유는 세부 화면에서 확인합니다.
+                여기서는 코스를 빠르게 확인하고, 추천 이유는 세부 일정에서 확인합니다.
               </p>
             </div>
             <span className="rounded-full bg-[#FFF0E4] px-4 py-2 text-[12px] font-bold text-[#33271E]">
@@ -731,10 +733,22 @@ export function PlannerWorkspace({
             <button
               type="button"
               onClick={saveGeneratedPlan}
-              disabled={isCurrentPlanSaved}
-              className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-default disabled:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+              disabled={isCurrentPlanSaved || isPlanSaving}
+              className={`inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                isCurrentPlanSaved
+                  ? 'disabled:cursor-default disabled:bg-[#FF8A2A]'
+                  : isPlanSaving
+                  ? 'disabled:cursor-wait disabled:opacity-75'
+                  : ''
+              }`}
             >
-              {isCurrentPlanSaved ? '마이페이지에 저장됨' : '마이페이지에 저장'}
+              {isPlanSaving && (
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-[#33271E]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              {isCurrentPlanSaved ? '마이페이지에 저장됨' : isPlanSaving ? '저장 중...' : '마이페이지에 저장'}
             </button>
             <button
               type="button"

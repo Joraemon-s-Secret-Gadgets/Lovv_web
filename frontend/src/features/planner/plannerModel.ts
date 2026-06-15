@@ -19,7 +19,7 @@ import type {
   ThemeId,
 } from '../../shared/types/app'
 
-export const durationGuidePrompts = ['당일치기', '1박 2일', '2박 3일', '3박 4일', '4박 5일']
+export const durationGuidePrompts = ['당일치기', '1박 2일', '2박 3일']
 
 export const travelMonthPrompts = Array.from({ length: 12 }, (_, index) => index + 1)
 
@@ -427,14 +427,10 @@ export const createInitialChatMessages = (
 export const createAssistantReply = (
   basisLabel: string,
   draft: PlanDraft,
-  extraction: MockConditionExtraction,
+  _extraction: MockConditionExtraction,
   cityContext: PlannerCityContext | null = null,
 ) =>
-  `${cityContext ? `${cityContext.cityName} 중심으로` : `${basisLabel} 기준으로`} ${draft.durationLabel} 흐름을 잡아볼게요. ${draft.intensityLabel}으로 ${formatThemeList(extraction.activeRequiredThemes)} 장면을 먼저 배치했습니다.${
-    extraction.softPreferences.length > 0
-      ? ` 현재 입력에서는 ${extraction.softPreferences.slice(0, 2).join(', ')} 조건을 함께 봅니다.`
-      : ''
-  }`
+  `${cityContext ? `${cityContext.cityName} 중심으로` : `${basisLabel} 기준으로`} 알맞은 ${draft.durationLabel} 일정을 구성해 보겠습니다.\n참고할 내용이 있으면 알려주세요.`
 
 export const createPlanId = (
   basisLabel: string,

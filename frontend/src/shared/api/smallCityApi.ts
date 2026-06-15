@@ -61,6 +61,7 @@ export type SmallCityApiRecord = {
   festival_count?: number
   festivals?: SmallCityApiPlaceRecord[]
   internal_meta?: SmallCityApiInternalMeta
+  agentCoreId?: string
 }
 
 export type SmallCityApiListResponse = {
@@ -349,6 +350,7 @@ const normalizeSmallCityApiRecord = (
       region,
       nameKo,
       nameLocal: normalizeOptionalString(record.name_local),
+      agentCoreId: record.agentCoreId,
       latitude: record.latitude,
       longitude: record.longitude,
       themes,
