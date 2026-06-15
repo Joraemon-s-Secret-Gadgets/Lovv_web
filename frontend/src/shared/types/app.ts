@@ -99,6 +99,7 @@ export type PlanDraft = {
   summary: string
   days: PlanDay[]
   stops: PlanStop[]
+  userNotice?: string[]
 }
 
 export type SavedPlanLike = 'like' | null

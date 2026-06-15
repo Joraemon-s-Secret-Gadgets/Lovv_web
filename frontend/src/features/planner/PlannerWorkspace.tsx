@@ -623,6 +623,14 @@ export function PlannerWorkspace({
               </span>
             ))}
           </div>
+
+          {planDraft.userNotice && planDraft.userNotice.length > 0 && (
+            <div className="mt-4 rounded-[12px] bg-[#FFF3E0] px-4 py-3 text-[13px] leading-5 text-[#7A4F2D]">
+              {planDraft.userNotice.map((notice, i) => (
+                <p key={i}>{notice}</p>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
