@@ -164,6 +164,7 @@ export const createStaticSmallCityApiRecord = (city: SmallCity): SmallCityApiRec
   region: city.region,
   name_ko: city.nameKo,
   name_local: city.nameLocal ?? null,
+  agentCoreId: city.agentCoreId,
   latitude: city.latitude,
   longitude: city.longitude,
   themes: city.themes,

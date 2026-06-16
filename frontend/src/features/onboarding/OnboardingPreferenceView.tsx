@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import logoImage from '../../assets/lovv-logo.png'
 import type { CityCoverImage, CountryTrack, Preference, ThemeId } from '../../shared/types/app'
 import { countryTrackOptions, getPreferenceByThemeId, themeDefinitions } from './preferenceModel'
@@ -57,6 +58,10 @@ export function OnboardingPreferenceView({
   onPreviewTrayOpenChange,
   onSelectPreviewImage,
 }: OnboardingPreferenceViewProps) {
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [])
+
   return (
     <section
               id="onboarding"

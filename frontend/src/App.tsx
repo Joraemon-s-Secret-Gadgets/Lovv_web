@@ -20,7 +20,6 @@ import {
   getDefaultAuthRuntimeMode,
 } from './features/auth/authFlow'
 import { getAuthExceptionNotice, type AuthExceptionNotice } from './features/auth/authException'
-import { AdminView } from './features/admin/AdminView'
 import {
   clearPendingOAuthLogins,
   createAuthLoginRequestFromCallback,
@@ -108,12 +107,6 @@ import {
   requestAuthSession,
   requestCognitoBridgeSession,
 } from './shared/api/authApi'
-import {
-  AdminApiRequestError,
-  requestAdminUserDetail,
-  requestAdminUsers,
-  type AdminUser,
-} from './shared/api/adminApi'
 import {
   requestCreateSavedPlan,
   requestDeleteSavedPlan,
@@ -257,12 +250,6 @@ function App() {
   const [themeSelectionNotice, setThemeSelectionNotice] = useState<string | null>(null)
   const [isPreferenceSaving, setIsPreferenceSaving] = useState(false)
   const [authFlowNotice, setAuthFlowNotice] = useState<AuthExceptionNotice | null>(null)
-  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
-  const [adminListStatus, setAdminListStatus] =
-    useState<'idle' | 'loading' | 'empty' | 'success' | 'error' | 'unauthorized' | 'forbidden'>('idle')
-  const [selectedAdminUserId, setSelectedAdminUserId] = useState('')
-  const [selectedAdminUser, setSelectedAdminUser] = useState<AdminUser | null>(null)
-  const [adminDetailStatus, setAdminDetailStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [signInPendingProvider, setSignInPendingProvider] = useState<SocialAuthProvider | null>(null)
   const [activeLegalNoticeType, setActiveLegalNoticeType] = useState<LegalNoticeType | null>(null)
   const [preparedAuthRedirectUrls, setPreparedAuthRedirectUrls] =
@@ -307,6 +294,16 @@ function App() {
     [],
   )
   const [plannerPreferenceProfile, setPlannerPreferenceProfile] = useState(() => selectedPreferenceProfile)
+
+  // Keep plannerPreferenceProfile in sync when the global profile changes (e.g. after session restore).
+  // Only sync when the planner is idle (no city context and no stops generated yet).
+  useEffect(() => {
+    if (!plannerCityContext && planDraft.stops.length === 0) {
+      setPlannerPreferenceProfile(selectedPreferenceProfile)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPreferenceProfile])
+
   const plannerPreferences = useMemo(
     () => getPreferencesForProfile(plannerPreferenceProfile),
     [plannerPreferenceProfile],
@@ -322,7 +319,9 @@ function App() {
     createInitialChatMessages(selectedPreferenceLabel),
   )
   const [planDraft, setPlanDraft] = useState<PlanDraft>(() => createPlanDraft(selectedPreference))
+  const [generatedPlanDestinationName, setGeneratedPlanDestinationName] = useState<string | null>(null)
   const [isPlannerLoading, setIsPlannerLoading] = useState(false)
+  const [isSavingPlan, setIsSavingPlan] = useState(false)
   const [smallCityCatalogState] = useState(() => createStaticSmallCityCatalogState())
   const [cityMapCountry, setCityMapCountry] = useState<SmallCityCountry>('KR')
   const [cityMapQuery, setCityMapQuery] = useState('')
@@ -406,7 +405,6 @@ function App() {
     ? `${plannerBasisLabel} ${planDraft.durationLabel} 초안`
     : `${plannerBasisLabel} ${planDraft.durationLabel} 초안`
   const routePlanId = getPlanDetailRouteId(location.pathname)
-  const isAdminUser = Boolean(currentUser?.roles?.includes('R-ADMIN'))
   const savedPlanForRoute = useMemo(
     () => (routePlanId ? savedPlans.find((plan) => plan.id === routePlanId) ?? null : null),
     [routePlanId, savedPlans],
@@ -626,108 +624,6 @@ function App() {
     shouldHandleAuthCallback,
   ])
 
-  useEffect(() => {
-    if (activeView !== 'admin' || isAuthSessionRestoring) {
-      return undefined
-    }
-
-    let isActive = true
-
-    if (!currentUser) {
-      queueMicrotask(() => {
-        if (!isActive) {
-          return
-        }
-
-        setAdminUsers([])
-        setSelectedAdminUser(null)
-        setSelectedAdminUserId('')
-        setAdminListStatus('unauthorized')
-      })
-      return () => {
-        isActive = false
-      }
-    }
-
-    if (!isAdminUser) {
-      queueMicrotask(() => {
-        if (!isActive) {
-          return
-        }
-
-        setAdminUsers([])
-        setSelectedAdminUser(null)
-        setSelectedAdminUserId('')
-        setAdminListStatus('forbidden')
-      })
-      return () => {
-        isActive = false
-      }
-    }
-
-    queueMicrotask(() => {
-      if (!isActive) {
-        return
-      }
-
-      setAdminListStatus('loading')
-      setSelectedAdminUser(null)
-      setSelectedAdminUserId('')
-      setAdminDetailStatus('idle')
-    })
-
-    requestAdminUsers({ accessToken: authAccessToken })
-      .then((users) => {
-        if (!isActive) {
-          return
-        }
-
-        setAdminUsers(users)
-        setAdminListStatus(users.length > 0 ? 'success' : 'empty')
-      })
-      .catch((error) => {
-        if (!isActive) {
-          return
-        }
-
-        if (error instanceof AdminApiRequestError && error.statusCode === 401) {
-          setAdminListStatus('unauthorized')
-        } else if (error instanceof AdminApiRequestError && error.statusCode === 403) {
-          setAdminListStatus('forbidden')
-        } else {
-          setAdminListStatus('error')
-        }
-      })
-
-    return () => {
-      isActive = false
-    }
-  }, [activeView, authAccessToken, currentUser, isAdminUser, isAuthSessionRestoring])
-
-  const selectAdminUser = (userId: string) => {
-    if (!isAdminUser) {
-      return
-    }
-
-    setSelectedAdminUserId(userId)
-    setAdminDetailStatus('loading')
-
-    requestAdminUserDetail(userId, { accessToken: authAccessToken })
-      .then((user) => {
-        if (!user) {
-          setSelectedAdminUser(null)
-          setAdminDetailStatus('error')
-          return
-        }
-
-        setSelectedAdminUser(user)
-        setAdminDetailStatus('success')
-      })
-      .catch(() => {
-        setSelectedAdminUser(null)
-        setAdminDetailStatus('error')
-      })
-  }
 
   useEffect(() => {
     // API mode restores the Lovv session from the HttpOnly refresh cookie.
@@ -751,6 +647,15 @@ function App() {
 
         if (session.preferenceProfile) {
           setSelectedPreferenceProfile(session.preferenceProfile)
+          storePreferenceProfile(session.preferenceProfile)
+        } else if (session.onboardingCompleted) {
+          // Backend confirmed onboarding done but returned no preference
+          // (e.g. empty mappedThemes or SameSite cookie issue on prior request).
+          // Fall back to locally cached preference to avoid defaulting to 온천·휴양.
+          const localProfile = readStoredPreferenceProfile()
+          if (localProfile) {
+            setSelectedPreferenceProfile(localProfile)
+          }
         }
       })
       .catch(() => {
@@ -1025,6 +930,12 @@ function App() {
 
         if (session.preferenceProfile) {
           setSelectedPreferenceProfile(session.preferenceProfile)
+          storePreferenceProfile(session.preferenceProfile)
+        } else if (session.onboardingCompleted) {
+          const localProfile = readStoredPreferenceProfile()
+          if (localProfile) {
+            setSelectedPreferenceProfile(localProfile)
+          }
         }
 
         setIsAuthSessionRestoring(false)
@@ -1132,6 +1043,12 @@ function App() {
 
         if (session.preferenceProfile) {
           setSelectedPreferenceProfile(session.preferenceProfile)
+          storePreferenceProfile(session.preferenceProfile)
+        } else if (session.onboardingCompleted) {
+          const localProfile = readStoredPreferenceProfile()
+          if (localProfile) {
+            setSelectedPreferenceProfile(localProfile)
+          }
         }
 
         setIsAuthSessionRestoring(false)
@@ -1193,6 +1110,7 @@ function App() {
     setChatMessages(createInitialChatMessages(nextPlannerLabel, cityContext, shouldAskFestival))
     setPlanDraft(createPlanDraft(preference, nextPlannerContextText, nextFestivalThemeChoice, cityContext))
     setSavedPlanNotice(null)
+    setGeneratedPlanDestinationName(null)
   }
 
   const createGeneratedPlanSavePayload = (
@@ -1204,7 +1122,7 @@ function App() {
     title: plan.title,
     summary: plan.summary,
     destination: {
-      destinationId: plannerCityContext?.cityId ?? sourceRecommendationId,
+      destinationId: plannerCityContext?.agentCoreId ?? plannerCityContext?.cityId ?? sourceRecommendationId,
       name: plannerCityContext?.cityName ?? plannerBasisLabel,
       country: plannerCityContext?.country ?? 'KR',
       region: plannerCityContext?.region ?? plannerBasisLabel,
@@ -1239,6 +1157,7 @@ function App() {
     }
 
     setSavedPlanNotice(null)
+    setIsSavingPlan(true)
 
     const themeLabels = plannerCityContext
       ? plannerCityContext.themes
@@ -1281,6 +1200,7 @@ function App() {
         }
       } catch {
         setSavedPlanNotice('일정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.')
+        setIsSavingPlan(false)
         return
       }
     }
@@ -1319,6 +1239,7 @@ function App() {
       })
     }
     setSavedPlanNotice('마이페이지에서 다시 확인할 수 있어요.')
+    setIsSavingPlan(false)
   }
 
   const removeSavedPlanFromLocalState = (planId: string) => {
@@ -1972,7 +1893,7 @@ function App() {
         ? '선택한 축제 데이터가 월별로 달라요. 여행 예정 월을 골라주세요.'
         : nextExtraction
           ? createAssistantReply(plannerBasisLabel, nextDraft, nextExtraction, plannerCityContext)
-        : `${nextSelectedDurationLabel}로 잡아둘게요. 이제 동행, 관심사, 걷는 정도를 한 문장으로 알려주세요.`
+        : `${nextSelectedDurationLabel}로 잡아둘게요. 여행하는 달을 알려주세요.`
 
       setChatMessages((currentMessages) => [
         ...currentMessages,
@@ -2082,7 +2003,7 @@ function App() {
         entryType: 'chat',
         country: plannerCityContext?.country || 'KR',
         tripType: mappedTripType,
-        themes: plannerPreferenceProfile.selectedThemeIds,
+        themes: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
         includeFestivals: false,
         destinationId: plannerCityContext?.agentCoreId ?? plannerCityContext?.cityId,
         naturalLanguageQuery: trimmedMessage,
@@ -2092,12 +2013,22 @@ function App() {
 
       const realDraft = mapRecommendationToDraft(response)
 
+      // 백엔드가 준 userNotice가 itinerary.summary와 겹치는 경우 중복 표시 방지
+      const filteredNotices = (realDraft.userNotice || []).filter(
+        (notice) => notice !== response.itinerary?.summary
+      )
+
+      const userNoticeText =
+        filteredNotices.length > 0
+          ? '\n\n' + filteredNotices.join('\n')
+          : ''
+
       setChatMessages((currentMessages) => [
         ...currentMessages.filter((m) => m.id !== assistantLoadingMessageId),
         {
           id: createMessageId('assistant', currentMessages.length),
           role: 'assistant',
-          content: `${response.itinerary?.summary || '일정이 성공적으로 생성되었습니다.'} 지도를 참고하여 일정을 둘러보세요.`,
+          content: `${response.itinerary?.summary || '일정이 성공적으로 생성되었습니다.'} 지도를 참고하여 일정을 둘러보세요.${userNoticeText}`,
         },
       ])
 
@@ -2105,6 +2036,10 @@ function App() {
       setPlannerConditionExtraction(nextExtraction)
       setPlanDraft(realDraft)
       setSavedPlanNotice(null)
+      const destName = response.destination?.name
+      if (destName && !String(destName).toLowerCase().includes('mock')) {
+        setGeneratedPlanDestinationName(destName)
+      }
     } catch (err) {
       console.error('API integration failed, falling back to mock logic:', err)
       
@@ -2122,7 +2057,7 @@ function App() {
         {
           id: createMessageId('assistant', currentMessages.length),
           role: 'assistant',
-          content: '추천 서버 연동 과정에서 지연이 발생하여, 오프라인으로 준비된 추천 일정 초안을 불러왔습니다. 상세 일정 수정을 시작해 보세요!',
+          content: '추천 서버 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요.',
         },
       ])
 
@@ -2262,6 +2197,8 @@ function App() {
               currentPlanTitle={activePlanDetailTitle}
               planDraft={activePlanDetailDraft}
               plannerBasisLabel={activePlanDetailBasisLabel}
+              cityImageUrl={plannerCityContext?.imageUrl ?? undefined}
+              destinationName={plannerCityContext?.cityName ?? generatedPlanDestinationName ?? undefined}
               planId={activePlanDetailId}
               planLike={activeSavedPlanDetailLike}
               onSelectSavedPlanLike={selectSavedPlanLike}
@@ -2269,6 +2206,7 @@ function App() {
               savedPlanLikeError={getSavedPlanLikeError(activePlanDetailId)}
               isSavedPlanDetailLoading={isBackendRoutePlanLoading}
               saveGeneratedPlan={saveGeneratedPlan}
+              isPlanSaving={isSavingPlan}
               isCurrentPlanSaved={isActivePlanDetailSaved}
               savedPlanDeletePending={isSavedPlanDeletePending(activePlanDetailId)}
               onDeleteSavedPlan={deleteSavedPlan}
@@ -2295,15 +2233,6 @@ function App() {
               onDeleteSavedPlan={deleteSavedPlan}
               openPreferenceEdit={openPreferenceEdit}
               signOut={signOut}
-            />
-          ) : activeView === 'admin' ? (
-            <AdminView
-              status={adminListStatus === 'idle' ? 'loading' : adminListStatus}
-              users={adminUsers}
-              selectedUser={selectedAdminUser}
-              selectedUserId={selectedAdminUserId}
-              detailStatus={adminDetailStatus}
-              onSelectUser={selectAdminUser}
             />
           ) : (
             <PlannerWorkspace
@@ -2334,10 +2263,12 @@ function App() {
               toggleGeneratedPlanLike={toggleGeneratedPlanLike}
               resetPlannerFlow={() => resetPlannerFlow()}
               saveGeneratedPlan={saveGeneratedPlan}
+              isPlanSaving={isSavingPlan}
               isCurrentPlanSaved={isCurrentPlanSaved}
               openMyPage={openMyPage}
               savedPlanNotice={savedPlanNotice}
               isPlannerLoading={isPlannerLoading}
+              planDestinationName={plannerCityContext?.cityName ?? generatedPlanDestinationName ?? undefined}
             />
           )}
 

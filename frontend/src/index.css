@@ -120,15 +120,15 @@ body {
 .lovv-auth-left-panel {
   background:
     linear-gradient(180deg, rgb(255 255 250 / 0.96), rgb(255 239 228 / 0.92)),
-    repeating-linear-gradient(90deg, rgb(73 122 88 / 0.016) 0 1px, transparent 1px 96px),
-    repeating-linear-gradient(0deg, rgb(30 77 140 / 0.012) 0 1px, transparent 1px 104px);
+    repeating-linear-gradient(90deg, rgb(73 122 88 / 0.032) 0 1px, transparent 1px 76px),
+    repeating-linear-gradient(0deg, rgb(30 77 140 / 0.026) 0 1px, transparent 1px 84px);
 }
 
 .lovv-auth-story-panel {
   background:
     linear-gradient(180deg, rgb(255 255 250 / 0.9), rgb(242 248 241 / 0.88)),
-    repeating-linear-gradient(0deg, rgb(243 180 137 / 0.018) 0 1px, transparent 1px 108px),
-    repeating-linear-gradient(90deg, rgb(30 77 140 / 0.01) 0 1px, transparent 1px 132px);
+    repeating-linear-gradient(0deg, rgb(243 180 137 / 0.04) 0 1px, transparent 1px 88px),
+    repeating-linear-gradient(90deg, rgb(30 77 140 / 0.02) 0 1px, transparent 1px 120px);
 }
 
 .lovv-auth-liquid-shell {

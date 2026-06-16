@@ -1,3 +1,21 @@
+import busanImg from '../../assets/cities/busan.jpg'
+import gangneungImg from '../../assets/cities/gangneung.jpg'
+import gyeongjuImg from '../../assets/cities/gyeongju.jpg'
+import jejuImg from '../../assets/cities/jeju.jpg'
+import jeonjuImg from '../../assets/cities/jeonju.jpg'
+import onyangImg from '../../assets/cities/onyang.jpg'
+
+const cityNameImageMap: Record<string, string> = {
+  '경주': gyeongjuImg,
+  '아산': onyangImg,
+  '서귀포': jejuImg,
+  '성산': jejuImg,
+  '기장': busanImg,
+  '울주': busanImg,
+  '강릉': gangneungImg,
+  '전주': jeonjuImg,
+}
+
 export type SmallCityCountry = 'KR' | 'JP'
 
 export const smallCityThemes = ['온천', '바다', '미식', '전통', '자연', '예술', '축제', '산책'] as const
@@ -93,6 +111,7 @@ export type PlannerCityContext = {
   themes: SmallCityTheme[]
   routeSeed: string[]
   summary: string
+  imageUrl?: string
   festivals: SmallCityFestival[]
   festivalCount: number
   hasFestivalContent: boolean
@@ -762,6 +781,11 @@ export const createPlannerCityContext = (
     themes: city.themes,
     routeSeed: city.routeSeed,
     summary: city.summary,
+    imageUrl:
+      city.image ??
+      cityNameImageMap[city.nameKo] ??
+      detail?.placesByCategory['관광지']?.[0]?.imageUrl ??
+      undefined,
     festivals,
     festivalCount,
     hasFestivalContent: festivalCount > 0 || festivals.length > 0,

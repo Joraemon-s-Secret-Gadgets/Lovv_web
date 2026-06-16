@@ -2,6 +2,7 @@ import fireworkImage from '../../assets/cities/hero-firework.jpg'
 import seaHeroImage from '../../assets/cities/hero-sea.jpg'
 import townHeroImage from '../../assets/cities/hero-town.jpg'
 import gangneungImage from '../../assets/cities/gangneung.jpg'
+import jejuImage from '../../assets/cities/jeju.jpg'
 import gyeongjuImage from '../../assets/cities/gyeongju.jpg'
 import jeonjuImage from '../../assets/cities/jeonju.jpg'
 import onyangImage from '../../assets/cities/onyang.jpg'
@@ -83,6 +84,15 @@ export const monthlyRecommendations: MonthlyRecommendation[] = [
     badge: '미식·노포',
     image: jeonjuImage,
     themes: ['미식', '노포'],
+  },
+  {
+    id: 'jeju-nikko-nature-trail',
+    preference: preferences[4],
+    title: '자연 속으로 걸어들어가는 하루',
+    summary: '오름, 폭포, 삼림 트레킹으로 이어지는 자연 몰입형 루트입니다.',
+    badge: '자연·트레킹',
+    image: jejuImage,
+    themes: ['자연', '트레킹'],
   },
   {
     id: 'gangneung-kanazawa-craft-note',

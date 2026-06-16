@@ -1,5 +1,5 @@
 import foxFaceImage from '../../assets/foxhead-smile.png'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
 import {
   durationGuidePrompts,
@@ -134,9 +134,11 @@ type PlannerWorkspaceProps = {
   resetPlannerFlow: () => void
   saveGeneratedPlan: () => void
   isCurrentPlanSaved: boolean
+  isPlanSaving?: boolean
   openMyPage: () => void
   savedPlanNotice: string | null
   isPlannerLoading: boolean
+  planDestinationName?: string
 }
 
 export function PlannerWorkspace({
@@ -168,10 +170,30 @@ export function PlannerWorkspace({
   resetPlannerFlow,
   saveGeneratedPlan,
   isCurrentPlanSaved,
+  isPlanSaving = false,
   openMyPage,
   savedPlanNotice,
   isPlannerLoading,
+  planDestinationName,
 }: PlannerWorkspaceProps) {
+  const chatScrollRef = useRef<HTMLDivElement | null>(null)
+  const planResultPanelRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const el = chatScrollRef.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [chatMessages])
+
+  useEffect(() => {
+    if (!isPlannerReady) return
+    const el = planResultPanelRef.current
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [isPlannerReady])
+
   const renderPlannerStateHeader = () => (
     <section
       aria-label="Planner State"
@@ -257,6 +279,7 @@ export function PlannerWorkspace({
       selected?: boolean
       onClick: () => void
     }[],
+    optionsClassName = 'flex flex-wrap gap-2',
   ) => (
     <div className="flex max-w-[760px] items-start gap-3">
       <span
@@ -272,7 +295,7 @@ export function PlannerWorkspace({
         <div className="inline-flex max-w-full rounded-[16px] border border-transparent bg-[#fffffa] px-5 py-4 text-sm font-bold leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-6">
           {promptText}
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className={`mt-3 ${optionsClassName}`}>
           {options.map((option) => (
             <button
               key={option.key}
@@ -324,6 +347,7 @@ export function PlannerWorkspace({
         </div>
       </header>
       <div
+        ref={chatScrollRef}
         role="log"
         aria-label="AI 일정 대화"
         className="flex-1 space-y-5 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,250,0.94),rgba(255,248,246,0.88))] px-6 py-6"
@@ -358,7 +382,7 @@ export function PlannerWorkspace({
                   {isAssistant ? 'Lovv AI' : '내 조건'}
                 </p>
                 <div
-                  className={`break-keep rounded-[20px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-[0_16px_34px_-26px_rgba(51,39,30,0.28)] max-sm:text-[13px] max-sm:leading-6 ${
+                  className={`break-keep whitespace-pre-wrap rounded-[20px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-[0_16px_34px_-26px_rgba(51,39,30,0.28)] max-sm:text-[13px] max-sm:leading-6 ${
                     isAssistant
                       ? 'border-[#F3B489]/30 bg-white'
                       : 'ml-auto border-transparent bg-[#F36B12] font-bold'
@@ -407,6 +431,7 @@ export function PlannerWorkspace({
                 selected: selectedTravelMonth === month,
                 onClick: () => submitChatMessage(getTravelMonthLabel(month)),
               })),
+              'grid grid-cols-6 gap-2',
             )
           : null}
 
@@ -573,7 +598,7 @@ export function PlannerWorkspace({
               {shouldShowFestivalPrompt
                 ? '축제 테마를 포함할지 먼저 골라주세요.'
                 : shouldShowDurationPrompt
-                  ? '당일치기부터 4박 5일까지 여행 기간을 선택해 주세요.'
+                  ? '당일치기부터 2박 3일까지 여행 기간을 선택해 주세요.'
                   : shouldShowTravelMonthPrompt
                     ? '여행 예정 월을 선택해 주세요.'
                   : '동행, 관심사, 걷는 정도를 자연어로 입력해 주세요.'}
@@ -585,6 +610,7 @@ export function PlannerWorkspace({
 
     return (
       <section
+        ref={planResultPanelRef}
         aria-labelledby="generated-plan-title"
         className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28 xl:min-h-0"
       >
@@ -596,7 +622,7 @@ export function PlannerWorkspace({
                 id="generated-plan-title"
                 className="mt-2 break-keep text-2xl font-bold leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7"
               >
-                생성된 일정 요약
+                {planDestinationName ?? '생성된 일정 요약'}
               </h3>
               <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
                 챗봇에서 정리된 조건을 바탕으로, 핵심 흐름만 압축해서 보여줍니다.
@@ -641,7 +667,7 @@ export function PlannerWorkspace({
                 {currentPlanTitle}
               </h4>
               <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
-                채팅 옆에서는 전체 방향만 빠르게 확인하고, 장소별 시간표와 추천 이유는 세부 화면에서 확인합니다.
+                여기서는 코스를 빠르게 확인하고, 추천 이유는 세부 일정에서 확인합니다.
               </p>
             </div>
             <span className="rounded-full bg-[#FFF0E4] px-4 py-2 text-[12px] font-bold text-[#33271E]">
@@ -731,10 +757,22 @@ export function PlannerWorkspace({
             <button
               type="button"
               onClick={saveGeneratedPlan}
-              disabled={isCurrentPlanSaved}
-              className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-default disabled:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+              disabled={isCurrentPlanSaved || isPlanSaving}
+              className={`inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                isCurrentPlanSaved
+                  ? 'disabled:cursor-default disabled:bg-[#FF8A2A]'
+                  : isPlanSaving
+                  ? 'disabled:cursor-wait disabled:opacity-75'
+                  : ''
+              }`}
             >
-              {isCurrentPlanSaved ? '마이페이지에 저장됨' : '마이페이지에 저장'}
+              {isPlanSaving && (
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-[#33271E]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              {isCurrentPlanSaved ? '마이페이지에 저장됨' : isPlanSaving ? '저장 중...' : '마이페이지에 저장'}
             </button>
             <button
               type="button"

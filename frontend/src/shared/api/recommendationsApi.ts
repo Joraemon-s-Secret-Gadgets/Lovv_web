@@ -27,6 +27,13 @@ export type RecommendationApiResponse = {
   generatedAt?: string
   fallback?: boolean
   error?: string
+  destination?: {
+    destinationId?: string
+    cityId?: string
+    name?: string
+    country?: string
+    region?: string
+  }
   explanations?: {
     userNotice?: string | string[]
     confidence?: number | string
@@ -59,7 +66,7 @@ export type RecommendationApiResponse = {
 
 export const requestCreateRecommendation = async (
   payload: RecommendationRequestPayload,
-  baseUrl = import.meta.env.VITE_LOVV_API_BASE_URL?.trim() ?? ''
+  baseUrl = (import.meta.env.VITE_LOVV_AGENT_API_URL?.trim() || import.meta.env.VITE_LOVV_API_BASE_URL?.trim()) ?? ''
 ): Promise<RecommendationApiResponse> => {
   const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, '')
   const url = normalizedBaseUrl
@@ -108,13 +115,37 @@ export const mapRecommendationToDraft = (apiResponse: RecommendationApiResponse)
         title: item.title || '',
         body: item.body || '',
         reason: item.reason || '',
+        contentId: item.contentId ?? undefined,
       }
     })
 
+    // Bedrock Agent가 일차별 title/summary를 안 내줬을 경우, 코스 이름을 엮어서 동적으로 빌드
+    const stopTitles = stops.map((s) => s.title).filter(Boolean)
+    let fallbackTitle = d.title || ''
+    let fallbackSummary = d.summary || ''
+
+    if (!fallbackTitle) {
+      if (stopTitles.length > 0) {
+        fallbackTitle = stopTitles.length > 1
+          ? `${stopTitles[0]}, ${stopTitles[1]} 중심 일정`
+          : `${stopTitles[0]} 중심 일정`
+      } else {
+        fallbackTitle = `${d.day}일차 여행`
+      }
+    }
+
+    if (!fallbackSummary) {
+      if (stopTitles.length > 0) {
+        fallbackSummary = `${stopTitles.join(' ➔ ')} 등을 차례로 방문하는 일정입니다.`
+      } else {
+        fallbackSummary = `${d.day}일차 일정을 확인해 보세요.`
+      }
+    }
+
     return {
       day: d.day,
-      title: d.title || '',
-      summary: d.summary || '',
+      title: fallbackTitle,
+      summary: fallbackSummary,
       stops,
     }
   })
@@ -124,7 +155,7 @@ export const mapRecommendationToDraft = (apiResponse: RecommendationApiResponse)
   return {
     durationLabel: itinerary?.durationLabel || '당일치기',
     dayCount: days.length,
-    intensityLabel: '동선이 느슨한 일정',
+    intensityLabel: 'AI 추천 여행 코스',
     festivalThemeLabel: '',
     summary: itinerary?.summary || '',
     days,

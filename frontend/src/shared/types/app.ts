@@ -82,6 +82,8 @@ export type PlanStop = {
   title: string
   body: string
   reason: string
+  contentId?: string
+  imageUrl?: string
 }
 
 export type PlanDay = {

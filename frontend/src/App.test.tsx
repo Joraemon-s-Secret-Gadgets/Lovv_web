@@ -17,11 +17,6 @@ import {
   requestUnlikeSavedPlan,
 } from './shared/api/savedPlansApi'
 import { requestUpdatePreference } from './shared/api/preferencesApi'
-import {
-  AdminApiRequestError,
-  requestAdminUserDetail,
-  requestAdminUsers,
-} from './shared/api/adminApi'
 import App from './App'
 import { requestCognitoToken } from './features/auth/cognitoAuth'
 import { socialAuthProviderStorageKey } from './features/auth/authModel'
@@ -66,16 +61,6 @@ vi.mock('./shared/api/preferencesApi', async (importOriginal) => {
   return {
     ...actual,
     requestUpdatePreference: vi.fn(),
-  }
-})
-
-vi.mock('./shared/api/adminApi', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./shared/api/adminApi')>()
-
-  return {
-    ...actual,
-    requestAdminUserDetail: vi.fn(),
-    requestAdminUsers: vi.fn(),
   }
 })
 
@@ -256,19 +241,6 @@ const restoredGoogleAuthState: AuthApiState = {
     updatedAt: '2026-06-11T00:00:00.000Z',
   },
   onboardingCompleted: true,
-}
-
-const restoredAdminAuthState: AuthApiState = {
-  ...restoredGoogleAuthState,
-  accessToken: 'restored-admin-access-token',
-  user: restoredGoogleAuthState.user
-    ? {
-        ...restoredGoogleAuthState.user,
-        id: 'admin-user',
-        name: 'Admin User',
-        roles: ['R-ADMIN'],
-      }
-    : null,
 }
 
 const newCognitoAuthState: AuthApiState = {
@@ -507,129 +479,6 @@ describe('MVP main entry screen', () => {
     })
     expect(localStorage.getItem('lovv.savedPlans')).toBeNull()
     expect(localStorage.getItem('lovv.savedPlanLikes')).toBeNull()
-  })
-
-  it('lets R-ADMIN users access the read-only admin route and inspect user detail', async () => {
-    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
-    vi.mocked(requestAuthSession).mockResolvedValue(restoredAdminAuthState)
-    vi.mocked(requestAdminUsers).mockResolvedValue([
-      {
-        id: 'user-1',
-        displayName: 'Mina Kim',
-        email: 'mina@example.com',
-        status: 'active',
-        roles: ['R-USER'],
-        createdAt: '2026-06-10T00:00:00Z',
-        updatedAt: '2026-06-11T00:00:00Z',
-        lastLoginAt: '2026-06-12T00:00:00Z',
-        providers: ['google'],
-        onboardingCompleted: true,
-        savedItineraryCount: 2,
-      },
-    ])
-    vi.mocked(requestAdminUserDetail).mockResolvedValue({
-      id: 'user-1',
-      displayName: 'Mina Kim',
-      email: 'mina@example.com',
-      status: 'active',
-      roles: ['R-USER'],
-      createdAt: '2026-06-10T00:00:00Z',
-      updatedAt: '2026-06-11T00:00:00Z',
-      lastLoginAt: '2026-06-12T00:00:00Z',
-      providers: ['google'],
-      onboardingCompleted: true,
-      savedItineraryCount: 2,
-    })
-
-    renderApp('/admin')
-
-    await waitFor(() => {
-      expect(requestAdminUsers).toHaveBeenCalledWith({
-        accessToken: 'restored-admin-access-token',
-      })
-    })
-    expect(window.location.pathname).toBe('/admin')
-    expect(screen.getByRole('heading', { name: '관리자 사용자 조회' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Mina Kim 상세 보기' })).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Mina Kim 상세 보기' }))
-
-    await waitFor(() => {
-      expect(requestAdminUserDetail).toHaveBeenCalledWith('user-1', {
-        accessToken: 'restored-admin-access-token',
-      })
-    })
-    expect(screen.getByRole('region', { name: '관리자 사용자 상세' })).toHaveTextContent('mina@example.com')
-    expect(screen.getByRole('region', { name: '관리자 사용자 상세' })).toHaveTextContent('저장 일정 2개')
-  })
-
-  it('blocks R-USER users from the admin route before calling admin APIs', async () => {
-    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
-    vi.mocked(requestAuthSession).mockResolvedValue({
-      ...restoredGoogleAuthState,
-      user: restoredGoogleAuthState.user
-        ? {
-            ...restoredGoogleAuthState.user,
-            roles: ['R-USER'],
-          }
-        : null,
-    })
-
-    renderApp('/admin')
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: '관리자 권한이 필요합니다' })).toBeInTheDocument()
-    })
-    expect(window.location.pathname).toBe('/admin')
-    expect(requestAdminUsers).not.toHaveBeenCalled()
-  })
-
-  it.each([
-    [
-      401,
-      'ADMIN_UNAUTHORIZED',
-      'Admin authentication is required',
-      '로그인이 필요합니다. 기존 로그인 화면에서 다시 인증해 주세요.',
-    ],
-    [
-      403,
-      'ADMIN_FORBIDDEN',
-      'Admin role is required',
-      '관리자 권한이 필요합니다',
-    ],
-  ])(
-    'renders the admin %i state when the admin API rejects access',
-    async (statusCode, code, message, expectedText) => {
-      vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
-      vi.mocked(requestAuthSession).mockResolvedValue(restoredAdminAuthState)
-      vi.mocked(requestAdminUsers).mockRejectedValue(new AdminApiRequestError(statusCode, code, message))
-
-      renderApp('/admin')
-
-      await waitFor(() => {
-        expect(requestAdminUsers).toHaveBeenCalledWith({
-          accessToken: 'restored-admin-access-token',
-        })
-      })
-      expect(await screen.findByRole('alert')).toHaveTextContent(expectedText)
-      expect(window.location.pathname).toBe('/admin')
-    },
-  )
-
-  it('shows the admin empty and error states', async () => {
-    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
-    vi.mocked(requestAuthSession).mockResolvedValue(restoredAdminAuthState)
-    vi.mocked(requestAdminUsers).mockResolvedValueOnce([])
-
-    const emptyApp = renderApp('/admin')
-
-    expect(await screen.findByText('조회 가능한 사용자가 아직 없습니다.')).toBeInTheDocument()
-    emptyApp.unmount()
-
-    vi.mocked(requestAdminUsers).mockRejectedValueOnce({ statusCode: 500 })
-    renderApp('/admin')
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('관리자 사용자 목록을 불러오지 못했습니다.')
   })
 
   it('keeps direct saved-plan detail routes open while loading backend detail fallback', async () => {
@@ -2165,15 +2014,14 @@ describe('MVP main entry screen', () => {
     expect(localStorage.getItem('lovv.messages')).toBeNull()
   })
 
-  it('accepts guided duration chips from day trip through four nights five days', async () => {
+  it('accepts guided duration chips from day trip through two nights three days', async () => {
     seedUser()
     seedPreference('경주 · 교토')
     renderApp()
 
     const expectedDurations = [
       ['당일치기', '역사·전통 당일치기 초안'],
-      ['3박 4일', '역사·전통 3박 4일 초안'],
-      ['4박 5일', '역사·전통 4박 5일 초안'],
+      ['2박 3일', '역사·전통 2박 3일 초안'],
     ] as const
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
@@ -2189,11 +2037,11 @@ describe('MVP main entry screen', () => {
         fireEvent.click(screen.getByRole('button', { name: '일정 다시짜기' }))
       }
     }
-    expect(screen.getByText('5일 구성')).toBeInTheDocument()
+    expect(screen.getByText('3일 구성')).toBeInTheDocument()
     expect(screen.getByRole('list', { name: '일차별 일정 요약' })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: '1일차' })).not.toBeInTheDocument()
-    expect(screen.getByText('5일차 추천 일정')).toBeInTheDocument()
-    expect(screen.getByText('총 15개 코스')).toBeInTheDocument()
+    expect(screen.getByText('3일차 추천 일정')).toBeInTheDocument()
+    expect(screen.getByText('총 9개 코스')).toBeInTheDocument()
     const chatLog = screen.getByRole('log', { name: 'AI 일정 대화' })
 
     expect(within(chatLog).queryByText('일정 기간을 먼저 골라주세요')).not.toBeInTheDocument()
