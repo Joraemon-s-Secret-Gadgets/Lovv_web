@@ -62,10 +62,8 @@ describe('HomeView hero summary', () => {
         openChat={vi.fn()}
         openMap={vi.fn()}
         onOpenMonthlyRecommendationDetail={vi.fn()}
-        isQuickActionsOpen={false}
         onOpenChatFromQuickAction={vi.fn()}
         onScrollToTop={vi.fn()}
-        onToggleQuickActions={vi.fn()}
       />,
     )
 
@@ -102,10 +100,8 @@ describe('HomeView monthly recommendations', () => {
         openChat={vi.fn()}
         openMap={vi.fn()}
         onOpenMonthlyRecommendationDetail={vi.fn()}
-        isQuickActionsOpen={false}
         onOpenChatFromQuickAction={vi.fn()}
         onScrollToTop={vi.fn()}
-        onToggleQuickActions={vi.fn()}
       />,
     )
 
@@ -176,10 +172,8 @@ describe('HomeView monthly recommendations', () => {
         openChat={vi.fn()}
         openMap={vi.fn()}
         onOpenMonthlyRecommendationDetail={vi.fn()}
-        isQuickActionsOpen={false}
         onOpenChatFromQuickAction={vi.fn()}
         onScrollToTop={vi.fn()}
-        onToggleQuickActions={vi.fn()}
       />,
     )
 

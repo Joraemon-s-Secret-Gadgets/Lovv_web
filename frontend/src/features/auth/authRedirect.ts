@@ -18,12 +18,15 @@ export type OAuthClientEnv = {
   VITE_COGNITO_LOGOUT_URI?: string
 }
 
+export type OAuthLoginMode = 'login' | 'link'
+
 export type PendingOAuthLogin = {
   provider: SocialAuthProvider
   state: string
   redirectUri: string
   codeVerifier?: string
   createdAt: number
+  mode: OAuthLoginMode
 }
 
 export type OAuthCallbackParams = {
@@ -37,6 +40,7 @@ export type OAuthCallbackLoginResult =
   | {
       status: 'success'
       request: AuthLoginRequest
+      mode: OAuthLoginMode
     }
   | {
       status: 'error'
@@ -175,6 +179,9 @@ export const readPendingOAuthLogin = (storage: Storage, provider: SocialAuthProv
     const state = readString(parsed.state)
     const redirectUri = readString(parsed.redirectUri)
     const codeVerifier = readString(parsed.codeVerifier)
+    // Older stored entries predate the link-mode feature and have no `mode` field — treat those as
+    // ordinary logins so existing in-flight redirects from before this change still resolve.
+    const mode: OAuthLoginMode = parsed.mode === 'link' ? 'link' : 'login'
 
     if (parsed.provider !== provider || !state || !redirectUri || typeof parsed.createdAt !== 'number') {
       return null
@@ -186,6 +193,7 @@ export const readPendingOAuthLogin = (storage: Storage, provider: SocialAuthProv
       redirectUri,
       ...(codeVerifier ? { codeVerifier } : {}),
       createdAt: parsed.createdAt,
+      mode,
     }
   } catch {
     return null
@@ -394,6 +402,7 @@ export const createCognitoAuthorizationRequest = async (
     redirectUri,
     codeVerifier,
     createdAt: now,
+    mode: 'login',
   }
   const authorizationUrl = createCognitoAuthorizeUrl({
     hostedUiBaseUrl,
@@ -420,12 +429,14 @@ export const createOAuthAuthorizationRequest = async (
     storage,
     crypto = globalThis.crypto,
     now = Date.now(),
+    mode = 'login',
   }: {
     origin: string
     env?: OAuthClientEnv
     storage: Storage
     crypto?: OAuthCrypto
     now?: number
+    mode?: OAuthLoginMode
   },
 ) => {
   const clientId = getOAuthClientId(provider, env)
@@ -448,6 +459,7 @@ export const createOAuthAuthorizationRequest = async (
     redirectUri,
     ...(codeVerifier ? { codeVerifier } : {}),
     createdAt: now,
+    mode,
   }
   const authorizationUrl = createOAuthAuthorizeUrl({
     provider,
@@ -507,6 +519,7 @@ export const createAuthLoginRequestFromCallback = (
       redirectUri: pendingLogin.redirectUri,
       ...(pendingLogin.codeVerifier ? { codeVerifier: pendingLogin.codeVerifier } : {}),
     },
+    mode: pendingLogin.mode,
   }
 }
 

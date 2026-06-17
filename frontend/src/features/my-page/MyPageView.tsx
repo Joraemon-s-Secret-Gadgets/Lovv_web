@@ -1,7 +1,34 @@
-import { useEffect } from 'react'
-import type { MouseEvent } from 'react'
-import type { LovvUser, SavedPlanLike, SavedPlan } from '../../shared/types/app'
+import { useEffect, useState } from 'react'
+import type { FormEvent, MouseEvent } from 'react'
+import type {
+  LovvUser,
+  SavedPlanLike,
+  SavedPlan,
+  SocialAccountSummary,
+  SocialAuthProvider,
+} from '../../shared/types/app'
+import type { ProfileUpdateRequest } from '../../shared/api/authApi'
 import { SavedPlanLikeControls } from '../saved-plans/SavedPlanLikeControls'
+
+
+const socialProviderLabels: Record<SocialAuthProvider, string> = {
+  google: 'Google',
+  kakao: 'Kakao',
+}
+
+const formatJoinDate = (value: string | null | undefined) => {
+  if (!value) {
+    return null
+  }
+
+  const parsed = new Date(value)
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  return `${parsed.getFullYear()}.${String(parsed.getMonth() + 1).padStart(2, '0')}.${String(parsed.getDate()).padStart(2, '0')}`
+}
 
 type MyPageViewProps = {
   goHome: (event?: MouseEvent<HTMLElement>) => void
@@ -9,8 +36,6 @@ type MyPageViewProps = {
   selectedPreferenceLabel: string
   savedPlanNotice: string | null
   preferenceNotice: string | null
-  selectedPreferenceEditorialNotes: string
-  selectedThemeHashtags: string[]
   currentUser: LovvUser | null
   savedPlans: SavedPlan[]
   getSavedPlanLike: (planId: string) => SavedPlanLike
@@ -22,6 +47,14 @@ type MyPageViewProps = {
   onDeleteSavedPlan: (planId: string) => void
   openPreferenceEdit: () => void
   signOut: () => void
+  canLinkSocialAccounts: boolean
+  socialAccounts: SocialAccountSummary[]
+  linkingProvider: SocialAuthProvider | null
+  accountLinkNotice: string | null
+  onLinkProvider: (provider: SocialAuthProvider) => void
+  onUpdateProfile: (update: ProfileUpdateRequest) => Promise<boolean>
+  isUpdatingProfile: boolean
+  profileUpdateError: string | null
 }
 
 export function MyPageView({
@@ -30,8 +63,6 @@ export function MyPageView({
   selectedPreferenceLabel,
   savedPlanNotice,
   preferenceNotice,
-  selectedPreferenceEditorialNotes,
-  selectedThemeHashtags,
   currentUser,
   savedPlans,
   getSavedPlanLike,
@@ -43,12 +74,49 @@ export function MyPageView({
   onDeleteSavedPlan,
   openPreferenceEdit,
   signOut,
+  canLinkSocialAccounts,
+  socialAccounts,
+  linkingProvider,
+  accountLinkNotice,
+  onLinkProvider,
+  onUpdateProfile,
+  isUpdatingProfile,
+  profileUpdateError,
 }: MyPageViewProps) {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
+  const [nameInput, setNameInput] = useState(currentUser?.name ?? '')
+  const [birthDateInput, setBirthDateInput] = useState(currentUser?.birthDate ?? '')
+  const [profileSavedNotice, setProfileSavedNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNameInput(currentUser?.name ?? '')
+    setBirthDateInput(currentUser?.birthDate ?? '')
+  }, [currentUser?.name, currentUser?.birthDate])
+
+  const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setProfileSavedNotice(null)
+
+    const trimmedName = nameInput.trim()
+    const trimmedBirthDate = birthDateInput.trim()
+    const succeeded = await onUpdateProfile({
+      ...(trimmedName ? { displayName: trimmedName } : {}),
+      birthDate: trimmedBirthDate ? trimmedBirthDate : null,
+    })
+
+    if (succeeded) {
+      setProfileSavedNotice('프로필이 저장되었어요.')
+    }
+  }
 
   const currentUserName = currentUser?.name?.trim() || '사용자'
+  const joinDateLabel = formatJoinDate(currentUser?.createdAt)
+  const likedSavedPlanCount = savedPlans.filter((plan) => getSavedPlanLike(plan.id) === 'like').length
+  const isProviderLinked = (provider: SocialAuthProvider) =>
+    currentUser?.provider === provider || socialAccounts.some((account) => account.provider === provider)
 
   return (
     <section
@@ -95,27 +163,77 @@ export function MyPageView({
                         </p>
                       ) : null}
 
-                      <div className="mt-8 grid grid-cols-3 gap-4 max-md:grid-cols-1">
-                        {[
-                          { label: '로그인 방식', value: currentProviderLabel },
-                          { label: '선택 취향', value: selectedPreferenceLabel },
-                          { label: '저장 일정', value: savedPlans.length > 0 ? `${savedPlans.length}개` : '아직 없음' },
-                        ].map((item) => (
-                          <article
-                            key={item.label}
-                            className="rounded-[18px] border border-transparent bg-[#FFF0E4] p-5"
-                          >
+                      <div className="mt-8 grid grid-cols-2 gap-4 max-md:grid-cols-1 md:grid-cols-3 xl:grid-cols-5">
+                        {/* 1. 로그인 방식 */}
+                        <article className="flex flex-col justify-between rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
+                          <div>
                             <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
-                              {item.label}
+                              로그인 방식
                             </p>
                             <p className="mt-3 break-keep text-lg font-black leading-7 text-[#33271E]">
-                              {item.value}
+                              {currentProviderLabel}
                             </p>
-                          </article>
-                        ))}
+                          </div>
+                        </article>
+                        {/* 2. 선택 테마 (기존 하단 섹션 기능을 이곳에 통합) */}
+                        <article className="flex flex-col justify-between rounded-[18px] border border-transparent bg-[#FFF0E4] p-5 md:col-span-2 xl:col-span-1">
+                          <div>
+                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+                              선택 테마
+                            </p>
+                            <p className="mt-3 break-keep text-lg font-black leading-7 text-[#33271E]">
+                              {selectedPreferenceLabel}
+                            </p>
+                          </div>
+                          <div className="mt-4 pt-2 border-t border-[#33271E]/10">
+                            <button
+                              type="button"
+                              onClick={openPreferenceEdit}
+                              className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-3.5 text-xs font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                            >
+                              테마 변경
+                            </button>
+                          </div>
+                        </article>
+                          
+                        {/* 3. 저장 일정 */}
+                        <article className="flex flex-col justify-between rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
+                          <div>
+                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+                              저장 일정
+                            </p>
+                            <p className="mt-3 break-keep text-lg font-black leading-7 text-[#33271E]">
+                              {savedPlans.length > 0 ? `${savedPlans.length}개` : '아직 없음'}
+                            </p>
+                          </div>
+                        </article>
+
+                        {/* 4. 좋아요한 일정 */}
+                        <article className="flex flex-col justify-between rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
+                          <div>
+                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+                              좋아요한 일정
+                            </p>
+                            <p className="mt-3 break-keep text-lg font-black leading-7 text-[#33271E]">
+                              {likedSavedPlanCount > 0 ? `${likedSavedPlanCount}개` : '아직 없음'}
+                            </p>
+                          </div>
+                        </article>
+
+                        {/* 5. 가입일 */}
+                        <article className="flex flex-col justify-between rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
+                          <div>
+                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+                              가입일
+                            </p>
+                            <p className="mt-3 break-keep text-lg font-black leading-7 text-[#33271E]">
+                              {joinDateLabel ?? '확인 불가'}
+                            </p>
+                          </div>
+                        </article>
                       </div>
 
-                      <section className="mt-8 rounded-[20px] border border-transparent bg-[#FFF0E4] p-6">
+                      <section className="mt-8 rounded-[24px] border border-white/50 bg-[#FFF0E4]/45 p-6 backdrop-blur-md">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-black text-[#33271E]">저장한 일정</p>
@@ -123,7 +241,7 @@ export function MyPageView({
                               리뷰할 여정
                             </h2>
                           </div>
-                          <span className="rounded-[5px] bg-[#fffffa] px-3 py-1 text-[12px] font-black text-[#33271E]">
+                          <span className="rounded-[8px] border border-white/70 bg-[#fffffa]/90 px-3 py-1 text-[12px] font-black text-[#33271E] shadow-sm">
                             {savedPlans.length}개
                           </span>
                         </div>
@@ -137,7 +255,7 @@ export function MyPageView({
                               return (
                                 <li
                                   key={plan.id}
-                                  className="rounded-[14px] border border-transparent bg-[#fffffa] p-4 shadow-[0_12px_24px_-22px_rgba(51,39,30,0.28)]"
+                                  className="rounded-[16px] border border-white/40 bg-[#fffffa]/85 p-4 shadow-[0_12px_24px_-22px_rgba(51,39,30,0.2)] transition-colors hover:bg-[#fffffa]/95"
                                 >
                                   <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 max-md:grid-cols-1">
                                     <div className="min-w-0">
@@ -155,7 +273,7 @@ export function MyPageView({
                                       <button
                                         type="button"
                                         onClick={() => openSavedPlanDetail(plan.id)}
-                                        className="inline-flex min-h-10 items-center justify-center rounded-[8px] border border-[#F3B489] bg-[#FFF8F6] px-4 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                                        className="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-white/60 bg-[#FFF8F6]/85 px-4 text-sm font-black text-[#33271E] transition hover:border-[#F36B12]/40 hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                                       >
                                         상세 보기
                                       </button>
@@ -164,7 +282,7 @@ export function MyPageView({
                                         aria-label={`${plan.title} 삭제`}
                                         disabled={isDeletePending}
                                         onClick={() => onDeleteSavedPlan(plan.id)}
-                                        className="inline-flex min-h-10 items-center justify-center rounded-[8px] border border-[#F3B489] bg-[#fffffa] px-4 text-sm font-black text-[#A92B10] transition hover:border-[#A92B10] hover:bg-[#FFE0CA] disabled:cursor-wait disabled:opacity-65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                                        className="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-white/60 bg-[#fffffa]/70 px-4 text-sm font-black text-[#A92B10] transition hover:border-[#A92B10]/40 hover:bg-[#FFE0CA] disabled:cursor-wait disabled:opacity-65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                                       >
                                         {isDeletePending ? '삭제 중' : '삭제'}
                                       </button>
@@ -192,7 +310,7 @@ export function MyPageView({
                             })}
                           </ol>
                         ) : (
-                          <div className="mt-5 rounded-[14px] border border-transparent bg-[#fffffa] p-5">
+                          <div className="mt-5 rounded-[16px] border border-white/45 bg-[#fffffa]/80 p-5 shadow-sm">
                             <p className="break-keep text-sm font-black leading-6 text-[#33271E]">
                               저장한 일정이 아직 없습니다.
                             </p>
@@ -203,40 +321,15 @@ export function MyPageView({
                         )}
                       </section>
 
-                      <div className="mt-8 rounded-[20px] border border-transparent bg-[#FFF0E4] p-6">
-                        <p className="text-sm font-black text-[#33271E]">선택한 여행 분위기</p>
-                        <h2 className="mt-3 break-keep text-[30px] font-black leading-9 text-[#33271E] max-sm:text-2xl max-sm:leading-8">
-                          {selectedPreferenceLabel}
-                        </h2>
-                        <p className="mt-3 break-keep text-sm font-semibold leading-6 text-[#33271E]">
-                          {selectedPreferenceEditorialNotes}
-                        </p>
-                        <div className="mt-5 flex flex-wrap gap-2">
-                          {selectedThemeHashtags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="inline-flex min-h-[34px] items-center rounded-full bg-[#fffffa] px-4 py-1 text-[12px] font-bold text-[#33271E]"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={openPreferenceEdit}
-                          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-sm:w-full"
-                        >
-                          취향 다시 고르기
-                        </button>
-                      </div>
+
                     </section>
 
-                    <aside className="rounded-[22px] border border-transparent bg-[#fffffa] p-7 shadow-[0_14px_36px_-24px_rgba(51,39,30,0.28)]">
+                    <aside className="rounded-[24px] border border-white/60 bg-white/40 p-7 shadow-[0_22px_50px_-24px_rgba(51,39,30,0.25)] backdrop-blur-2xl">
                       <p className="text-sm font-black uppercase tracking-[0.18em] text-[#F36B12]">
                         My Account
                       </p>
                       <div className="mt-5 flex items-center gap-4">
-                        <span className="flex size-14 items-center justify-center rounded-full bg-[#F36B12] text-xl font-black text-[#33271E] shadow-[0_10px_22px_-16px_rgba(51,39,30,0.5)]">
+                        <span className="flex size-14 items-center justify-center rounded-full border border-white/60 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-xl font-black text-[#33271E] shadow-[0_10px_22px_-16px_rgba(51,39,30,0.5)]">
                           {currentUser?.avatarInitial ?? 'M'}
                         </span>
                         <div className="min-w-0">
@@ -248,24 +341,122 @@ export function MyPageView({
                           </p>
                         </div>
                       </div>
-                      <div className="mt-7 rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
+                      
+                      {/* 연동 상태 */}
+                      <div className="mt-7 rounded-[20px] border border-white/50 bg-white/50 p-5 shadow-[0_12px_30px_-24px_rgba(51,39,30,0.15)] backdrop-blur-md">
                         <p className="text-sm font-black text-[#33271E]">연동 상태</p>
                         <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#33271E]">
                           {currentProviderLabel}로 로그인되어 있습니다.
                         </p>
                       </div>
+
+                      {/* 계정 연결 */}
+                      {canLinkSocialAccounts ? (
+                        <div className="mt-5 rounded-[20px] border border-white/50 bg-white/50 p-5 shadow-[0_12px_30px_-24px_rgba(51,39,30,0.15)] backdrop-blur-md">
+                          <p className="text-sm font-black text-[#33271E]">계정 연결</p>
+                          <p className="mt-2 break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
+                            Google과 Kakao 계정을 함께 연결하면 어느 쪽으로 로그인해도 같은 계정을 사용할 수 있어요.
+                          </p>
+                          <div className="mt-4 grid gap-2">
+                            {(['google', 'kakao'] as const).map((provider) => {
+                              const linked = isProviderLinked(provider)
+                              const isLinking = linkingProvider === provider
+
+                              return (
+                                <div
+                                  key={provider}
+                                  className="flex items-center justify-between gap-3 rounded-[14px] border border-white/60 bg-[#fffffa]/80 px-4 py-3"
+                                >
+                                  <span className="text-sm font-black text-[#33271E]">
+                                    {socialProviderLabels[provider]}
+                                  </span>
+                                  {linked ? (
+                                    <span className="rounded-full bg-[#FFE0CA] px-3 py-1 text-[12px] font-black text-[#A92B10]">
+                                      연결됨
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={isLinking}
+                                      onClick={() => onLinkProvider(provider)}
+                                      className="inline-flex min-h-9 items-center justify-center rounded-full border border-white/70 bg-[#fffffa]/80 px-4 text-[12px] font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] disabled:cursor-wait disabled:opacity-65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                                    >
+                                      {isLinking ? '연결 중' : '연결하기'}
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {accountLinkNotice ? (
+                            <p role="status" className="mt-3 break-keep text-[12px] font-bold leading-5 text-[#A92B10]">
+                              {accountLinkNotice}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {/* 프로필 수정 폼 */}
+                      <form
+                        onSubmit={handleProfileSubmit}
+                        className="mt-5 rounded-[20px] border border-white/50 bg-white/50 p-5 shadow-[0_12px_30px_-24px_rgba(51,39,30,0.15)] backdrop-blur-md"
+                      >
+                        <p className="text-sm font-black text-[#33271E]">프로필 수정</p>
+                        <label className="mt-4 block text-[12px] font-black text-[#33271E]" htmlFor="mypage-profile-name">
+                          이름
+                        </label>
+                        <input
+                          id="mypage-profile-name"
+                          type="text"
+                          value={nameInput}
+                          onChange={(event) => setNameInput(event.target.value)}
+                          className="mt-2 w-full rounded-[12px] border border-white/80 bg-[#fffffa]/80 px-3 py-2.5 text-sm font-semibold text-[#33271E] transition-all focus:border-[#F36B12] focus:bg-white focus-visible:outline-none"
+                        />
+                        <label
+                          className="mt-4 block text-[12px] font-black text-[#33271E]"
+                          htmlFor="mypage-profile-birth-date"
+                        >
+                          생년월일 (선택)
+                        </label>
+                        <input
+                          id="mypage-profile-birth-date"
+                          type="date"
+                          value={birthDateInput ?? ''}
+                          onChange={(event) => setBirthDateInput(event.target.value)}
+                          className="mt-2 w-full rounded-[12px] border border-white/80 bg-[#fffffa]/80 px-3 py-2.5 text-sm font-semibold text-[#33271E] transition-all focus:border-[#F36B12] focus:bg-white focus-visible:outline-none"
+                        />
+                        {profileUpdateError ? (
+                          <p role="alert" className="mt-3 break-keep text-[12px] font-bold leading-5 text-[#A92B10]">
+                            {profileUpdateError}
+                          </p>
+                        ) : null}
+                        {profileSavedNotice ? (
+                          <p role="status" className="mt-3 break-keep text-[12px] font-bold leading-5 text-[#33271E]">
+                            {profileSavedNotice}
+                          </p>
+                        ) : null}
+                        <button
+                          type="submit"
+                          disabled={isUpdatingProfile}
+                          className="mt-5 inline-flex min-h-10 w-full items-center justify-center rounded-full border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-5 text-sm font-black text-[#33271E] transition shadow-sm hover:scale-[1.01] hover:shadow-md disabled:cursor-wait disabled:opacity-65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                        >
+                          {isUpdatingProfile ? '저장 중' : '저장하기'}
+                        </button>
+                      </form>
+
+                      {/* 하단 이동/로그아웃 버튼 */}
                       <div className="mt-7 grid gap-3">
                         <button
                           type="button"
                           onClick={goHome}
-                          className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                          className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-5 text-sm font-black text-[#33271E] transition shadow-sm hover:scale-[1.01] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                         >
                           메인으로 돌아가기
                         </button>
                         <button
                           type="button"
                           onClick={signOut}
-                          className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                          className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/70 bg-white/60 px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                         >
                           로그아웃
                         </button>

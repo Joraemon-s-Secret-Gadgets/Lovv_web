@@ -735,3 +735,131 @@ export const createSmallCityApiQuery = ({
 
   return params.toString()
 }
+
+export type SmallCityApiFetchResponse = {
+  ok: boolean
+  status: number
+  json?: () => Promise<unknown>
+}
+
+export type SmallCityApiFetch = (input: string, init: RequestInit) => Promise<SmallCityApiFetchResponse>
+
+export type SmallCityApiRequestOptions = {
+  baseUrl?: string
+  accessToken?: string | null
+  fetchImpl?: SmallCityApiFetch
+}
+
+export class SmallCityApiRequestError extends Error {
+  statusCode: number
+  code: string
+
+  constructor(statusCode: number, code: string, message: string) {
+    super(message)
+    this.name = 'SmallCityApiRequestError'
+    this.statusCode = statusCode
+    this.code = code
+  }
+}
+
+const defaultSmallCityApiBaseUrl = import.meta.env.VITE_LOVV_API_BASE_URL?.trim() ?? ''
+
+const isSmallCityApiRecordObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const readSmallCityApiString = (...values: unknown[]) =>
+  values.find((value): value is string => typeof value === 'string' && value.trim().length > 0)?.trim() ?? ''
+
+const buildSmallCityApiUrl = (endpoint: string, baseUrl = defaultSmallCityApiBaseUrl) => {
+  const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, '')
+
+  return normalizedBaseUrl ? `${normalizedBaseUrl}${endpoint}` : endpoint
+}
+
+const createSmallCityApiHeaders = (options: SmallCityApiRequestOptions) => {
+  const headers: Record<string, string> = {}
+  const accessToken = options.accessToken?.trim()
+
+  if (accessToken) {
+    headers.Authorization = accessToken.startsWith('Bearer ') ? accessToken : `Bearer ${accessToken}`
+  }
+
+  return headers
+}
+
+const readSmallCityApiResponseJson = async (response: SmallCityApiFetchResponse) => {
+  if (!response.json) {
+    return null
+  }
+
+  try {
+    return await response.json()
+  } catch {
+    return null
+  }
+}
+
+const createSmallCityApiRequestError = async (response: SmallCityApiFetchResponse) => {
+  const payload = await readSmallCityApiResponseJson(response)
+  const errorPayload = isSmallCityApiRecordObject(payload) && isSmallCityApiRecordObject(payload.error) ? payload.error : null
+  const code =
+    readSmallCityApiString(errorPayload?.code, isSmallCityApiRecordObject(payload) ? payload.code : null) ||
+    `HTTP_${response.status}`
+  const message =
+    readSmallCityApiString(errorPayload?.message, isSmallCityApiRecordObject(payload) ? payload.message : null) ||
+    'Small city API request failed'
+
+  return new SmallCityApiRequestError(response.status, code, message)
+}
+
+const requestSmallCityApi = async (
+  endpoint: string,
+  init: RequestInit,
+  options: SmallCityApiRequestOptions,
+) => {
+  const fetchImpl = options.fetchImpl ?? fetch
+  const response = await fetchImpl(buildSmallCityApiUrl(endpoint, options.baseUrl), {
+    ...init,
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw await createSmallCityApiRequestError(response)
+  }
+
+  return response
+}
+
+const requestSmallCityApiJson = async <T extends Record<string, unknown>>(
+  endpoint: string,
+  init: RequestInit,
+  options: SmallCityApiRequestOptions,
+) => {
+  const response = await requestSmallCityApi(endpoint, init, options)
+  const payload = await readSmallCityApiResponseJson(response)
+
+  return isSmallCityApiRecordObject(payload) ? (payload as T) : ({} as T)
+}
+
+export const requestListSmallCities = async (
+  params: SmallCityApiListParams = {},
+  options: SmallCityApiRequestOptions = {},
+) => {
+  const queryString = createSmallCityApiQuery(params)
+  const endpoint = queryString ? `${smallCityApiEndpoints.list}?${queryString}` : smallCityApiEndpoints.list
+  const response = await requestSmallCityApiJson<SmallCityApiListResponse>(
+    endpoint,
+    {
+      method: 'GET',
+      headers: createSmallCityApiHeaders(options),
+    },
+    options,
+  )
+
+  return adaptSmallCityApiResponse({
+    data: Array.isArray(response.data) ? response.data : [],
+    page: isSmallCityApiRecordObject(response.page)
+      ? (response.page as SmallCityApiPage)
+      : { page: 1, pageSize: defaultSmallCityApiPageSize, total: 0, hasNext: false },
+  })
+}

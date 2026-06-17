@@ -146,7 +146,7 @@ export function CityMapDiscoverySection({
 
       if (detailStatusMessage || !selectedSmallCityDetail) {
         return (
-          <div data-testid={testId} className="mt-5 rounded-[12px] border border-transparent bg-[#fffffa] p-4">
+          <div data-testid={testId} className="mt-5 rounded-[12px] border border-white/45 bg-[#fffffa]/80 p-4 shadow-sm backdrop-blur-sm">
             <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
               장소 정보
             </p>
@@ -163,7 +163,7 @@ export function CityMapDiscoverySection({
       const selectedCityFestivals = selectedSmallCityDetail.festivals
 
       return (
-        <div data-testid={testId} className="mt-5 rounded-[12px] border border-transparent bg-[#fffffa] p-4">
+        <div data-testid={testId} className="mt-5 rounded-[12px] border border-white/45 bg-[#fffffa]/80 p-4 shadow-sm backdrop-blur-sm">
           <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
             장소 정보
           </p>
@@ -177,13 +177,13 @@ export function CityMapDiscoverySection({
                 <section
                   key={`${selectedSmallCityDetail.city.id}-${testId}-${category}`}
                   aria-label={`${category} 장소 후보`}
-                  className="rounded-[8px] border border-[#FFE0CA] bg-white p-3"
+                  className="rounded-[8px] border border-white/50 bg-[#fffffa]/80 p-3 shadow-sm"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <h4 className="break-keep text-[13px] font-black leading-5 text-[#33271E]">
                       {category}
                     </h4>
-                    <span className="rounded-[5px] bg-[#FFF8F6] px-2 py-1 text-[11px] font-black text-[#6E5A50]">
+                    <span className="rounded-[5px] border border-white/60 bg-[#fffffa]/60 px-2 py-1 text-[11px] font-black text-[#6E5A50] shadow-sm">
                       {places.length}
                     </span>
                   </div>
@@ -198,7 +198,7 @@ export function CityMapDiscoverySection({
                           ) : null}
                           <div className="mt-2 flex flex-wrap gap-2">
                             {place.phone ? (
-                              <span className="rounded-[5px] bg-[#FFF8F6] px-2 py-1 text-[11px] font-black text-[#6E5A50]">
+                              <span className="rounded-[5px] border border-white/60 bg-[#fffffa]/60 px-2 py-1 text-[11px] font-black text-[#6E5A50] shadow-sm">
                                 {place.phone}
                               </span>
                             ) : null}
@@ -207,7 +207,7 @@ export function CityMapDiscoverySection({
                                 href={place.placeUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="rounded-[5px] bg-[#FFF8F6] px-2 py-1 text-[11px] font-black text-[#A92B10] transition hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                                className="rounded-[5px] border border-white/60 bg-[#fffffa]/70 px-2 py-1 text-[11px] font-black text-[#A92B10] shadow-sm transition hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                               >
                                 Kakao 장소 보기
                               </a>
@@ -228,13 +228,13 @@ export function CityMapDiscoverySection({
           {selectedCityFestivals.length > 0 ? (
             <section
               aria-label="축제 정보"
-              className="mt-4 rounded-[8px] border border-[#FFE0CA] bg-white p-3"
+              className="mt-4 rounded-[8px] border border-white/50 bg-[#fffffa]/80 p-3 shadow-sm"
             >
               <div className="flex items-center justify-between gap-3">
                 <h4 className="break-keep text-[13px] font-black leading-5 text-[#33271E]">
                   축제 정보
                 </h4>
-                <span className="rounded-[5px] bg-[#FFF8F6] px-2 py-1 text-[11px] font-black text-[#6E5A50]">
+                <span className="rounded-[5px] border border-white/60 bg-[#fffffa]/60 px-2 py-1 text-[11px] font-black text-[#6E5A50] shadow-sm">
                   {selectedCityFestivals.length}
                 </span>
               </div>
@@ -279,15 +279,15 @@ export function CityMapDiscoverySection({
         id="city-map-discovery"
         data-testid="city-map-discovery-section"
         aria-labelledby="city-map-discovery-title"
-        className="mx-auto max-w-[1500px] px-16 pb-16 pt-28 max-lg:px-8 max-sm:px-5"
+        className="mx-auto max-w-[1500px] px-16 pb-16 pt-6 max-lg:px-8 max-sm:px-5"
       >
-        <div className="overflow-hidden rounded-[26px] border border-[#F3B489]/35 bg-[#fffffa]/88 shadow-[0_24px_64px_-38px_rgba(51,39,30,0.34)]">
+        <div className="overflow-hidden rounded-[26px] border border-white/60 bg-[#fffffa]/40 shadow-[0_24px_64px_-38px_rgba(51,39,30,0.25)] backdrop-blur-2xl">
           <div
             data-testid="city-map-layout-shell"
             className="grid grid-cols-[minmax(0,1.7fr)_minmax(380px,0.82fr)] gap-0 xl:h-[min(900px,calc(100vh-112px))] xl:min-h-[760px] xl:overflow-hidden max-xl:grid-cols-1"
           >
-            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#fffffa]/65 p-7 max-xl:overflow-visible max-sm:p-5">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-6 rounded-[22px] border border-[#F3B489]/30 bg-white/78 p-6 shadow-[0_16px_36px_-30px_rgba(51,39,30,0.28)] max-lg:grid-cols-1 max-sm:p-5">
+            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#fffffa]/20 p-7 max-xl:overflow-visible max-sm:p-5 backdrop-blur-md">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-6 rounded-[22px] border border-white/50 bg-white/45 p-6 shadow-[0_16px_36px_-30px_rgba(51,39,30,0.15)] max-lg:grid-cols-1 max-sm:p-5 backdrop-blur-md">
                 <div className="min-w-0">
                   <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#F36B12]">
                     Small city map
@@ -306,11 +306,11 @@ export function CityMapDiscoverySection({
                 <div
                   role="group"
                   aria-label="국가 선택"
-                  className="relative isolate inline-grid min-w-[236px] grid-cols-2 overflow-hidden rounded-full border border-[#F3B489]/50 bg-[#FFF8F6] p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.72)] max-sm:min-w-0"
+                  className="relative isolate inline-grid min-w-[236px] grid-cols-2 overflow-hidden rounded-full border border-white/60 bg-white/30 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.4)] max-sm:min-w-0 backdrop-blur-sm"
                 >
                   <span
                     aria-hidden="true"
-                    className={`absolute inset-y-1 left-1 z-0 w-[calc(50%-4px)] rounded-full bg-[#F36B12] shadow-[0_10px_22px_-18px_rgba(51,39,30,0.45)] transition-transform duration-300 ease-out ${
+                    className={`absolute inset-y-1 left-1 z-0 w-[calc(50%-4px)] rounded-full bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] shadow-[0_6px_14px_-8px_rgba(243,107,18,0.5)] transition-transform duration-300 ease-out ${
                       cityMapCountry === 'JP' ? 'translate-x-full' : 'translate-x-0'
                     }`}
                   />
@@ -323,10 +323,10 @@ export function CityMapDiscoverySection({
                         type="button"
                         aria-pressed={isSelected}
                         onClick={() => onSelectCountry(option.country)}
-                        className={`relative z-10 min-h-11 rounded-full border border-transparent bg-transparent px-4 text-sm font-black text-[#33271E] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                        className={`relative z-10 min-h-11 rounded-full border border-transparent bg-transparent px-4 text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
                           isSelected
-                            ? 'cursor-default'
-                            : 'hover:bg-[#FFE0CA]/70'
+                            ? 'cursor-default text-[#33271E]'
+                            : 'text-[#6E5A50] hover:text-[#33271E] hover:bg-white/30'
                         }`}
                       >
                         {option.label}
@@ -338,7 +338,7 @@ export function CityMapDiscoverySection({
 
               <div className="mt-6 flex min-h-0 flex-1 flex-col">
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                  <div className="mb-4 rounded-[22px] border border-[#F3B489]/35 bg-white/82 p-4 shadow-[0_14px_34px_-30px_rgba(51,39,30,0.28)]">
+                  <div className="mb-4 rounded-[22px] border border-white/50 bg-white/45 p-4 shadow-[0_14px_34px_-30px_rgba(51,39,30,0.15)] backdrop-blur-md">
                     <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 max-md:grid-cols-1">
                       <label className="min-w-0">
                         <span className="sr-only">소도시 검색어</span>
@@ -350,14 +350,14 @@ export function CityMapDiscoverySection({
                           }}
                           disabled={!canUseSmallCityCatalog}
                           placeholder="도시, 지역, 테마 검색"
-                          className="min-h-12 w-full rounded-[16px] border border-[#F3B489] bg-[#fffffa] px-4 text-sm font-bold text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-60 focus:border-[#A92B10] focus:ring-4 focus:ring-[#FF7017]/15"
+                          className="min-h-12 w-full rounded-[16px] border border-white/60 bg-white/65 px-4 text-sm font-bold text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-60 transition-all focus:border-[#F36B12] focus:bg-white focus:ring-4 focus:ring-[#FF7017]/10"
                         />
                       </label>
                       <button
                         type="button"
                         onClick={onClearFilters}
                         disabled={!hasActiveFilters || !canUseSmallCityCatalog}
-                        className="inline-flex min-h-12 items-center justify-center rounded-[16px] border border-transparent bg-[#FFF0E4] px-5 text-sm font-black text-[#33271E] shadow-[0_12px_24px_-22px_rgba(51,39,30,0.28)] transition hover:bg-[#FFE0CA] disabled:cursor-default disabled:opacity-45 disabled:hover:bg-[#FFF0E4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                        className="inline-flex min-h-12 items-center justify-center rounded-[16px] border border-white/60 bg-[#fffffa]/60 px-5 text-sm font-black text-[#33271E] shadow-sm transition hover:bg-[#FFE0CA] disabled:cursor-default disabled:opacity-45 disabled:hover:bg-[#fffffa]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                       >
                         필터 초기화
                       </button>
@@ -377,8 +377,8 @@ export function CityMapDiscoverySection({
                               onClick={() => onToggleThemeFilter(theme)}
                               className={`inline-flex min-h-9 items-center rounded-full border px-3 py-1 text-[12px] font-black leading-4 text-[#33271E] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
                                 isSelected
-                                  ? 'border-[#A92B10] bg-[#F36B12]'
-                                  : 'border-transparent bg-[#FFF8F6] hover:bg-[#FFE0CA] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[#FFF8F6]'
+                                  ? 'border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-[#33271E] shadow-sm'
+                                  : 'border-white/60 bg-[#fffffa]/60 hover:bg-[#FFE0CA] disabled:cursor-not-allowed disabled:opacity-50'
                               }`}
                             >
                               #{theme}
@@ -394,7 +394,7 @@ export function CityMapDiscoverySection({
 
                   <div
                     data-testid="city-map-marker-layer"
-                    className="lovv-city-map-surface relative min-h-[560px] flex-1 overflow-hidden rounded-[24px] border border-[#F3B489]/35 bg-[#FFF8F6] shadow-[0_20px_52px_-34px_rgba(51,39,30,0.36)] xl:min-h-0 max-xl:h-[620px] max-sm:h-[440px] max-sm:min-h-[440px]"
+                    className="lovv-city-map-surface relative min-h-[560px] flex-1 overflow-hidden rounded-[24px] border border-white/50 bg-[#fffffa]/30 shadow-[0_20px_52px_-34px_rgba(51,39,30,0.2)] xl:min-h-0 max-xl:h-[620px] max-sm:h-[440px] max-sm:min-h-[440px] backdrop-blur-sm"
                     role="region"
                     aria-label={`${selectedCountryOption.label} 소도시 지도. 현재 조건에 맞는 도시명 마커 ${visibleSmallCityMapMarkers.length}개.`}
                   >
@@ -405,7 +405,7 @@ export function CityMapDiscoverySection({
                       selectedMarkerCityId={selectedSmallCity?.id ?? null}
                       onSelectMarker={onSelectMapMarker}
                     />
-                    <div className="absolute left-5 top-5 z-10 max-w-[360px] rounded-[16px] border border-[#F3B489]/45 bg-white/90 px-4 py-3 text-[12px] font-black text-[#33271E] shadow-[0_14px_30px_-22px_rgba(51,39,30,0.38)] backdrop-blur">
+                    <div className="absolute left-5 top-5 z-10 max-w-[360px] rounded-[16px] border border-white/60 bg-white/80 px-4 py-3 text-[12px] font-black text-[#33271E] shadow-[0_14px_30px_-22px_rgba(51,39,30,0.15)] backdrop-blur-md">
                       <p>{selectedCountryOption.description}</p>
                       <p className="mt-1 text-[#6E5A50]">도시명 마커 {visibleSmallCityMapMarkers.length}개</p>
                     </div>
@@ -450,16 +450,16 @@ export function CityMapDiscoverySection({
                     : undefined
               }
               aria-live="polite"
-              className="min-h-0 min-w-0 overflow-hidden border-l border-[#F3B489]/35 bg-[#FFF0E4]/88 p-6 max-xl:overflow-visible max-xl:rounded-b-[24px] max-xl:border-l-0 max-xl:border-t max-sm:p-5"
+              className="min-h-0 min-w-0 overflow-hidden border-l border-white/50 bg-[#FFF0E4]/40 p-6 max-xl:overflow-visible max-xl:rounded-b-[24px] max-xl:border-l-0 max-xl:border-t max-sm:p-5 backdrop-blur-xl"
             >
               <div
                 ref={cityMapDetailPanelRef}
                 data-testid="city-map-detail-sticky-content"
-                className="h-full min-h-0 overflow-y-auto rounded-[22px] bg-[#fffffa]/70 p-4 pr-3 shadow-[inset_0_0_0_1px_rgba(243,180,137,0.28)]"
+                className="h-full min-h-0 overflow-y-auto rounded-[22px] bg-white/30 p-4 pr-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.4)]"
               >
                 {isCityMapListPanel ? (
                   <>
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[#F3B489]/25 bg-white/78 px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-white/50 bg-white/45 px-4 py-3 backdrop-blur-sm">
                       <div>
                         <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
                           Marker list
@@ -471,7 +471,7 @@ export function CityMapDiscoverySection({
                           표시된 소도시
                         </h3>
                       </div>
-                      <span className="rounded-full bg-[#FFF0E4] px-3 py-1 text-[12px] font-black text-[#33271E]">
+                      <span className="rounded-full border border-white/50 bg-[#fffffa]/80 px-3 py-1 text-[12px] font-black text-[#33271E] shadow-sm">
                         {filteredSmallCities.length} / {activeCountryTotalCount}
                       </span>
                     </div>
@@ -494,8 +494,8 @@ export function CityMapDiscoverySection({
                                 onClick={() => onSelectCityFromList(city)}
                                 className={`min-h-[58px] w-full rounded-[10px] border px-3 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
                                   isSelected
-                                    ? 'border-[#A92B10] bg-[#FFE0CA] shadow-[0_10px_22px_-20px_rgba(51,39,30,0.42)]'
-                                    : 'border-transparent bg-white/70 hover:border-[#F3B489]/70 hover:bg-[#fffffa]'
+                                    ? 'border-white/40 bg-gradient-to-tr from-[#FFE0CA]/90 to-[#FFE0CA]/60 shadow-[0_10px_22px_-20px_rgba(51,39,30,0.25)]'
+                                    : 'border-white/30 bg-white/40 hover:border-white/60 hover:bg-[#fffffa]/60'
                                 }`}
                               >
                                 <span className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
@@ -517,7 +517,7 @@ export function CityMapDiscoverySection({
                                         #{theme}
                                       </span>
                                     ))}
-                                    <span className="rounded-full bg-[#FFF0E4] px-2 py-1 text-[10px] font-black text-[#A92B10]">
+                                    <span className="rounded-full border border-white/60 bg-[#fffffa]/80 px-2.5 py-1 text-[10px] font-black text-[#A92B10] shadow-sm">
                                       보기
                                     </span>
                                   </span>
@@ -528,7 +528,7 @@ export function CityMapDiscoverySection({
                         })}
                       </ol>
                     ) : (
-                      <div className="mt-5 rounded-[12px] border border-transparent bg-white px-4 py-5">
+                      <div className="mt-5 rounded-[12px] border border-white/40 bg-white/50 px-4 py-5 shadow-sm">
                         <p className="break-keep text-sm font-black leading-6 text-[#33271E]">
                           표시할 결과가 없습니다.
                         </p>
@@ -543,11 +543,11 @@ export function CityMapDiscoverySection({
                     <button
                       type="button"
                       onClick={() => onSetPanelMode('list')}
-                      className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#F3B489] bg-white px-4 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                      className="inline-flex min-h-10 items-center justify-center rounded-full border border-white/60 bg-[#fffffa]/80 px-4 text-sm font-black text-[#33271E] shadow-sm transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                     >
                       ← 목록으로
                     </button>
-                    <div className="mt-4 rounded-[20px] bg-white/80 p-5">
+                    <div className="mt-4 rounded-[20px] border border-white/50 bg-white/45 p-5 backdrop-blur-sm">
                       <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
                         Selected city
                       </p>
@@ -565,7 +565,7 @@ export function CityMapDiscoverySection({
                         {selectedSmallCityVisibleThemes.map((theme) => (
                           <span
                             key={`${selectedSmallCity.id}-${theme}`}
-                            className="rounded-full bg-[#FFF0E4] px-3 py-1 text-[12px] font-black text-[#33271E]"
+                            className="rounded-full border border-white/60 bg-[#fffffa]/70 px-3 py-1 text-[12px] font-black text-[#33271E] shadow-sm"
                           >
                             #{theme}
                           </span>
@@ -578,7 +578,7 @@ export function CityMapDiscoverySection({
                     <p className="mt-3 break-keep text-sm leading-6 text-[#33271E]">
                       {selectedSmallCity.detail}
                     </p>
-                    <div className="mt-5 rounded-[12px] border border-transparent bg-[#fffffa] p-4">
+                    <div className="mt-5 rounded-[12px] border border-white/40 bg-white/50 p-4 shadow-sm backdrop-blur-sm">
                       <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
                         추천 근거
                       </p>
@@ -588,7 +588,7 @@ export function CityMapDiscoverySection({
                           : `${selectedCityFallbackThemeText}가 뚜렷해서 새로운 후보로 비교하기 좋습니다.`}
                       </p>
                     </div>
-                    <div className="mt-5 rounded-[12px] border border-transparent bg-[#fffffa] p-4">
+                    <div className="mt-5 rounded-[12px] border border-white/40 bg-white/50 p-4 shadow-sm backdrop-blur-sm">
                       <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
                         First route note
                       </p>
@@ -603,7 +603,7 @@ export function CityMapDiscoverySection({
                         {selectedSmallCity.highlights.slice(0, 4).map((highlight) => (
                           <li
                             key={`${selectedSmallCity.id}-${highlight}`}
-                            className="break-keep rounded-[5px] bg-white px-3 py-2 text-[12px] font-bold leading-5 text-[#33271E]"
+                            className="break-keep rounded-[5px] border border-white/40 bg-[#fffffa]/80 px-3 py-2 text-[12px] font-bold leading-5 text-[#33271E] shadow-sm"
                           >
                             {highlight}
                           </li>
@@ -613,7 +613,7 @@ export function CityMapDiscoverySection({
                     <button
                       type="button"
                       onClick={() => onOpenPlanner(selectedSmallCity)}
-                      className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-[8px] border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                      className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-[12px] border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-5 text-sm font-black text-[#33271E] shadow-sm transition hover:scale-[1.01] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                     >
                       이 소도시로 AI 일정 짜기
                     </button>

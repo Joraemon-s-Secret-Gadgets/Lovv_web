@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import type { HeroTheme, MonthlyRecommendation, PreferenceProfile } from '../../shared/types/app'
 import { heroThemes, monthlyRecommendations } from './homeContent'
+import { useUiToggleStore } from '../../shared/store/uiToggleStore'
+import { ArrowUp, Sparkles, Menu, X } from 'lucide-react'
 
 export const monthlyRecommendationRotationIntervalMs = 7000
 export const monthlyRecommendationTransitionDurationMs = 420
@@ -17,10 +19,8 @@ type HomeViewProps = {
   openChat: (event?: MouseEvent<HTMLElement>) => void
   openMap: (event?: MouseEvent<HTMLElement>) => void
   onOpenMonthlyRecommendationDetail: (recommendation: MonthlyRecommendation) => void
-  isQuickActionsOpen: boolean
   onOpenChatFromQuickAction: () => void
   onScrollToTop: () => void
-  onToggleQuickActions: () => void
 }
 
 const getHeroSummaryLines = (summary: string) =>
@@ -67,11 +67,11 @@ export function HomeView({
   openChat,
   openMap,
   onOpenMonthlyRecommendationDetail,
-  isQuickActionsOpen,
   onOpenChatFromQuickAction,
   onScrollToTop,
-  onToggleQuickActions,
 }: HomeViewProps) {
+  const isQuickActionsOpen = useUiToggleStore((state) => state.isQuickActionsOpen)
+  const toggleQuickActions = useUiToggleStore((state) => state.toggleQuickActions)
   const heroSummaryLines = getHeroSummaryLines(currentHeroTheme.summary)
   const [featuredRecommendationIndex, setFeaturedRecommendationIndex] = useState(0)
   const [monthlyRecommendationMotion, setMonthlyRecommendationMotion] =
@@ -141,7 +141,7 @@ export function HomeView({
                     data-testid="main-entry"
                     aria-labelledby="main-entry-title"
                     data-theme={currentHeroTheme.id}
-                    className="lovv-rotating-hero relative mx-auto min-h-[820px] max-w-[1440px] overflow-hidden px-[55px] pb-24 pt-[132px] max-lg:min-h-[780px] max-lg:px-8 max-sm:min-h-[740px] max-sm:px-5 max-sm:pb-20 max-sm:pt-36"
+                    className="lovv-rotating-hero relative mx-auto min-h-[820px] max-w-[1440px] overflow-hidden px-[55px] pb-24 pt-[96px] max-lg:min-h-[780px] max-lg:px-8 max-sm:min-h-[740px] max-sm:px-5 max-sm:pb-20 max-sm:pt-24"
                   >
                     <div className="absolute inset-0">
                       {heroThemes.map((theme) => {
@@ -172,7 +172,7 @@ export function HomeView({
                     <div className={`lovv-hero-theme-glow ${currentHeroTheme.glowClassName}`} aria-hidden="true" />
 
                     <div className="relative z-10 mx-auto flex min-h-[600px] max-w-[880px] flex-col items-center justify-center text-center max-lg:min-h-[560px] max-sm:min-h-[510px]">
-                      <div className="inline-flex min-h-[58px] items-center gap-3 rounded-full border border-transparent bg-white/90 px-5 py-2 text-sm font-bold text-[#A92B10] shadow-[0_20px_46px_-30px_rgba(51,39,30,0.55)] backdrop-blur max-sm:min-h-[52px] max-sm:text-[12px]">
+                      <div className="inline-flex min-h-[58px] items-center gap-3 rounded-full border border-white/60 bg-white/80 px-5 py-2 text-sm font-bold text-[#A92B10] shadow-[0_20px_46px_-30px_rgba(51,39,30,0.25)] backdrop-blur-md max-sm:min-h-[52px] max-sm:text-[12px]">
                         <span className="grid size-10 place-items-center overflow-hidden rounded-full bg-[#FFF0E4]">
                           <img
                             src={foxFaceImage}
@@ -218,7 +218,7 @@ export function HomeView({
                         {selectedThemeHashtags.map((tag) => (
                           <span
                             key={tag}
-                            className="inline-flex min-h-[34px] items-center rounded-full border border-transparent bg-white/80 px-4 py-1 break-keep text-sm font-bold leading-5 text-[#33271E] shadow-[0_10px_24px_-18px_rgba(51,39,30,0.28)] backdrop-blur max-sm:text-[13px]"
+                            className="inline-flex min-h-[34px] items-center rounded-full border border-white/60 bg-[#fffffa]/80 px-4 py-1 break-keep text-sm font-bold leading-5 text-[#33271E] shadow-sm backdrop-blur-sm max-sm:text-[13px] hover:scale-[1.01] transition-transform duration-200"
                           >
                             {tag}
                           </span>
@@ -229,14 +229,14 @@ export function HomeView({
                         <a
                           href="/map"
                           onClick={openMap}
-                          className="inline-flex min-h-[58px] min-w-[210px] items-center justify-center rounded-[20px] border border-[#A92B10] bg-[#B64A00] px-8 text-center text-base font-black text-white shadow-[0_18px_42px_-20px_rgba(51,39,30,0.55)] transition hover:-translate-y-0.5 hover:bg-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-sm:w-full"
+                          className="inline-flex min-h-[58px] min-w-[210px] items-center justify-center rounded-[20px] border border-white/40 bg-gradient-to-tr from-[#B64A00] to-[#F36B12] px-8 text-center text-base font-black text-white shadow-md transition hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-sm:w-full"
                         >
                           여행지 찾아보기
                         </a>
                         <a
                           href="/planner"
                           onClick={openChat}
-                          className="inline-flex min-h-[58px] min-w-[190px] items-center justify-center rounded-[20px] border border-white/85 bg-white/90 px-8 text-center text-base font-black text-[#B64A00] shadow-[0_18px_42px_-24px_rgba(51,39,30,0.42)] transition hover:-translate-y-0.5 hover:border-[#F3B489] hover:bg-[#FFF0E4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-sm:w-full"
+                          className="inline-flex min-h-[58px] min-w-[190px] items-center justify-center rounded-[20px] border border-white/70 bg-white/80 px-8 text-center text-base font-black text-[#B64A00] shadow-sm transition hover:-translate-y-0.5 hover:scale-[1.01] hover:border-[#F3B489]/50 hover:bg-[#FFF0E4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-sm:w-full"
                         >
                           AI 일정 짜기
                         </a>
@@ -263,14 +263,14 @@ export function HomeView({
                   <section className="mx-auto max-w-[1440px] px-[55px] pb-8 max-sm:px-5">
                     <div
                       data-testid="proof-summary-panel"
-                      className="grid min-h-[126px] grid-cols-[1fr_auto] items-center gap-8 rounded-3xl border border-transparent bg-white/82 px-[31px] py-7 shadow-[0_12px_28px_-14px_rgba(33,46,33,0.1)] max-lg:grid-cols-1"
+                      className="grid min-h-[126px] grid-cols-[1fr_auto] items-center gap-8 rounded-3xl border border-white/60 bg-white/45 px-[31px] py-7 shadow-[0_12px_28px_-14px_rgba(51,39,30,0.1)] backdrop-blur-2xl max-lg:grid-cols-1"
                     >
                       <div>
-                        <h2 className="break-keep text-[22px] font-semibold leading-7 text-[#33271E] max-sm:text-xl">
-                          처음엔 작게, 추천은 명확하게
+                        <h2 className="break-keep text-[22px] font-bold leading-7 text-[#33271E] max-sm:text-xl">
+                          붐비는 유명지 대신, 취향에 맞는 소도시
                         </h2>
                         <p className="mt-2 break-keep text-sm leading-5 text-[#33271E]">
-                          Lovv는 선택한 기준 테마를 먼저 보고, 같은 분위기의 소도시 후보를 좁힙니다.
+                          어디로 갈지 못정했어도 괜찮아요 - 시기만 정하면 조건에 맞는 소도시를 골라드려요.
                         </p>
                       </div>
                       <ul
@@ -280,10 +280,10 @@ export function HomeView({
                         {recommendationBasisHashtags.map((tag, index) => (
                           <li key={tag}>
                             <span
-                              className={`inline-flex min-h-[34px] items-center rounded-[5px] border px-3 py-1 text-[12px] font-bold leading-4 text-[#33271E] ${
+                              className={`inline-flex min-h-[34px] items-center rounded-[5px] border px-3 py-1 text-[12px] font-bold leading-4 text-[#33271E] shadow-sm transition hover:scale-[1.01] ${
                                 index === 0
-                                  ? 'border-[#A92B10] bg-[#F36B12]'
-                                  : 'border-transparent bg-[#FFF0E4]'
+                                  ? 'border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A]'
+                                  : 'border-white/60 bg-[#fffffa]/60 hover:bg-[#FFE0CA]'
                               }`}
                             >
                               {tag}
@@ -314,7 +314,7 @@ export function HomeView({
                           계절감과 선택 테마가 잘 맞는 한국과 일본의 소도시 후보를 먼저 골랐습니다.
                         </p>
                       </div>
-                      <p className="rounded-[5px] bg-white/80 px-4 py-2 text-[12px] font-bold leading-5 text-[#33271E] shadow-[0_10px_24px_-22px_rgba(51,39,30,0.24)]">
+                      <p className="rounded-[5px] border border-white/60 bg-[#fffffa]/80 px-4 py-2 text-[12px] font-bold leading-5 text-[#33271E] shadow-sm backdrop-blur-sm">
                         카드를 선택하면 테마 상세 정보를 먼저 확인할 수 있습니다.
                       </p>
                     </div>
@@ -323,7 +323,7 @@ export function HomeView({
                       data-testid="monthly-recommendation-grid"
                       data-featured-index={featuredRecommendationIndex}
                       data-motion={monthlyRecommendationMotion}
-                      className="group/carousel relative grid min-h-[520px] grid-cols-[minmax(160px,0.58fr)_minmax(0,1.45fr)_minmax(160px,0.58fr)] items-center gap-5 overflow-hidden rounded-[26px] border border-[#F3B489]/40 bg-white/48 p-5 shadow-[0_18px_54px_-44px_rgba(51,39,30,0.42)] max-lg:grid-cols-[minmax(0,0.62fr)_minmax(0,1.18fr)_minmax(0,0.62fr)] max-md:min-h-0 max-md:grid-cols-1 max-md:p-4"
+                      className="group/carousel relative grid min-h-[520px] grid-cols-[minmax(160px,0.58fr)_minmax(0,1.45fr)_minmax(160px,0.58fr)] items-center gap-5 overflow-hidden rounded-[26px] border border-white/60 bg-white/40 p-5 shadow-[0_18px_54px_-44px_rgba(51,39,30,0.25)] backdrop-blur-2xl max-lg:grid-cols-[minmax(0,0.62fr)_minmax(0,1.18fr)_minmax(0,0.62fr)] max-md:min-h-0 max-md:grid-cols-1 max-md:p-4"
                     >
                       <button
                         type="button"
@@ -380,11 +380,11 @@ export function HomeView({
                             <div className="absolute inset-0 bg-gradient-to-t from-[#1F1A17]/88 via-[#1F1A17]/28 to-transparent" />
                             <div className="relative z-10 flex h-full min-h-[inherit] flex-col justify-between gap-5 p-7 text-white max-sm:p-5">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-[5px] bg-white/90 px-3 py-1 text-[12px] font-black text-[#33271E]">
+                                <span className="rounded-[5px] border border-white/60 bg-white/80 px-3 py-1 text-[12px] font-black text-[#33271E] shadow-sm">
                                   {recommendation.badge}
                                 </span>
                                 {isCurrentRecommendation ? (
-                                  <span className="rounded-[5px] bg-[#F36B12] px-3 py-1 text-[12px] font-black text-[#33271E]">
+                                  <span className="rounded-[5px] border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-3 py-1 text-[12px] font-black text-[#33271E] shadow-sm">
                                     현재 기준
                                   </span>
                                 ) : null}
@@ -411,7 +411,7 @@ export function HomeView({
                                   {recommendation.summary}
                                 </p>
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                  <span className="rounded-[5px] bg-white/18 px-3 py-1 text-[12px] font-bold text-white backdrop-blur">
+                                  <span className="rounded-[5px] border border-white/20 bg-white/10 px-3 py-1 text-[12px] font-bold text-white backdrop-blur-sm">
                                     {recommendation.themes.join('·')}
                                   </span>
                                 </div>
@@ -423,23 +423,25 @@ export function HomeView({
                     </div>
                   </section>
 
-                  <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3 max-sm:bottom-4 max-sm:right-4">
+                  <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3.5 max-sm:bottom-4 max-sm:right-4">
                     {isQuickActionsOpen ? (
-                      <div className="flex flex-col items-end gap-2">
+                      <div className="flex flex-col items-end gap-2.5">
                         <button
                           type="button"
                           aria-label="AI 일정 짜기 바로가기"
                           onClick={onOpenChatFromQuickAction}
-                          className="inline-flex min-h-11 items-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] shadow-[0_16px_36px_-20px_rgba(51,39,30,0.55)] transition hover:-translate-y-0.5 hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] shadow-[0_16px_36px_-20px_rgba(51,39,30,0.55)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                         >
+                          <Sparkles className="size-4 fill-[#33271E]/20 text-[#33271E]" />
                           AI 일정 짜기
                         </button>
                         <button
                           type="button"
                           aria-label="맨 위로 이동"
                           onClick={onScrollToTop}
-                          className="inline-flex min-h-11 items-center rounded-full border border-[#F3B489] bg-white px-5 text-sm font-black text-[#33271E] shadow-[0_16px_36px_-22px_rgba(51,39,30,0.45)] transition hover:-translate-y-0.5 hover:bg-[#FFF0E4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/60 bg-white/70 px-5 text-sm font-black text-[#33271E] shadow-[0_16px_36px_-22px_rgba(51,39,30,0.22)] backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                         >
+                          <ArrowUp className="size-4 text-[#A92B10]" />
                           맨 위로
                         </button>
                       </div>
@@ -448,10 +450,14 @@ export function HomeView({
                       type="button"
                       aria-label={isQuickActionsOpen ? '빠른 이동 메뉴 닫기' : '빠른 이동 메뉴 열기'}
                       aria-expanded={isQuickActionsOpen}
-                      onClick={onToggleQuickActions}
-                      className="flex size-14 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] text-xl font-black text-[#33271E] shadow-[0_18px_42px_-20px_rgba(51,39,30,0.65)] transition hover:-translate-y-0.5 hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                      onClick={toggleQuickActions}
+                      className="flex size-14 items-center justify-center rounded-full border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-xl font-black text-[#33271E] shadow-[0_18px_42px_-20px_rgba(243,107,18,0.65)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-16px_rgba(243,107,18,0.75)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                     >
-                      {isQuickActionsOpen ? '×' : '↥'}
+                      {isQuickActionsOpen ? (
+                        <X className="size-6 text-[#33271E]" />
+                      ) : (
+                        <Menu className="size-6 text-[#33271E]" />
+                      )}
                     </button>
                   </div>
                 </>

@@ -5,14 +5,12 @@
  */
 
 import { useEffect } from 'react'
-import { legalNoticeContent, type LegalNoticeType } from './legalNoticeContent'
+import { legalNoticeContent } from './legalNoticeContent'
+import { useUiToggleStore } from '../store/uiToggleStore'
 
-type LegalNoticeDialogProps = {
-  noticeType: LegalNoticeType | null
-  onClose: () => void
-}
-
-export function LegalNoticeDialog({ noticeType, onClose }: LegalNoticeDialogProps) {
+export function LegalNoticeDialog() {
+  const noticeType = useUiToggleStore((state) => state.activeLegalNoticeType)
+  const onClose = useUiToggleStore((state) => state.closeLegalNotice)
   const notice = noticeType ? legalNoticeContent[noticeType] : null
 
   useEffect(() => {

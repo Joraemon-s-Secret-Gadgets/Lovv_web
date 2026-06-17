@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthApiState } from './shared/api/authApi'
 import {
@@ -17,10 +18,13 @@ import {
   requestUnlikeSavedPlan,
 } from './shared/api/savedPlansApi'
 import { requestUpdatePreference } from './shared/api/preferencesApi'
+import { requestCreateRecommendation } from './shared/api/recommendationsApi'
+import { adaptSmallCityApiResponse, requestListSmallCities } from './shared/api/smallCityApi'
 import App from './App'
 import { requestCognitoToken } from './features/auth/cognitoAuth'
 import { socialAuthProviderStorageKey } from './features/auth/authModel'
 import { writePendingOAuthLogin } from './features/auth/authRedirect'
+import { createStaticSmallCityApiResponse } from './features/map-city/smallCityDataSource'
 import {
   createSmallCityMapMarkers,
   smallCities,
@@ -64,9 +68,27 @@ vi.mock('./shared/api/preferencesApi', async (importOriginal) => {
   }
 })
 
+vi.mock('./shared/api/recommendationsApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./shared/api/recommendationsApi')>()
+
+  return {
+    ...actual,
+    requestCreateRecommendation: vi.fn().mockRejectedValue(new Error('fetch not available in test')),
+  }
+})
+
 vi.mock('./features/auth/cognitoAuth', () => ({
   requestCognitoToken: vi.fn(),
 }))
+
+vi.mock('./shared/api/smallCityApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./shared/api/smallCityApi')>()
+
+  return {
+    ...actual,
+    requestListSmallCities: vi.fn(),
+  }
+})
 
 const authStorageKey = 'lovv.auth.user'
 const preferenceStorageKey = 'lovv.preference'
@@ -74,10 +96,22 @@ const preferenceStorageKey = 'lovv.preference'
 const renderApp = (path = '/') => {
   window.history.replaceState(null, '', path)
 
+  // A fresh QueryClient per render avoids cached query results leaking across tests,
+  // and disabling retries keeps default-rejected mocks (e.g. requestCreateRecommendation)
+  // failing deterministically on the first attempt.
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  })
+
   return render(
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>,
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </QueryClientProvider>,
   )
 }
 
@@ -174,15 +208,12 @@ const signOutFromSessionMenu = () => {
 }
 
 const completeGuidedPlanner = async ({
-  festival = '축제 제외',
   duration = '1박 2일',
   query = '동행 없이 여유롭게 덜 걷고 싶어요',
 }: {
-  festival?: '축제 포함' | '축제 제외'
   duration?: '당일치기' | '1박 2일' | '2박 3일' | '3박 4일' | '4박 5일'
   query?: string
 } = {}) => {
-  fireEvent.click(screen.getByRole('button', { name: festival }))
   fireEvent.click(screen.getByRole('button', { name: duration }))
 
   const input = screen.getByRole('textbox', { name: '여행 조건 입력' })
@@ -208,6 +239,10 @@ beforeEach(() => {
   vi.stubEnv('VITE_COGNITO_LOGOUT_URI', '')
   vi.mocked(requestListSavedPlans).mockResolvedValue({ savedPlans: [], likes: {} })
   vi.mocked(requestUpdatePreference).mockImplementation(async (profile) => profile)
+  vi.mocked(requestCreateRecommendation).mockRejectedValue(new Error('fetch not available in test'))
+  vi.mocked(requestListSmallCities).mockResolvedValue(
+    adaptSmallCityApiResponse(createStaticSmallCityApiResponse(smallCities)),
+  )
 })
 
 afterEach(() => {
@@ -517,7 +552,7 @@ describe('MVP main entry screen', () => {
         accessToken: 'restored-access-token',
       })
     })
-    expect(screen.getByRole('status')).toHaveTextContent('저장 일정을 불러오고 있어요')
+    expect(screen.getByRole('status')).toHaveTextContent('일정 상세를 불러오고 있어요')
     expect(screen.queryByText(/아직 확정된 일정 초안이 없어요/)).not.toBeInTheDocument()
 
     savedPlanDetail.resolve(serverSavedPlan)
@@ -540,7 +575,12 @@ describe('MVP main entry screen', () => {
 
     const googleButton = screen.getByRole('button', { name: 'Google로 계속하기' })
 
-    expect(googleButton).toBeEnabled()
+    // Session restore now settles through a query (an extra render/effect cycle versus the prior
+    // direct promise chain), so the button's disabled state lags one tick behind the
+    // requestAuthSession call count check above.
+    await waitFor(() => {
+      expect(googleButton).toBeEnabled()
+    })
     fireEvent.click(googleButton)
 
     await waitFor(() => {
@@ -591,6 +631,7 @@ describe('MVP main entry screen', () => {
       redirectUri: 'http://localhost/auth/callback/google',
       codeVerifier: 'google-pkce-verifier',
       createdAt: 1_800_000_000_000,
+    mode: 'login',
     })
 
     renderApp('/auth/callback/google?code=google-auth-code&state=state-1')
@@ -624,6 +665,7 @@ describe('MVP main entry screen', () => {
       redirectUri: 'http://localhost/auth/callback/google',
       codeVerifier: 'google-pkce-verifier',
       createdAt: 1_800_000_000_000,
+    mode: 'login',
     })
 
     renderApp('/auth/callback/google?code=google-auth-code&state=state-1')
@@ -655,6 +697,7 @@ describe('MVP main entry screen', () => {
       state: 'state-1',
       redirectUri: 'http://localhost/auth/callback/kakao',
       createdAt: 1_800_000_000_000,
+    mode: 'login',
     })
 
     renderApp('/auth/callback/kakao?code=kakao-auth-code&state=state-2')
@@ -694,6 +737,7 @@ describe('MVP main entry screen', () => {
       redirectUri: 'http://localhost/auth/callback/cognito',
       codeVerifier: 'cognito-pkce-verifier',
       createdAt: 1_800_000_000_000,
+    mode: 'login',
     })
 
     renderApp('/auth/callback/cognito?code=cognito-auth-code&state=state-1')
@@ -737,6 +781,7 @@ describe('MVP main entry screen', () => {
       redirectUri: 'http://localhost/auth/callback/cognito',
       codeVerifier: 'cognito-pkce-verifier',
       createdAt: 1_800_000_000_000,
+    mode: 'login',
     })
 
     renderApp('/auth/callback/cognito?code=cognito-auth-code&state=state-1')
@@ -776,6 +821,7 @@ describe('MVP main entry screen', () => {
       redirectUri: 'http://localhost/auth/callback/cognito',
       codeVerifier: 'cognito-pkce-verifier',
       createdAt: 1_800_000_000_000,
+    mode: 'login',
     })
 
     renderApp('/auth/callback/cognito?code=cognito-auth-code&state=state-1')
@@ -811,6 +857,7 @@ describe('MVP main entry screen', () => {
       redirectUri: 'http://localhost/auth/callback/cognito',
       codeVerifier: 'cognito-pkce-verifier',
       createdAt: 1_800_000_000_000,
+    mode: 'login',
     })
 
     renderApp('/auth/callback/cognito?code=cognito-auth-code&state=state-2')
@@ -834,6 +881,7 @@ describe('MVP main entry screen', () => {
       state: 'state-1',
       redirectUri: 'http://localhost/auth/callback/cognito',
       createdAt: 1_800_000_000_000,
+    mode: 'login',
     })
 
     renderApp('/auth/callback/cognito?code=cognito-auth-code&state=state-1')
@@ -869,6 +917,7 @@ describe('MVP main entry screen', () => {
       redirectUri: 'http://localhost/auth/callback/cognito',
       codeVerifier: 'cognito-pkce-verifier',
       createdAt: 1_800_000_000_000,
+    mode: 'login',
     })
 
     renderApp('/auth/callback/cognito?code=cognito-auth-code&state=state-1')
@@ -913,7 +962,7 @@ describe('MVP main entry screen', () => {
     const monthlyHeading = screen.getByRole('heading', { name: '이번 달 추천 소도시' })
 
     expect(proofSummaryPanel).toHaveClass('border')
-    expect(proofSummaryPanel).toHaveClass('border-transparent')
+    expect(proofSummaryPanel).toHaveClass('border-white/60')
     expect(screen.getByText(/선택한 기준 테마를 먼저 보고/)).toBeInTheDocument()
     expect(within(recommendationBasis).getAllByRole('listitem')).toHaveLength(2)
     ;['#바다', '#해안'].forEach((tag) => {
@@ -1001,7 +1050,9 @@ describe('MVP main entry screen', () => {
       expect(window.location.pathname).toBe('/map')
     })
     expect(window.location.search).toBe('')
-    expect(screen.getByTestId('city-map-google-map')).toHaveAttribute('data-marker-count', '40')
+    await waitFor(() => {
+      expect(screen.getByTestId('city-map-google-map')).toHaveAttribute('data-marker-count', '40')
+    })
     mapLegacyApp.unmount()
 
     const preferenceLegacyApp = renderApp('/?view=preferenceEdit')
@@ -1099,10 +1150,14 @@ describe('MVP main entry screen', () => {
     expect(screen.queryByRole('heading', { name: '소도시 지도 프리뷰' })).not.toBeInTheDocument()
   })
 
-  it('renders the small-city map fixture corpus and country switcher', () => {
+  it('renders the small-city map fixture corpus and country switcher', async () => {
     seedUser()
     seedPreference('부산 · 오키나와')
     renderApp('/map')
+
+    await waitFor(() => {
+      expect(screen.getByTestId('city-map-google-map')).toHaveAttribute('data-marker-count', '40')
+    })
 
     expect(window.location.pathname).toBe('/map')
     expect(smallCityCounts.KR).toBe(40)
@@ -1236,10 +1291,14 @@ describe('MVP main entry screen', () => {
     expect(japaneseMarkers[0]).not.toHaveProperty('routeSeed')
   })
 
-  it('filters small-city markers by search and theme with an empty state', () => {
+  it('filters small-city markers by search and theme with an empty state', async () => {
     seedUser()
     seedPreference('부산 · 오키나와')
     renderApp('/map')
+
+    await waitFor(() => {
+      expect(screen.getByTestId('city-map-google-map')).toHaveAttribute('data-marker-count', '40')
+    })
 
     const cityMapSection = screen.getByTestId('city-map-discovery-section')
     const searchInput = within(cityMapSection).getByPlaceholderText('도시, 지역, 테마 검색')
@@ -1276,10 +1335,14 @@ describe('MVP main entry screen', () => {
     expect(within(cityMapSection).getByText('한국 40곳 / 전체 40곳')).toBeInTheDocument()
   })
 
-  it('opens the AI planner from a selected map city without mutating the stored preference', () => {
+  it('opens the AI planner from a selected map city without mutating the stored preference', async () => {
     seedUser()
     seedPreference('부산 · 오키나와')
     renderApp('/map')
+
+    await waitFor(() => {
+      expect(screen.getByTestId('city-map-google-map')).toHaveAttribute('data-marker-count', '40')
+    })
 
     const cityMapSection = screen.getByTestId('city-map-discovery-section')
     const searchInput = within(cityMapSection).getByPlaceholderText('도시, 지역, 테마 검색')
@@ -1303,7 +1366,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByRole('heading', { name: 'AI 일정 챗봇' })).toBeInTheDocument()
     expect(screen.getByTestId('chat-planner-summary')).toHaveTextContent('경주 상세 정보를 기준으로')
     expect(screen.getByTestId('chat-planner-summary')).toHaveTextContent('여행 기간만 먼저 정리합니다')
-    expect(screen.getByRole('log', { name: 'AI 일정 대화' })).toHaveTextContent('경주로 세부 일정을 짜고 싶어요.')
+    expect(screen.getByRole('log', { name: 'AI 일정 대화' })).toHaveTextContent('경주(한국 경북)를 기준으로 시작할게요.')
     expect(screen.queryByRole('button', { name: '축제 포함' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '축제 제외' })).not.toBeInTheDocument()
     expect(screen.getByText('일정 기간을 먼저 골라주세요')).toBeInTheDocument()
@@ -1315,8 +1378,8 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
-    expect(screen.getByText(/경주 중심으로 1박 2일 흐름을 잡아볼게요/)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '생성된 일정 요약' })).toBeInTheDocument()
+    expect(screen.getByText(/경주 중심으로 알맞은 1박 2일 일정을 구성해 보겠습니다/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '경주' })).toBeInTheDocument()
     expect(screen.getByText(/경주 · 경북 1박 2일 초안/)).toBeInTheDocument()
     expect(screen.getByText(/선택한 소도시의 장소 단서와 여행 기간을 중심으로 구성합니다/)).toBeInTheDocument()
     expect(screen.queryByText('축제 제외 반영')).not.toBeInTheDocument()
@@ -1325,10 +1388,14 @@ describe('MVP main entry screen', () => {
     expect(screen.getByPlaceholderText('추가로 원하는 조건을 입력해 주세요')).toBeInTheDocument()
   })
 
-  it('skips the selected-city festival prompt when only the city theme has a festival tag', () => {
+  it('skips the selected-city festival prompt when only the city theme has a festival tag', async () => {
     seedUser()
     seedPreference('부산 · 오키나와')
     renderApp('/map')
+
+    await waitFor(() => {
+      expect(screen.getByTestId('city-map-google-map')).toHaveAttribute('data-marker-count', '40')
+    })
 
     const cityMapSection = screen.getByTestId('city-map-discovery-section')
     const searchInput = within(cityMapSection).getByPlaceholderText('도시, 지역, 테마 검색')
@@ -1341,15 +1408,19 @@ describe('MVP main entry screen', () => {
       }),
     )
 
-    expect(screen.getByRole('log', { name: 'AI 일정 대화' })).toHaveTextContent('양양로 세부 일정을 짜고 싶어요.')
+    expect(screen.getByRole('log', { name: 'AI 일정 대화' })).toHaveTextContent('양양(한국 강원)를 기준으로 시작할게요.')
     expect(screen.queryByRole('button', { name: '축제 포함' })).not.toBeInTheDocument()
     expect(screen.getByText('일정 기간을 먼저 골라주세요')).toBeInTheDocument()
   })
 
-  it('asks the selected-city festival prompt from real festival data and checks the travel month', () => {
+  it('asks the selected-city festival prompt from real festival data and checks the travel month', async () => {
     seedUser()
     seedPreference('부산 · 오키나와')
     renderApp('/map')
+
+    await waitFor(() => {
+      expect(screen.getByTestId('city-map-google-map')).toHaveAttribute('data-marker-count', '40')
+    })
 
     const nextCityMapSection = screen.getByTestId('city-map-discovery-section')
     const nextSearchInput = within(nextCityMapSection).getByPlaceholderText('도시, 지역, 테마 검색')
@@ -1373,17 +1444,12 @@ describe('MVP main entry screen', () => {
       }),
     )
 
-    expect(screen.getByRole('log', { name: 'AI 일정 대화' })).toHaveTextContent('진주로 세부 일정을 짜고 싶어요.')
-    expect(screen.getByRole('button', { name: '축제 포함' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '축제 포함' }))
+    expect(screen.getByRole('log', { name: 'AI 일정 대화' })).toHaveTextContent('진주(한국 경남)를 기준으로 시작할게요.')
+    expect(screen.queryByRole('button', { name: '축제 포함' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
-    expect(screen.getByText('여행 예정 월을 골라주세요')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('여행 예정 월을 먼저 선택해 주세요')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '6월' }))
-
-    expect(screen.getByRole('heading', { name: '생성된 일정 요약' })).toBeInTheDocument()
-    expect(screen.getByText(/선택한 기간에 맞는 축제는 없어 일반 코스로 구성합니다/)).toBeInTheDocument()
+    expect(screen.queryByText('여행 예정 월을 골라주세요')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '진주 · 경남 1박 2일 초안' })).toBeInTheDocument()
   })
 
   it('rotates the main hero theme every 10 seconds with theme-specific slogan styling', () => {
@@ -1456,7 +1522,7 @@ describe('MVP main entry screen', () => {
     const footer = screen.getByRole('contentinfo')
 
     expect(within(footer).getByText('Lovv')).toBeInTheDocument()
-    expect(within(footer).getByText('© 2026 Lovv. All rights reserved.')).toBeInTheDocument()
+    expect(within(footer).getByText(/© 2026 Lovv. All rights reserved./)).toBeInTheDocument()
     fireEvent.click(within(footer).getByRole('button', { name: '이용약관' }))
     expect(screen.getByRole('dialog', { name: '이용약관' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '서비스 이용' })).toBeInTheDocument()
@@ -1486,7 +1552,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getAllByText('역사·전통').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Google로 로그인되어 있습니다.')).toBeInTheDocument()
     expect(screen.getByText('저장한 일정이 아직 없습니다.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '취향 다시 고르기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '테마 변경' })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: '로그아웃' })).toHaveLength(1)
     expect(screen.getByRole('button', { name: '← 이전으로 돌아가기' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '메인으로 돌아가기' })).toBeInTheDocument()
@@ -1533,7 +1599,7 @@ describe('MVP main entry screen', () => {
     renderApp()
 
     openMyPageFromSessionMenu()
-    fireEvent.click(screen.getByRole('button', { name: '취향 다시 고르기' }))
+    fireEvent.click(screen.getByRole('button', { name: '테마 변경' }))
 
     expect(window.location.pathname).toBe('/preferences')
     expect(screen.getByRole('heading', { name: '여행의 분위기를 다시 골라주세요' })).toBeInTheDocument()
@@ -1560,7 +1626,7 @@ describe('MVP main entry screen', () => {
     renderApp()
 
     openMyPageFromSessionMenu()
-    fireEvent.click(screen.getByRole('button', { name: '취향 다시 고르기' }))
+    fireEvent.click(screen.getByRole('button', { name: '테마 변경' }))
     fireEvent.click(screen.getByRole('button', { name: /역사·전통/ }))
     fireEvent.click(screen.getByRole('button', { name: /바다·해안/ }))
     fireEvent.click(screen.getByRole('button', { name: '이 취향으로 저장하기' }))
@@ -1591,17 +1657,15 @@ describe('MVP main entry screen', () => {
     expect(summary).toHaveClass('rounded-[18px]')
     expect(summary.querySelector('ol')).toHaveClass('grid-cols-3')
     expect(within(summary).getByText('취향 반영')).toBeInTheDocument()
-    expect(within(summary).getByText('완료')).toBeInTheDocument()
+    expect(within(summary).getAllByText('완료')[0]).toBeInTheDocument()
     expect(within(summary).getByText('자연·트레킹 기준 테마로 시작합니다.')).toBeInTheDocument()
     expect(within(summary).getByText('#자연')).toBeInTheDocument()
     expect(within(summary).getByText('후보 탐색')).toBeInTheDocument()
     expect(within(summary).getByText('진행 중')).toBeInTheDocument()
     expect(within(summary).getByText('자연·트레킹')).toBeInTheDocument()
     expect(within(summary).getByText('일정 구성')).toBeInTheDocument()
-    expect(within(summary).getByText('축제 포함 여부를 먼저 골라주세요.')).toBeInTheDocument()
-    expect(within(summary).getByText('대기')).toBeInTheDocument()
+    expect(within(summary).getByText('여행 기간을 선택해 주세요.')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '축제 제외' }))
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
     expect(within(summary).getByText('동행, 관심사, 걷는 정도를 자연어로 입력하면 초안이 완성됩니다.')).toBeInTheDocument()
@@ -1613,7 +1677,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '메시지 보내기' }))
 
     await screen.findByText('초안 준비')
-    expect(within(summary).getByText(/축제 제외 · 1박 2일 · 자연·트레킹/)).toBeInTheDocument()
+    expect(within(summary).getByText(/1박 2일 · 자연·트레킹/)).toBeInTheDocument()
   })
 
   it('opens floating quick actions for chat and top navigation', () => {
@@ -1638,13 +1702,14 @@ describe('MVP main entry screen', () => {
 
     expect(screen.getByRole('button', { name: '현재 세션: Google 메뉴 열기' })).toHaveClass('bg-[#F36B12]')
     expect(screen.getByRole('link', { name: '여행지 찾아보기' })).toHaveClass(
-      'bg-[#B64A00]',
-      'border-[#A92B10]',
+      'from-[#B64A00]',
+      'to-[#F36B12]',
+      'border-white/40',
       'text-white',
-      'hover:bg-[#F36B12]',
     )
     expect(screen.getByRole('link', { name: 'AI 일정 짜기' })).toHaveClass(
-      'bg-white/90',
+      'bg-white/80',
+      'border-white/70',
       'text-[#B64A00]',
       'hover:bg-[#FFF0E4]',
     )
@@ -1654,14 +1719,15 @@ describe('MVP main entry screen', () => {
     expect(within(recommendationBasis).getAllByRole('listitem')).toHaveLength(2)
     expect(within(recommendationBasis).getByText('#온천')).toHaveClass(
       'rounded-[5px]',
-      'bg-[#F36B12]',
-      'border-[#A92B10]',
+      'from-[#F36B12]',
+      'to-[#FF8A2A]',
+      'border-white/40',
     )
     expect(within(recommendationBasis).getByText('#온천')).not.toHaveClass('rounded-full')
     expect(within(recommendationBasis).getByText('#휴양')).toHaveClass(
       'rounded-[5px]',
-      'bg-[#FFF0E4]',
-      'border-transparent',
+      'bg-[#fffffa]/60',
+      'border-white/60',
     )
     expect(within(recommendationBasis).getByText('#휴양')).not.toHaveClass('rounded-full')
   })
@@ -1708,13 +1774,12 @@ describe('MVP main entry screen', () => {
       'max-sm:text-xl',
       'max-sm:leading-7',
     )
-    expect(screen.getByText('축제 포함 여부와 여행 기간을 고른 뒤 이번 여행 조건을 입력하면 일정 초안이 여기에 표시됩니다.')).toHaveClass(
+    expect(screen.getByText('여행 기간을 고른 뒤 해당 소도시의 동선 단서를 기준으로 일정 초안이 여기에 표시됩니다.')).toHaveClass(
       'break-keep',
       'max-sm:text-[13px]',
     )
 
     await completeGuidedPlanner({
-      festival: '축제 제외',
       duration: '1박 2일',
       query: '숲길 위주로 덜 걷고 싶어요',
     })
@@ -1724,7 +1789,7 @@ describe('MVP main entry screen', () => {
       'max-sm:text-lg',
       'max-sm:leading-6',
     )
-    expect(screen.getByText(/채팅 옆에서는 전체 방향만 빠르게 확인하고/)).toHaveClass(
+    expect(screen.getByText('챗봇에서 정리된 조건을 바탕으로, 핵심 흐름만 압축해서 보여줍니다.')).toHaveClass(
       'break-keep',
       'max-sm:text-[13px]',
     )
@@ -1885,7 +1950,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByTestId('chat-conversation-panel')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'AI 일정 결과' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '생성된 일정 요약' })).not.toBeInTheDocument()
-    expect(screen.getByText('축제 포함 여부와 여행 기간을 고른 뒤 이번 여행 조건을 입력하면 일정 초안이 여기에 표시됩니다.')).toBeInTheDocument()
+    expect(screen.getByText('여행 기간을 고른 뒤 해당 소도시의 동선 단서를 기준으로 일정 초안이 여기에 표시됩니다.')).toBeInTheDocument()
     expect(screen.queryByText('자연·트레킹 1일 초안')).not.toBeInTheDocument()
     expect(screen.queryByText('일정 다시짜기')).not.toBeInTheDocument()
     expect(screen.queryByText('마이페이지에 저장')).not.toBeInTheDocument()
@@ -1925,20 +1990,13 @@ describe('MVP main entry screen', () => {
     const input = screen.getByRole('textbox', { name: '여행 조건 입력' })
     const sendButton = screen.getByRole('button', { name: '메시지 보내기' })
 
-    expect(within(chatLog).getByText('축제 테마를 일정에 포함할까요?')).toBeInTheDocument()
-    expect(within(chatLog).queryByText('일정 기간을 먼저 골라주세요')).not.toBeInTheDocument()
-    expect(within(chatLog).getByRole('button', { name: '축제 포함' })).toBeInTheDocument()
-    expect(within(chatLog).getByRole('button', { name: '축제 제외' })).toBeInTheDocument()
-    expect(input).toBeDisabled()
-    expect(sendButton).toBeDisabled()
-
-    fireEvent.click(screen.getByRole('button', { name: '축제 포함' }))
-
-    expect(within(chatLog).getAllByText('축제 포함')[0]).toBeInTheDocument()
     expect(within(chatLog).queryByText('축제 테마를 일정에 포함할까요?')).not.toBeInTheDocument()
     expect(within(chatLog).queryByRole('button', { name: '축제 포함' })).not.toBeInTheDocument()
+    expect(within(chatLog).queryByRole('button', { name: '축제 제외' })).not.toBeInTheDocument()
     expect(within(chatLog).getByText('일정 기간을 먼저 골라주세요')).toBeInTheDocument()
     expect(within(chatLog).getByRole('button', { name: '1박 2일' })).toBeInTheDocument()
+    expect(input).toBeDisabled()
+    expect(sendButton).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
@@ -1951,16 +2009,15 @@ describe('MVP main entry screen', () => {
     fireEvent.change(input, { target: { value: '시장과 노포 중심으로 덜 걷고 싶어요' } })
     fireEvent.click(sendButton)
 
-    await screen.findByRole('region', { name: '생성된 일정 상세' })
+    await screen.findByRole('region', { name: '생성된 일정 요약' })
     expect(screen.getByRole('heading', { name: '미식·노포 1박 2일 초안' })).toBeInTheDocument()
-    expect(screen.getByText('축제 포함 반영')).toBeInTheDocument()
-    expect(screen.getByText(/지역 축제나 시즌 행사가 있으면 일정 후보에 함께 넣습니다/)).toBeInTheDocument()
+    expect(screen.queryByText('축제 포함 반영')).not.toBeInTheDocument()
     expect(screen.getByLabelText('조건 해석 결과')).toHaveTextContent('미식·노포')
     expect(screen.getByRole('button', { name: '일정 다시짜기' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '마이페이지에 저장' })).toBeInTheDocument()
   })
 
-  it('turns a chat message into an assistant response and updated itinerary detail', () => {
+  it('turns a chat message into an assistant response and updated itinerary detail', async () => {
     seedUser()
     seedPreference('강릉 · 가나자와')
     renderApp()
@@ -1976,7 +2033,6 @@ describe('MVP main entry screen', () => {
     fireEvent.change(input, { target: { value: '2박 3일, 전시랑 편집숍 위주로 덜 걷고 싶어요' } })
     expect(sendButton).toBeDisabled()
 
-    fireEvent.click(screen.getByRole('button', { name: '축제 제외' }))
     fireEvent.click(screen.getByRole('button', { name: '2박 3일' }))
 
     expect(input).not.toBeDisabled()
@@ -1985,7 +2041,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(sendButton)
     expect(input).toHaveValue('')
     expect(screen.getByText('전시랑 편집숍 위주로 덜 걷고 싶어요')).toBeInTheDocument()
-    expect(screen.getByText(/예술·감성 기준으로 2박 3일 흐름을 잡아볼게요/)).toBeInTheDocument()
+    await screen.findByText('추천 서버 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요.')
     expect(screen.getByRole('heading', { name: '예술·감성 2박 3일 초안' })).toBeInTheDocument()
     expect(screen.getAllByText('덜 걷는 일정').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText(/전시와 편집숍 사이 이동을 줄이는 쪽/)).toBeInTheDocument()
@@ -1997,7 +2053,6 @@ describe('MVP main entry screen', () => {
     renderApp()
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
-    fireEvent.click(screen.getByRole('button', { name: '축제 제외' }))
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
     const chatLog = screen.getByRole('log', { name: 'AI 일정 대화' })
@@ -2028,7 +2083,6 @@ describe('MVP main entry screen', () => {
     for (let index = 0; index < expectedDurations.length; index++) {
       const [duration, heading] = expectedDurations[index]
       await completeGuidedPlanner({
-        festival: '축제 제외',
         duration,
         query: '역사 골목 산책 위주로 여유 있게 보고 싶어요',
       })
@@ -2051,6 +2105,64 @@ describe('MVP main entry screen', () => {
     expect(screen.getByPlaceholderText('추가로 원하는 조건을 입력해 주세요')).toBeInTheDocument()
   })
 
+  it('renders API-response plan draft when requestCreateRecommendation succeeds', async () => {
+    seedUser()
+    seedPreference('아산/온양 · 벳푸')
+    vi.mocked(requestCreateRecommendation).mockResolvedValue({
+      itinerary: {
+        tripType: '2d1n',
+        title: '아산 온천 힐링 여행',
+        summary: 'API에서 받은 온천 일정 요약입니다.',
+        durationLabel: '1박 2일',
+        days: [
+          {
+            day: 1,
+            title: '1일차 온천 힐링',
+            summary: '온천과 휴식',
+            items: [
+              { itemId: 'i1', sortOrder: 1, timeOfDay: 'morning', title: '신정호 관광지', body: '아름다운 호수 산책', reason: '온천 테마', moveMinutes: 10 },
+              { itemId: 'i2', sortOrder: 2, timeOfDay: 'afternoon', title: '아산 온천', body: '온천욕으로 피로 해소', reason: '힐링 테마', moveMinutes: 15 },
+              { itemId: 'i3', sortOrder: 3, timeOfDay: 'evening', title: '외암민속마을', body: '전통 마을 산책', reason: '문화 체험', moveMinutes: 20 },
+            ],
+          },
+          {
+            day: 2,
+            title: '2일차 문화 탐방',
+            summary: '역사와 자연',
+            items: [
+              { itemId: 'i4', sortOrder: 1, timeOfDay: 'morning', title: '현충사', body: '이순신 장군 기념관', reason: '역사 테마', moveMinutes: 12 },
+              { itemId: 'i5', sortOrder: 2, timeOfDay: 'afternoon', title: '파라다이스 스파 도고', body: '온천 스파', reason: '힐링 테마', moveMinutes: 8 },
+              { itemId: 'i6', sortOrder: 3, timeOfDay: 'evening', title: '온양전통시장', body: '로컬 시장 탐방', reason: '미식 테마', moveMinutes: 5 },
+            ],
+          },
+        ],
+      },
+    })
+    renderApp()
+
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
+    await completeGuidedPlanner({
+      duration: '1박 2일',
+      query: '온천 위주로 쉬고 싶어요',
+    })
+
+    expect(requestCreateRecommendation).toHaveBeenCalledTimes(1)
+    expect(requestCreateRecommendation).toHaveBeenCalledWith(
+      expect.objectContaining({ entryType: 'chat', tripType: '2d1n' }),
+    )
+    // API 응답 기반 채팅 메시지 확인
+    const chatLog = screen.getByRole('log', { name: 'AI 일정 대화' })
+    expect(within(chatLog).getByText(/API에서 받은 온천 일정 요약입니다/)).toBeInTheDocument()
+    expect(screen.getByText('2일 구성')).toBeInTheDocument()
+    expect(screen.getByText('총 6개 코스')).toBeInTheDocument()
+
+    // API 응답 기반 일정 초안 확인 (fallback local stops 아님)
+    fireEvent.click(screen.getByRole('button', { name: '세부 일정 보기' }))
+    expect(screen.getByText('신정호 관광지')).toBeInTheDocument()
+    expect(screen.getByText('아산 온천')).toBeInTheDocument()
+    expect(screen.getByText('현충사')).toBeInTheDocument()
+  })
+
   it('saves and likes a generated itinerary without duplicate mock storage records', async () => {
     seedUser()
     seedPreference('아산/온양 · 벳푸')
@@ -2058,7 +2170,6 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
     await completeGuidedPlanner({
-      festival: '축제 포함',
       duration: '2박 3일',
       query: '온천 숙소에 오래 머물고 덜 걷고 싶어요',
     })
@@ -2087,7 +2198,7 @@ describe('MVP main entry screen', () => {
       title: '온천·휴양 2박 3일 초안',
       cityPair: '온천·휴양',
       durationLabel: '2박 3일',
-      festivalThemeLabel: '축제 포함',
+      festivalThemeLabel: '축제 미정',
       themeTag: '온천·휴양',
       themeLabels: ['온천·휴양'],
       conditionSummary: expect.stringContaining('온천·휴양'),
@@ -2100,8 +2211,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '일정 다시짜기' }))
 
     expect(screen.queryByRole('heading', { name: '온천·휴양 2박 3일 초안' })).not.toBeInTheDocument()
-    expect(screen.getByText('축제 포함 여부와 여행 기간을 고른 뒤 이번 여행 조건을 입력하면 일정 초안이 여기에 표시됩니다.')).toBeInTheDocument()
-    expect(screen.getByText('축제 테마를 일정에 포함할까요?')).toBeInTheDocument()
+    expect(screen.getByText('여행 기간을 고른 뒤 해당 소도시의 동선 단서를 기준으로 일정 초안이 여기에 표시됩니다.')).toBeInTheDocument()
   })
 
   it('opens a generated itinerary detail view and preserves like/save actions when returning to chat', async () => {
@@ -2111,7 +2221,6 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
     await completeGuidedPlanner({
-      festival: '축제 포함',
       duration: '2박 3일',
       query: '온천 숙소에 오래 머물고 덜 걷고 싶어요',
     })
@@ -2123,7 +2232,7 @@ describe('MVP main entry screen', () => {
     expect(within(detailView).getByRole('heading', { name: '온천·휴양 2박 3일 초안' })).toBeInTheDocument()
     expect(within(detailView).getByText('온천·휴양')).toBeInTheDocument()
     expect(within(detailView).getByText('2박 3일')).toBeInTheDocument()
-    expect(within(detailView).getByText('축제 포함')).toBeInTheDocument()
+    expect(within(detailView).queryByText('축제 포함')).not.toBeInTheDocument()
     expect(within(detailView).getByText('덜 걷는 일정')).toBeInTheDocument()
     expect(within(detailView).getByText('1일차 추천 일정')).toBeInTheDocument()
     expect(within(detailView).getByText('2일차 추천 일정')).toBeInTheDocument()
@@ -2161,7 +2270,6 @@ describe('MVP main entry screen', () => {
     const plannerApp = renderApp('/planner')
 
     await completeGuidedPlanner({
-      festival: '축제 포함',
       duration: '2박 3일',
       query: '온천 숙소에 오래 머물고 덜 걷고 싶어요',
     })
@@ -2194,7 +2302,6 @@ describe('MVP main entry screen', () => {
     renderApp('/planner')
 
     await completeGuidedPlanner({
-      festival: '축제 제외',
       duration: '1박 2일',
       query: '온천 숙소에 오래 머물고 덜 걷고 싶어요',
     })
@@ -2244,14 +2351,13 @@ describe('MVP main entry screen', () => {
     expect(JSON.parse(localStorage.getItem('lovv.savedPlanLikes') ?? '{}')).not.toHaveProperty(savedPlanId)
   })
 
-  it('keeps a saved itinerary when My Page deletion is not confirmed', () => {
+  it('keeps a saved itinerary when My Page deletion is not confirmed', async () => {
     seedUser()
     seedPreference('아산/온양 · 벳푸')
     vi.stubGlobal('confirm', vi.fn(() => false))
     renderApp('/planner')
 
-    completeGuidedPlanner({
-      festival: '축제 제외',
+    await completeGuidedPlanner({
       duration: '1박 2일',
       query: '온천 숙소에 오래 머물고 덜 걷고 싶어요',
     })
@@ -2280,7 +2386,6 @@ describe('MVP main entry screen', () => {
     renderApp('/planner')
 
     await completeGuidedPlanner({
-      festival: '축제 제외',
       duration: '1박 2일',
       query: '온천 숙소에 오래 머물고 덜 걷고 싶어요',
     })
@@ -2308,7 +2413,9 @@ describe('MVP main entry screen', () => {
 
     expect(screen.getByText('저장한 일정이 삭제됐어요.')).toBeInTheDocument()
     expect(screen.getByText('저장한 일정이 아직 없습니다.')).toBeInTheDocument()
-    expect(screen.getByText('아직 없음')).toBeInTheDocument()
+    const savedPlanStat = screen.getByText('저장 일정').closest('article')
+    expect(savedPlanStat).not.toBeNull()
+    expect(within(savedPlanStat!).getByText('아직 없음')).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('lovv.savedPlans') ?? '[]')).toHaveLength(0)
     expect(JSON.parse(localStorage.getItem('lovv.savedPlanLikes') ?? '{}')).not.toHaveProperty(savedPlanId)
     expect(localStorage.getItem('lovv.likedPlanIds')).toBeNull()
@@ -2334,7 +2441,6 @@ describe('MVP main entry screen', () => {
     })
 
     await completeGuidedPlanner({
-      festival: '축제 제외',
       duration: '1박 2일',
       query: '전통 골목을 여유롭게 보고 싶어요',
     })
@@ -2380,7 +2486,13 @@ describe('MVP main entry screen', () => {
 
     expect(deleteButton).toBeDisabled()
     expect(deleteButton).toHaveTextContent('삭제 중')
-    expect(requestDeleteSavedPlan).toHaveBeenCalledTimes(1)
+
+    // The delete call now runs through useMutation, which defers the mutationFn call by a
+    // microtask (it always hits an internal await before calling mutationFn, even with no
+    // onMutate configured), so the call-count assertion needs a tick to settle.
+    await waitFor(() => {
+      expect(requestDeleteSavedPlan).toHaveBeenCalledTimes(1)
+    })
 
     deleteRequest.resolve(true)
 
@@ -2485,7 +2597,6 @@ describe('MVP main entry screen', () => {
     })
 
     await completeGuidedPlanner({
-      festival: '축제 제외',
       duration: '1박 2일',
       query: '전통 골목을 여유롭게 보고 싶어요',
     })
@@ -2530,7 +2641,6 @@ describe('MVP main entry screen', () => {
     renderApp('/planner')
 
     await completeGuidedPlanner({
-      festival: '축제 제외',
       duration: '1박 2일',
       query: '온천 숙소에 오래 머물고 덜 걷고 싶어요',
     })
@@ -2563,7 +2673,6 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
     await completeGuidedPlanner({
-      festival: '축제 제외',
       duration: '당일치기',
       query: '숲길과 자연을 보고 싶어요',
     })

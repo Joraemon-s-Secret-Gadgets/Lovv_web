@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AuthView } from './features/auth/AuthView'
 import {
   authStorageKey,
@@ -46,8 +47,8 @@ import {
   type SmallCityTheme,
 } from './features/map-city/smallCities'
 import {
+  createSmallCityCatalogStateFromQueryResult,
   createSmallCityDetailEmptyState,
-  createStaticSmallCityCatalogState,
   createStaticSmallCityDetailState,
 } from './features/map-city/smallCityDataSource'
 import { MyPageView } from './features/my-page/MyPageView'
@@ -88,6 +89,7 @@ import {
 } from './features/planner/plannerModel'
 import { PlannerWorkspace, type PlannerStateStep } from './features/planner/PlannerWorkspace'
 import { PlanDetailView } from './features/planner/PlanDetailView'
+import { ErrorBoundary } from './shared/components/ErrorBoundary'
 import {
   clearStoredSavedPlanState,
   getNextSavedPlanLike,
@@ -100,12 +102,17 @@ import {
 import { AppHeader } from './shared/components/AppHeader'
 import { Footer } from './shared/components/Footer'
 import { LegalNoticeDialog } from './shared/components/LegalNoticeDialog'
-import type { LegalNoticeType } from './shared/components/legalNoticeContent'
+import { useUiToggleStore } from './shared/store/uiToggleStore'
 import {
+  AuthApiRequestError,
   requestAuthLogin,
   requestAuthLogout,
   requestAuthSession,
   requestCognitoBridgeSession,
+  requestLinkProvider,
+  requestListSocialAccounts,
+  requestUpdateProfile,
+  type ProfileUpdateRequest,
 } from './shared/api/authApi'
 import {
   requestCreateSavedPlan,
@@ -117,6 +124,7 @@ import {
   type SavedPlanApiCreatePayload,
 } from './shared/api/savedPlansApi'
 import { requestUpdatePreference } from './shared/api/preferencesApi'
+import { createSmallCityApiQuery, defaultSmallCityApiPageSize, requestListSmallCities } from './shared/api/smallCityApi'
 import {
   requestCreateRecommendation,
   mapRecommendationToDraft,
@@ -191,15 +199,28 @@ function AuthLoadingView() {
   )
 }
 
+// Grace period before the callback page falls back to re-reading the session from the bridge
+// cookie. Kept far longer than a normal token+bridge exchange (~sub-second) so it never races the
+// happy path; it only fires when the in-tab exchange continuation was dropped and the tab would
+// otherwise spin forever.
+const authCallbackRecoveryDelayMs = 5000
+
 function App() {
   const cityMapDetailPanelRef = useRef<HTMLDivElement | null>(null)
   const location = useLocation()
   const navigate = useNavigate()
-  const initialAuthCallbackRef = useRef(
-    Boolean(getAuthCallbackProvider(window.location.pathname)) ||
+  const queryClient = useQueryClient()
+  // A plain lazy-initialized useState (rather than a ref) because authSessionQuery's `enabled`
+  // needs to read this during render, and reading ref.current during render is disallowed
+  // (react-hooks/refs). The value itself is fixed at mount and never changes after, so the
+  // missing setter is intentional — this is a one-time snapshot, not reactive state.
+  const [isInitialAuthCallback] = useState(
+    () =>
+      Boolean(getAuthCallbackProvider(window.location.pathname)) ||
       isCognitoAuthCallbackPath(window.location.pathname),
   )
   const processedOAuthCallbackKeyRef = useRef('')
+  const recoveredOAuthCallbackKeyRef = useRef('')
   const authRuntimeMode = useMemo(() => getDefaultAuthRuntimeMode(), [])
   const isApiAuthMode = authRuntimeMode === 'api'
   const isCognitoAuthMode = authRuntimeMode === 'cognito'
@@ -211,6 +232,33 @@ function App() {
     useState<SocialAuthProvider | null>(() => (isBackendAuthMode ? readStoredSocialAuthProvider() : null))
   const [authAccessToken, setAuthAccessToken] = useState<string | null>(null)
   const [isAuthSessionRestoring, setIsAuthSessionRestoring] = useState(isBackendAuthMode)
+  // Stable for the component's lifetime (isBackendAuthMode and isInitialAuthCallback are both
+  // fixed at mount) — this also doubles as authSessionQuery's `enabled`.
+  const isInitialAuthSessionQueryEnabled = isBackendAuthMode && !isInitialAuthCallback
+  // API mode restores the Lovv session from the HttpOnly refresh cookie. isAuthSessionRestoring
+  // itself stays a plain useState (rather than being derived from this query, the way the
+  // saved-plans loading flag was) because it must flip to false in the SAME effect/commit that
+  // commits currentUser/authAccessToken — deriving it separately would let the route guard observe
+  // isAuthSessionRestoring=false with currentUser still null for one render, mis-redirecting to
+  // /auth. The OAuth-callback exchange flows elsewhere in this file also set it directly, outside
+  // of this query's lifecycle.
+  const authSessionQuery = useQuery({
+    queryKey: ['authSession', authRuntimeMode],
+    queryFn: async () => {
+      const state = await requestAuthSession()
+      // isInitialAuthSessionQueryEnabled guarantees authRuntimeMode is 'api' or 'cognito' whenever
+      // this runs, but that guarantee lives outside this closure so TS can't narrow authRuntimeMode
+      // itself here (unlike the OAuth callback effects below, which guard with
+      // `if (!isApiAuthMode) return` in-body, letting TS narrow via aliased-condition analysis).
+      return adaptApiAuthSessionSnapshot(state, isCognitoAuthMode ? 'cognito' : 'api')
+    },
+    enabled: isInitialAuthSessionQueryEnabled,
+    // A 401 here means "no refresh cookie / not logged in" — a definitive, non-transient result,
+    // not a flaky network failure. React Query's default retry (3 attempts, ~7s of backoff) was
+    // leaving isAuthSessionRestoring (and therefore the sign-in buttons) stuck disabled on every
+    // first visit while it retried a request that was never going to succeed.
+    retry: false,
+  })
   const [pendingAuthRedirectPath, setPendingAuthRedirectPath] = useState<string | null>(null)
   const [selectedPreferenceProfile, setSelectedPreferenceProfile] = useState(
     () => (isBackendAuthMode ? null : readStoredPreferenceProfile()) ?? getDefaultPreferenceProfile(),
@@ -239,25 +287,28 @@ function App() {
   const [selectedPreviewImageKey, setSelectedPreviewImageKey] = useState<string | null>(null)
   const [isPreviewTrayOpen, setIsPreviewTrayOpen] = useState(false)
   const [hasSelectedCover, setHasSelectedCover] = useState(false)
-  const [festivalThemeChoice, setFestivalThemeChoice] = useState<FestivalThemeChoice>('undecided')
+  // 축제 질문 비활성화로 기본값을 'exclude'로 설정 (shouldAskFestivalTheme = false)
+  const [festivalThemeChoice, setFestivalThemeChoice] = useState<FestivalThemeChoice>('exclude')
   const [selectedDurationLabel, setSelectedDurationLabel] = useState<string | null>(null)
   const [selectedTravelMonth, setSelectedTravelMonth] = useState<number | null>(null)
   const [chatInput, setChatInput] = useState('')
-  const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false)
-  const [isSessionMenuOpen, setIsSessionMenuOpen] = useState(false)
+  const closeQuickActions = useUiToggleStore((state) => state.closeQuickActions)
+  const closeSessionMenu = useUiToggleStore((state) => state.closeSessionMenu)
   const [savedPlanNotice, setSavedPlanNotice] = useState<string | null>(null)
   const [preferenceNotice, setPreferenceNotice] = useState<string | null>(null)
   const [themeSelectionNotice, setThemeSelectionNotice] = useState<string | null>(null)
   const [isPreferenceSaving, setIsPreferenceSaving] = useState(false)
   const [authFlowNotice, setAuthFlowNotice] = useState<AuthExceptionNotice | null>(null)
   const [signInPendingProvider, setSignInPendingProvider] = useState<SocialAuthProvider | null>(null)
-  const [activeLegalNoticeType, setActiveLegalNoticeType] = useState<LegalNoticeType | null>(null)
   const [preparedAuthRedirectUrls, setPreparedAuthRedirectUrls] =
     useState<PreparedAuthRedirectUrls>({})
+  const [accountLinkNotice, setAccountLinkNotice] = useState<string | null>(null)
+  const [linkingProvider, setLinkingProvider] = useState<SocialAuthProvider | null>(null)
+  const [profileUpdateError, setProfileUpdateError] = useState<string | null>(null)
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>(() =>
     isBackendAuthMode ? [] : readStoredSavedPlans(),
   )
-  const [isSavedPlansRestoring, setIsSavedPlansRestoring] = useState(isBackendAuthMode)
   const [savedPlanLikes, setSavedPlanLikes] = useState<SavedPlanLikeMap>(() =>
     isBackendAuthMode ? {} : readStoredSavedPlanLikes(),
   )
@@ -274,6 +325,67 @@ function App() {
       clearStoredSavedPlanState()
     }
   }, [])
+  // Declared early (rather than alongside the other saved-plans effects below) because the
+  // route-detail redirect guard's `hasRoutePlan`/`isBackendRoutePlanLoading` computation needs
+  // this query's live isFetching/isPending flags in the SAME render they change in. Computing
+  // "is restoring" via a separate useState+useEffect mirror introduced a one-render lag (the
+  // effect hadn't committed yet when the guard effect read the old state), which raced the
+  // guard into redirecting away before the fetch had a chance to start or finish. Deriving the
+  // flags directly from the query object during render removes that lag entirely.
+  const routePlanId = getPlanDetailRouteId(location.pathname)
+  const shouldLoadSavedPlans =
+    isBackendAuthMode && !isAuthSessionRestoring && !shouldHandleAuthCallback && Boolean(currentUser) && Boolean(authAccessToken)
+  const savedPlansQuery = useQuery({
+    // Deliberately NOT keyed on currentPlanId/isPlannerReady: those are read fresh from the
+    // closure whenever a fetch actually runs, but including them here would cause spurious
+    // refetches (and a transient empty `data`) on every unrelated planner-state render, which
+    // raced with the route-detail redirect guard below.
+    queryKey: ['savedPlans', authAccessToken, routePlanId],
+    queryFn: async () => {
+      const result = await requestListSavedPlans({ accessToken: authAccessToken as string })
+      let nextSavedPlans = result.savedPlans
+      let nextSavedPlanLikes = result.likes
+      let routePlanLoadFailed = false
+
+      const shouldLoadRoutePlanDetail =
+        Boolean(routePlanId) && !(routePlanId === currentPlanId && isPlannerReady)
+
+      if (
+        shouldLoadRoutePlanDetail &&
+        routePlanId &&
+        !nextSavedPlans.some((plan) => plan.id === routePlanId)
+      ) {
+        try {
+          const routeSavedPlan = await requestGetSavedPlan(routePlanId, {
+            accessToken: authAccessToken as string,
+          })
+
+          nextSavedPlans = [routeSavedPlan, ...nextSavedPlans]
+          if (routeSavedPlan.isLiked) {
+            nextSavedPlanLikes = {
+              ...nextSavedPlanLikes,
+              [routeSavedPlan.id]: 'like',
+            }
+          }
+        } catch {
+          routePlanLoadFailed = true
+        }
+      }
+
+      writeStoredSavedPlans(nextSavedPlans)
+      writeStoredSavedPlanLikes(nextSavedPlanLikes)
+
+      return { savedPlans: nextSavedPlans, savedPlanLikes: nextSavedPlanLikes, routePlanLoadFailed }
+    },
+    enabled: shouldLoadSavedPlans,
+  })
+  // Derived directly from the query's live state every render (no useState/useEffect mirror —
+  // see comment above `routePlanId` for why). isPending (no data yet) is included alongside
+  // isFetching because right when `enabled` flips true there's one render where the query
+  // hasn't started fetching yet (isFetching still false) but also has no data (isPending true);
+  // isFetching alone would report "not loading" for that one render.
+  const isSavedPlansRestoring =
+    shouldLoadSavedPlans && (savedPlansQuery.isFetching || savedPlansQuery.isPending)
   const commitCurrentUser = useCallback(
     (user: LovvUser | null, fallbackProvider: SocialAuthProvider | null = null) => {
       setCurrentUser(user)
@@ -322,7 +434,15 @@ function App() {
   const [generatedPlanDestinationName, setGeneratedPlanDestinationName] = useState<string | null>(null)
   const [isPlannerLoading, setIsPlannerLoading] = useState(false)
   const [isSavingPlan, setIsSavingPlan] = useState(false)
-  const [smallCityCatalogState] = useState(() => createStaticSmallCityCatalogState())
+  const smallCityCatalogQueryKey = createSmallCityApiQuery({ pageSize: defaultSmallCityApiPageSize })
+  const smallCityCatalogQuery = useQuery({
+    queryKey: ['smallCityCatalog', smallCityCatalogQueryKey],
+    queryFn: () => requestListSmallCities({ pageSize: defaultSmallCityApiPageSize }),
+  })
+  const smallCityCatalogState = createSmallCityCatalogStateFromQueryResult(
+    smallCityCatalogQuery,
+    smallCityCatalogQueryKey,
+  )
   const [cityMapCountry, setCityMapCountry] = useState<SmallCityCountry>('KR')
   const [cityMapQuery, setCityMapQuery] = useState('')
   const [selectedSmallCityThemes, setSelectedSmallCityThemes] = useState<SmallCityTheme[]>([])
@@ -375,17 +495,16 @@ function App() {
   const selectedPreviewTrayCover = selectedPreviewThumbnails[0]
   const selectedPreviewThemePosition =
     selectedPreviewImages.length > 0 ? `${selectedPreviewImageIndex + 1} / ${selectedPreviewImages.length}` : '1 / 1'
-  const selectedPreferenceEditorialNotes = selectedPreferences
-    .map((preference) => preference.editorialNote)
-    .slice(0, 3)
-    .join(' ')
   const selectedThemeHashtags = getThemeHashtags(selectedPreferenceProfile)
   const recommendationBasisHashtags = getRecommendationBasisHashtags(selectedPreferenceProfile)
   const currentHeroTheme = heroThemes[currentHeroThemeIndex]
   const shouldAskFestivalTheme = false  // 축제 질문 비활성화 - 여행 월 선택으로 대체
   const shouldShowFestivalPrompt = false
   const shouldShowDurationPrompt = selectedDurationLabel === null
-  const shouldShowTravelMonthPrompt = selectedDurationLabel !== null && selectedTravelMonth === null
+  const shouldShowTravelMonthPrompt =
+    shouldAskTravelMonthForCity(plannerCityContext, festivalThemeChoice) &&
+    selectedDurationLabel !== null &&
+    selectedTravelMonth === null
   const hasSettledFestivalChoice = true
   const hasGuidedPlannerChoices =
     selectedDurationLabel !== null && !shouldShowTravelMonthPrompt
@@ -404,7 +523,6 @@ function App() {
   const currentPlanTitle = plannerCityContext
     ? `${plannerBasisLabel} ${planDraft.durationLabel} 초안`
     : `${plannerBasisLabel} ${planDraft.durationLabel} 초안`
-  const routePlanId = getPlanDetailRouteId(location.pathname)
   const savedPlanForRoute = useMemo(
     () => (routePlanId ? savedPlans.find((plan) => plan.id === routePlanId) ?? null : null),
     [routePlanId, savedPlans],
@@ -421,8 +539,23 @@ function App() {
   const isRouteCurrentGeneratedPlan = routePlanId === currentPlanId && isPlannerReady
   const isBackendRoutePlanLoading =
     isBackendAuthMode && Boolean(routePlanId) && isSavedPlansRestoring
+  // Falls back to the query's own (fresher) data when the route plan isn't in local `savedPlans`
+  // yet. The instant the query reaches `status: 'success'`, `isSavedPlansRestoring` correctly
+  // flips to false in the same render — but the data-sync effect that copies
+  // `savedPlansQuery.data` into local `savedPlans` state hasn't committed yet (effects run after
+  // render), so `savedPlanForRoute` (derived from local state) is still stale/null for that one
+  // render. Without this fallback, that gap render computes `hasRoutePlan: false` and the
+  // redirect guard (which also runs as an effect, but is declared earlier and so runs first)
+  // navigates away before the sync effect gets a chance to update local state.
+  const savedPlanForRouteFromQuery = routePlanId
+    ? savedPlansQuery.data?.savedPlans.find((plan) => plan.id === routePlanId) ?? null
+    : null
   const hasRoutePlan = Boolean(
-    routePlanId && (isRouteCurrentGeneratedPlan || savedPlanForRoute || isBackendRoutePlanLoading),
+    routePlanId &&
+      (isRouteCurrentGeneratedPlan ||
+        savedPlanForRoute ||
+        savedPlanForRouteFromQuery ||
+        isBackendRoutePlanLoading),
   )
   const savedRoutePlanDraft = useMemo<PlanDraft | null>(() => {
     if (!savedPlanForRoute) {
@@ -625,59 +758,45 @@ function App() {
   ])
 
 
+  // All state from a settled session-restore attempt is applied in a single effect (rather than
+  // splitting into separate then/catch/finally microtask continuations the way the original code
+  // did) so currentUser/authAccessToken/hasCompletedPreference/isAuthSessionRestoring always
+  // commit together in the same render.
   useEffect(() => {
-    // API mode restores the Lovv session from the HttpOnly refresh cookie.
-    if (!isBackendAuthMode || initialAuthCallbackRef.current) {
-      return undefined
+    if (authSessionQuery.status === 'success') {
+      const session = authSessionQuery.data
+
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAuthAccessToken(session.accessToken)
+      commitCurrentUser(session.user, readStoredSocialAuthProvider())
+      setHasCompletedPreference(session.onboardingCompleted)
+
+      if (session.preferenceProfile) {
+        setSelectedPreferenceProfile(session.preferenceProfile)
+        storePreferenceProfile(session.preferenceProfile)
+      } else if (session.onboardingCompleted) {
+        // Backend confirmed onboarding done but returned no preference
+        // (e.g. empty mappedThemes or SameSite cookie issue on prior request).
+        // Fall back to locally cached preference to avoid defaulting to 온천·휴양.
+        const localProfile = readStoredPreferenceProfile()
+        if (localProfile) {
+          setSelectedPreferenceProfile(localProfile)
+        }
+      }
+      setIsAuthSessionRestoring(false)
+    } else if (authSessionQuery.status === 'error') {
+      setAuthAccessToken(null)
+      commitCurrentUser(null)
+      setHasCompletedPreference(false)
+      clearSavedPlanUiState(true)
+      setIsAuthSessionRestoring(false)
     }
-
-    let isActive = true
-
-    requestAuthSession()
-      .then((state) => {
-        if (!isActive) {
-          return
-        }
-
-        const session = adaptApiAuthSessionSnapshot(state, authRuntimeMode)
-
-        setAuthAccessToken(session.accessToken)
-        commitCurrentUser(session.user, readStoredSocialAuthProvider())
-        setHasCompletedPreference(session.onboardingCompleted)
-
-        if (session.preferenceProfile) {
-          setSelectedPreferenceProfile(session.preferenceProfile)
-          storePreferenceProfile(session.preferenceProfile)
-        } else if (session.onboardingCompleted) {
-          // Backend confirmed onboarding done but returned no preference
-          // (e.g. empty mappedThemes or SameSite cookie issue on prior request).
-          // Fall back to locally cached preference to avoid defaulting to 온천·휴양.
-          const localProfile = readStoredPreferenceProfile()
-          if (localProfile) {
-            setSelectedPreferenceProfile(localProfile)
-          }
-        }
-      })
-      .catch(() => {
-        if (!isActive) {
-          return
-        }
-
-        setAuthAccessToken(null)
-        commitCurrentUser(null)
-        setHasCompletedPreference(false)
-        clearSavedPlanUiState(true)
-      })
-      .finally(() => {
-        if (isActive) {
-          setIsAuthSessionRestoring(false)
-        }
-      })
-
-    return () => {
-      isActive = false
-    }
-  }, [authRuntimeMode, clearSavedPlanUiState, commitCurrentUser, isBackendAuthMode])
+  }, [
+    authSessionQuery.status,
+    authSessionQuery.data,
+    clearSavedPlanUiState,
+    commitCurrentUser,
+  ])
 
   useEffect(() => {
     const isAuthEntryPath = location.pathname === '/' || location.pathname === getPathForView('auth')
@@ -766,96 +885,152 @@ function App() {
     shouldHandleAuthCallback,
   ])
 
+  // Clears saved-plan UI state when the user is signed out / has no access token. The query's
+  // own `enabled: shouldLoadSavedPlans` guard already prevents fetching in this case; this just
+  // resets locally-held state (the query has no data to mirror once it's disabled).
   useEffect(() => {
-    if (!isBackendAuthMode) {
-      return undefined
-    }
-
-    if (isAuthSessionRestoring || shouldHandleAuthCallback) {
-      return undefined
+    if (!isBackendAuthMode || isAuthSessionRestoring || shouldHandleAuthCallback) {
+      return
     }
 
     if (!currentUser || !authAccessToken) {
-      queueMicrotask(() => {
-        clearSavedPlanUiState(true)
-        setIsSavedPlansRestoring(false)
-      })
-      return undefined
-    }
-
-    let isActive = true
-    const shouldLoadRoutePlanDetail =
-      Boolean(routePlanId) && !(routePlanId === currentPlanId && isPlannerReady)
-
-    queueMicrotask(() => {
-      if (isActive) {
-        setIsSavedPlansRestoring(true)
-      }
-    })
-
-    requestListSavedPlans({ accessToken: authAccessToken })
-      .then(async (result) => {
-        let nextSavedPlans = result.savedPlans
-        let nextSavedPlanLikes = result.likes
-
-        if (
-          shouldLoadRoutePlanDetail &&
-          routePlanId &&
-          !nextSavedPlans.some((plan) => plan.id === routePlanId)
-        ) {
-          try {
-            const routeSavedPlan = await requestGetSavedPlan(routePlanId, {
-              accessToken: authAccessToken,
-            })
-
-            nextSavedPlans = [routeSavedPlan, ...nextSavedPlans]
-            if (routeSavedPlan.isLiked) {
-              nextSavedPlanLikes = {
-                ...nextSavedPlanLikes,
-                [routeSavedPlan.id]: 'like',
-              }
-            }
-          } catch {
-            if (isActive) {
-              setSavedPlanNotice('저장 일정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
-            }
-          }
-        }
-
-        if (!isActive) {
-          return
-        }
-
-        setSavedPlans(nextSavedPlans)
-        setSavedPlanLikes(nextSavedPlanLikes)
-        writeStoredSavedPlans(nextSavedPlans)
-        writeStoredSavedPlanLikes(nextSavedPlanLikes)
-      })
-      .catch(() => {
-        if (isActive) {
-          setSavedPlanNotice('저장 일정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
-        }
-      })
-      .finally(() => {
-        if (isActive) {
-          setIsSavedPlansRestoring(false)
-        }
-      })
-
-    return () => {
-      isActive = false
+      // Resets locally-mutable saved plan UI state in response to auth state changing; this
+      // state can't be derived directly during render since other call sites
+      // (like/unlike/delete/create) mutate it independently.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      clearSavedPlanUiState(true)
     }
   }, [
     authAccessToken,
     clearSavedPlanUiState,
-    currentPlanId,
     currentUser,
     isAuthSessionRestoring,
     isBackendAuthMode,
-    isPlannerReady,
-    routePlanId,
     shouldHandleAuthCallback,
   ])
+
+  // Sync successful query results into local state. savedPlans/savedPlanLikes remain plain
+  // useState (rather than reading savedPlansQuery.data directly) because other mutations
+  // elsewhere in this file (like/unlike/delete/create) still update them optimistically —
+  // those call sites migrate in a later step.
+  useEffect(() => {
+    if (!savedPlansQuery.data) {
+      return
+    }
+
+    // savedPlans/savedPlanLikes intentionally remain plain useState (rather than reading
+    // savedPlansQuery.data directly in render) because other mutations elsewhere in this file
+    // (like/unlike/delete/create) still update them optimistically; those call sites migrate to
+    // React Query in a later step.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSavedPlans(savedPlansQuery.data.savedPlans)
+    setSavedPlanLikes(savedPlansQuery.data.savedPlanLikes)
+
+    if (savedPlansQuery.data.routePlanLoadFailed) {
+      setSavedPlanNotice('저장 일정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
+    }
+  }, [savedPlansQuery.data])
+
+  useEffect(() => {
+    if (savedPlansQuery.isError) {
+      // Mirrors a query-level error into the existing UI notice state; no direct render-time
+      // equivalent without duplicating this same notice logic at every other failure call site.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSavedPlanNotice('저장 일정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
+    }
+  }, [savedPlansQuery.isError])
+
+  const authLoginMutation = useMutation({
+    mutationFn: ({
+      provider,
+      request,
+    }: {
+      provider: SocialAuthProvider
+      request: Parameters<typeof requestAuthLogin>[1]
+    }) => requestAuthLogin(provider, request),
+  })
+
+  const shouldLoadSocialAccounts =
+    isApiAuthMode && !isAuthSessionRestoring && !shouldHandleAuthCallback && Boolean(currentUser) && Boolean(authAccessToken)
+  const socialAccountsQuery = useQuery({
+    queryKey: ['socialAccounts', authAccessToken],
+    queryFn: () => requestListSocialAccounts({ accessToken: authAccessToken as string }),
+    enabled: shouldLoadSocialAccounts,
+  })
+
+  const linkProviderMutation = useMutation({
+    mutationFn: ({
+      provider,
+      request,
+    }: {
+      provider: SocialAuthProvider
+      request: Parameters<typeof requestLinkProvider>[1]
+    }) => requestLinkProvider(provider, request, { accessToken: authAccessToken }),
+  })
+
+  const updateProfileMutation = useMutation({
+    mutationFn: (update: ProfileUpdateRequest) => requestUpdateProfile(update, { accessToken: authAccessToken }),
+  })
+
+  const getAccountLinkErrorNotice = useCallback((error: unknown) => {
+    if (error instanceof AuthApiRequestError) {
+      if (error.code === 'SOCIAL_ACCOUNT_ALREADY_LINKED') {
+        return '이미 이 계정에 연결되어 있어요.'
+      }
+      if (error.code === 'SOCIAL_ACCOUNT_LINKED_TO_ANOTHER_USER') {
+        return '이미 다른 계정에 연결된 소셜 계정이에요.'
+      }
+    }
+
+    return '계정 연결에 실패했어요. 잠시 후 다시 시도해 주세요.'
+  }, [])
+
+  const getProfileUpdateErrorNotice = useCallback((error: unknown) => {
+    if (error instanceof AuthApiRequestError && error.code === 'INVALID_BIRTH_DATE') {
+      return '생년월일 형식을 확인해 주세요.'
+    }
+
+    return '프로필 저장에 실패했어요. 잠시 후 다시 시도해 주세요.'
+  }, [])
+
+  const startLinkProvider = useCallback(async (provider: SocialAuthProvider) => {
+    setAccountLinkNotice(null)
+    setLinkingProvider(provider)
+
+    try {
+      const { authorizationUrl } = await createOAuthAuthorizationRequest(provider, {
+        origin: window.location.origin,
+        storage: window.sessionStorage,
+        mode: 'link',
+      })
+
+      window.location.assign(authorizationUrl)
+    } catch {
+      setLinkingProvider(null)
+      setAccountLinkNotice('계정 연결을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.')
+    }
+  }, [])
+
+  const updateProfile = useCallback(
+    async (update: ProfileUpdateRequest) => {
+      setProfileUpdateError(null)
+      setIsUpdatingProfile(true)
+
+      try {
+        const session = await updateProfileMutation.mutateAsync(update)
+        if (session.user) {
+          commitCurrentUser(session.user, currentSocialAuthProvider)
+        }
+        return true
+      } catch (error) {
+        setProfileUpdateError(getProfileUpdateErrorNotice(error))
+        return false
+      } finally {
+        setIsUpdatingProfile(false)
+      }
+    },
+    [commitCurrentUser, currentSocialAuthProvider, getProfileUpdateErrorNotice, updateProfileMutation],
+  )
 
   useEffect(() => {
     // OAuth callback exchanges provider code through the backend and then resumes app routing.
@@ -864,22 +1039,63 @@ function App() {
     }
 
     const callbackKey = `${authCallbackProvider}:${location.search}`
+    const isProcessedInSession = window.sessionStorage.getItem('lovv.auth.processed_callback') === callbackKey
 
-    if (processedOAuthCallbackKeyRef.current === callbackKey) {
+    if (processedOAuthCallbackKeyRef.current === callbackKey || isProcessedInSession) {
       return undefined
     }
 
     processedOAuthCallbackKeyRef.current = callbackKey
+    window.sessionStorage.setItem('lovv.auth.processed_callback', callbackKey)
     const loginRequest = createAuthLoginRequestFromCallback(
       authCallbackProvider,
       location.search,
       window.sessionStorage,
     )
-    let isActive = true
+    // Gate result-commit on the ref (set above, only overwritten by a *different* callbackKey)
+    // rather than a per-effect-instance `isActive` flag tied to this closure's cleanup. This effect
+    // has several dependencies (mutation objects, callbacks) that can get new references on a
+    // render unrelated to this OAuth attempt; when that happens React tears down and re-runs this
+    // effect, which previously flipped a closure-local `isActive` to false via cleanup *before* the
+    // in-flight mutateAsync() promise resolved. The exchange would still succeed on the backend, but
+    // the success branch's state updates were silently skipped — leaving the UI stuck on the loading
+    // screen forever even though the session cookie was already set (visible only after closing the
+    // tab and revisiting the app fresh). Checking the ref instead correctly tells the difference
+    // between "a harmless re-render re-ran this effect" (ref still matches, commit the result) and
+    // "a genuinely new callback superseded this one" (ref now holds a different key, skip).
+    const isCurrentAttempt = () => processedOAuthCallbackKeyRef.current === callbackKey
+
+    if (loginRequest.status === 'success' && loginRequest.mode === 'link') {
+      clearPendingOAuthLogins(window.sessionStorage)
+
+      linkProviderMutation
+        .mutateAsync({ provider: authCallbackProvider, request: loginRequest.request })
+        .then(() => {
+          if (!isCurrentAttempt()) {
+            return
+          }
+
+          queryClient.invalidateQueries({ queryKey: ['socialAccounts'] })
+          setAccountLinkNotice(`${providerLabels[authCallbackProvider]} 계정이 연결되었어요.`)
+          setLinkingProvider(null)
+          navigate('/mypage', { replace: true })
+        })
+        .catch((error) => {
+          if (!isCurrentAttempt()) {
+            return
+          }
+
+          setAccountLinkNotice(getAccountLinkErrorNotice(error))
+          setLinkingProvider(null)
+          navigate('/mypage', { replace: true })
+        })
+
+      return undefined
+    }
 
     if (loginRequest.status === 'error') {
       queueMicrotask(() => {
-        if (!isActive) {
+        if (!isCurrentAttempt()) {
           return
         }
 
@@ -892,20 +1108,19 @@ function App() {
         navigate('/auth', { replace: true })
       })
 
-      return () => {
-        isActive = false
-      }
+      return undefined
     }
 
     queueMicrotask(() => {
-      if (isActive) {
+      if (isCurrentAttempt()) {
         setIsAuthSessionRestoring(true)
       }
     })
 
-    requestAuthLogin(authCallbackProvider, loginRequest.request)
+    authLoginMutation
+      .mutateAsync({ provider: authCallbackProvider, request: loginRequest.request })
       .then((state) => {
-        if (!isActive) {
+        if (!isCurrentAttempt()) {
           return
         }
 
@@ -942,7 +1157,7 @@ function App() {
         setPendingAuthRedirectPath(session.onboardingCompleted ? '/home' : '/onboarding')
       })
       .catch((error) => {
-        if (!isActive) {
+        if (!isCurrentAttempt()) {
           return
         }
 
@@ -955,10 +1170,26 @@ function App() {
         navigate('/auth', { replace: true })
       })
 
-    return () => {
-      isActive = false
-    }
-  }, [authCallbackProvider, authRuntimeMode, commitCurrentUser, isApiAuthMode, location.search, navigate])
+    return undefined
+  }, [
+    authCallbackProvider,
+    authLoginMutation,
+    authRuntimeMode,
+    commitCurrentUser,
+    getAccountLinkErrorNotice,
+    isApiAuthMode,
+    linkProviderMutation,
+    location.search,
+    navigate,
+    queryClient,
+  ])
+
+  // Combines both steps of the Cognito exchange into one mutation, since they're always invoked
+  // together (token exchange immediately followed by bridging the resulting JWT to a Lovv session).
+  const cognitoBridgeMutation = useMutation({
+    mutationFn: (request: Parameters<typeof requestCognitoToken>[0]) =>
+      requestCognitoToken(request).then((token) => requestCognitoBridgeSession(token.idToken ?? token.accessToken)),
+  })
 
   useEffect(() => {
     // Cognito mode exchanges the Hosted UI authorization code first, then bridges the Cognito JWT to Lovv.
@@ -967,18 +1198,24 @@ function App() {
     }
 
     const callbackKey = `cognito:${location.search}`
+    const isProcessedInSession = window.sessionStorage.getItem('lovv.auth.processed_callback') === callbackKey
 
-    if (processedOAuthCallbackKeyRef.current === callbackKey) {
+    if (processedOAuthCallbackKeyRef.current === callbackKey || isProcessedInSession) {
       return undefined
     }
 
     processedOAuthCallbackKeyRef.current = callbackKey
+    window.sessionStorage.setItem('lovv.auth.processed_callback', callbackKey)
     const tokenRequest = createCognitoTokenRequestFromCallback(location.search, window.sessionStorage)
-    let isActive = true
+    // See the matching comment in the api-mode OAuth callback effect above: gate on the ref (only
+    // overwritten by a genuinely different callbackKey) rather than a per-effect-instance `isActive`
+    // flag, so a harmless re-render that re-runs this effect mid-exchange doesn't cause the
+    // already-in-flight token/session exchange's result to be silently dropped on arrival.
+    const isCurrentAttempt = () => processedOAuthCallbackKeyRef.current === callbackKey
 
     if (tokenRequest.status === 'error') {
       queueMicrotask(() => {
-        if (!isActive) {
+        if (!isCurrentAttempt()) {
           return
         }
 
@@ -991,21 +1228,19 @@ function App() {
         navigate('/auth', { replace: true })
       })
 
-      return () => {
-        isActive = false
-      }
+      return undefined
     }
 
     queueMicrotask(() => {
-      if (isActive) {
+      if (isCurrentAttempt()) {
         setIsAuthSessionRestoring(true)
       }
     })
 
-    requestCognitoToken(tokenRequest.request)
-      .then((token) => requestCognitoBridgeSession(token.idToken ?? token.accessToken))
+    cognitoBridgeMutation
+      .mutateAsync(tokenRequest.request)
       .then((state) => {
-        if (!isActive) {
+        if (!isCurrentAttempt()) {
           return
         }
 
@@ -1055,7 +1290,7 @@ function App() {
         setPendingAuthRedirectPath(session.onboardingCompleted ? '/home' : '/onboarding')
       })
       .catch((error) => {
-        if (!isActive) {
+        if (!isCurrentAttempt()) {
           return
         }
 
@@ -1068,10 +1303,105 @@ function App() {
         navigate('/auth', { replace: true })
       })
 
+    return undefined
+  }, [
+    authRuntimeMode,
+    cognitoBridgeMutation,
+    commitCurrentUser,
+    location.search,
+    navigate,
+    shouldHandleCognitoAuthCallback,
+  ])
+
+  // Recovery fallback for a dropped callback continuation.
+  //
+  // The Cognito callback effect above creates the Lovv session cookie server-side, then drives the
+  // exit off the callback URL purely through its in-tab promise continuation. If that continuation
+  // is ever lost — e.g. a remount after `lovv.auth.processed_callback` was already set, so the
+  // effect early-returns without re-driving navigation — the cookie exists but this tab stays on
+  // `/auth/callback/cognito` showing AuthLoadingView forever. (A fresh tab opened at `/` recovers
+  // via the session query, which is why reopening the app then looks logged in.) The session query
+  // is disabled on the callback path, so nothing else re-checks. This timeout re-reads the session
+  // from the cookie and resumes routing if we're still stuck after the grace period.
+  useEffect(() => {
+    if (!shouldHandleCognitoAuthCallback) {
+      return undefined
+    }
+
+    const callbackKey = `cognito:${location.search}`
+
+    if (recoveredOAuthCallbackKeyRef.current === callbackKey) {
+      return undefined
+    }
+
+    let isActive = true
+
+    const timeoutId = window.setTimeout(() => {
+      // Still on the callback page with no authenticated user => the continuation was dropped.
+      if (!isActive || currentUser) {
+        return
+      }
+
+      recoveredOAuthCallbackKeyRef.current = callbackKey
+
+      requestAuthSession()
+        .then((state) => {
+          if (!isActive) {
+            return
+          }
+
+          const session = adaptApiAuthSessionSnapshot(state, authRuntimeMode)
+          clearPendingOAuthLogins(window.sessionStorage)
+
+          if (!session.user) {
+            setAuthAccessToken(null)
+            commitCurrentUser(null)
+            setHasCompletedPreference(false)
+            setIsAuthSessionRestoring(false)
+            navigate('/auth', { replace: true })
+            return
+          }
+
+          setAuthFlowNotice(null)
+          setAuthAccessToken(session.accessToken)
+          commitCurrentUser(session.user, readStoredSocialAuthProvider())
+          setHasCompletedPreference(session.onboardingCompleted)
+
+          if (session.preferenceProfile) {
+            setSelectedPreferenceProfile(session.preferenceProfile)
+            storePreferenceProfile(session.preferenceProfile)
+          } else if (session.onboardingCompleted) {
+            const localProfile = readStoredPreferenceProfile()
+            if (localProfile) {
+              setSelectedPreferenceProfile(localProfile)
+            }
+          }
+
+          setIsAuthSessionRestoring(false)
+          setPendingAuthRedirectPath(session.onboardingCompleted ? '/home' : '/onboarding')
+        })
+        .catch(() => {
+          if (!isActive) {
+            return
+          }
+
+          setIsAuthSessionRestoring(false)
+          navigate('/auth', { replace: true })
+        })
+    }, authCallbackRecoveryDelayMs)
+
     return () => {
       isActive = false
+      window.clearTimeout(timeoutId)
     }
-  }, [authRuntimeMode, commitCurrentUser, location.search, navigate, shouldHandleCognitoAuthCallback])
+  }, [
+    authRuntimeMode,
+    commitCurrentUser,
+    currentUser,
+    location.search,
+    navigate,
+    shouldHandleCognitoAuthCallback,
+  ])
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -1151,6 +1481,11 @@ function App() {
     },
   })
 
+  const createSavedPlanMutation = useMutation({
+    mutationFn: (payload: ReturnType<typeof createGeneratedPlanSavePayload>) =>
+      requestCreateSavedPlan(payload, { accessToken: authAccessToken }),
+  })
+
   const saveGeneratedPlan = async () => {
     if (!isPlannerReady) {
       return
@@ -1186,9 +1521,8 @@ function App() {
 
     if (isBackendAuthMode) {
       try {
-        const savedPlanResult = await requestCreateSavedPlan(
+        const savedPlanResult = await createSavedPlanMutation.mutateAsync(
           createGeneratedPlanSavePayload(draftPlan, sourceRecommendationId),
-          { accessToken: authAccessToken },
         )
 
         nextPlan = {
@@ -1293,6 +1627,11 @@ function App() {
     })
   }
 
+  const deleteSavedPlanMutation = useMutation({
+    mutationFn: (backendPlanId: string) =>
+      requestDeleteSavedPlan(backendPlanId, { accessToken: authAccessToken }),
+  })
+
   const deleteSavedPlan = async (planId: string, options: { navigateToMyPage?: boolean } = {}) => {
     const matchedPlan = savedPlans.find((plan) => plan.id === planId || plan.sourceRecommendationId === planId)
     const pendingPlanIds = getSavedPlanLikeIds(planId, matchedPlan)
@@ -1319,7 +1658,7 @@ function App() {
       const backendPlanId = matchedPlan?.id ?? planId
 
       try {
-        await requestDeleteSavedPlan(backendPlanId, { accessToken: authAccessToken })
+        await deleteSavedPlanMutation.mutateAsync(backendPlanId)
       } catch {
         setSavedPlanNotice('저장 일정을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.')
         setPendingSavedPlanDeleteIds((currentPlanIds) =>
@@ -1383,6 +1722,16 @@ function App() {
     })
   }
 
+  // pendingSavedPlanLikeIds/savedPlanLikeErrors stay plain useState (keyed maps tracking multiple
+  // concurrent plan ids) rather than being derived from this mutation, which only tracks one
+  // in-flight call at a time.
+  const savedPlanLikeMutation = useMutation({
+    mutationFn: ({ planId, like }: { planId: string; like: SavedPlanLike }) =>
+      like
+        ? requestLikeSavedPlan(planId, { accessToken: authAccessToken })
+        : requestUnlikeSavedPlan(planId, { accessToken: authAccessToken }),
+  })
+
   const selectSavedPlanLike = async (planId: string, like: Exclude<SavedPlanLike, null>) => {
     const matchedPlan = savedPlans.find((plan) => plan.id === planId || plan.sourceRecommendationId === planId)
     const nextLike = getNextSavedPlanLike(getSavedPlanLike(planId), like)
@@ -1402,11 +1751,7 @@ function App() {
 
     if (isBackendAuthMode && matchedPlan?.id) {
       try {
-        if (nextLike) {
-          await requestLikeSavedPlan(matchedPlan.id, { accessToken: authAccessToken })
-        } else {
-          await requestUnlikeSavedPlan(matchedPlan.id, { accessToken: authAccessToken })
-        }
+        await savedPlanLikeMutation.mutateAsync({ planId: matchedPlan.id, like: nextLike })
 
         commitSavedPlanLikeState(planId, nextLike, matchedPlan)
       } catch {
@@ -1536,12 +1881,16 @@ function App() {
     }
   }
 
+  const authLogoutMutation = useMutation({
+    mutationFn: () => requestAuthLogout({ accessToken: authAccessToken }),
+  })
+
   const signOut = async () => {
-    setIsSessionMenuOpen(false)
+    closeSessionMenu()
 
     if (isBackendAuthMode) {
       try {
-        await requestAuthLogout({ accessToken: authAccessToken })
+        await authLogoutMutation.mutateAsync()
       } catch {
         // Keep the UI from remaining on authenticated screens after a local sign-out action.
       }
@@ -1553,7 +1902,6 @@ function App() {
     commitCurrentUser(null)
     if (isBackendAuthMode) {
       clearSavedPlanUiState(true)
-      setIsSavedPlansRestoring(false)
     }
 
     if (isCognitoAuthMode) {
@@ -1570,19 +1918,19 @@ function App() {
 
   const goHome = (event?: React.MouseEvent<HTMLElement>) => {
     event?.preventDefault()
-    setIsSessionMenuOpen(false)
+    closeSessionMenu()
     navigateToView('home')
   }
 
   const openMap = (event?: React.MouseEvent<HTMLElement>) => {
     event?.preventDefault()
-    setIsSessionMenuOpen(false)
-    setIsQuickActionsOpen(false)
+    closeSessionMenu()
+    closeQuickActions()
     navigateToView('map')
   }
 
   const openMyPage = () => {
-    setIsSessionMenuOpen(false)
+    closeSessionMenu()
     navigateToView('mypage')
   }
 
@@ -1620,22 +1968,18 @@ function App() {
 
   const openChat = (event?: React.MouseEvent<HTMLElement>) => {
     event?.preventDefault()
-    setIsSessionMenuOpen(false)
+    closeSessionMenu()
     resetPlannerFlow(selectedPreference, null, selectedPreferenceProfile)
     navigateToView('planner')
   }
 
-  const toggleSessionMenu = () => {
-    setIsSessionMenuOpen((isOpen) => !isOpen)
-  }
-
   const openChatFromQuickAction = () => {
-    setIsQuickActionsOpen(false)
+    closeQuickActions()
     openChat()
   }
 
   const scrollToTop = () => {
-    setIsQuickActionsOpen(false)
+    closeQuickActions()
     navigateToView('home')
     window.scrollTo?.({ behavior: 'smooth', top: 0 })
   }
@@ -1647,7 +1991,7 @@ function App() {
 
   const openMonthlyRecommendationDetail = (recommendation: MonthlyRecommendation) => {
     setActiveMonthlyRecommendation(recommendation)
-    setIsQuickActionsOpen(false)
+    closeQuickActions()
     navigateToView('themeDetail')
   }
 
@@ -1655,7 +1999,7 @@ function App() {
     const nextProfile = createSinglePreferenceProfile(preference, 'preference_edit')
 
     resetPlannerFlow(preference, null, nextProfile)
-    setIsQuickActionsOpen(false)
+    closeQuickActions()
     navigateToView('planner')
   }
 
@@ -1723,9 +2067,18 @@ function App() {
     const cityContext = createPlannerCityContext(city, selectedDetail)
 
     resetPlannerFlow(selectedPreference, cityContext, selectedPreferenceProfile)
-    setIsQuickActionsOpen(false)
+    closeQuickActions()
     navigateToView('planner')
   }
+
+  // Shared by both preference-save flows below (onboarding entry and My Page preference edit).
+  // isPreferenceSaving stays a plain useState (set explicitly in each flow's try/finally) rather
+  // than being derived from this mutation's isPending, since only the onboarding flow's button
+  // actually reads it — keeping the existing explicit set calls avoids any behavior change there.
+  const updatePreferenceMutation = useMutation({
+    mutationFn: (profile: PreferenceProfile) =>
+      requestUpdatePreference(profile, { accessToken: authAccessToken }),
+  })
 
   const enterMainWithPreference = async () => {
     if (!hasValidThemeSelection) {
@@ -1738,7 +2091,7 @@ function App() {
 
     try {
       const preferenceProfile = isBackendAuthMode
-        ? await requestUpdatePreference(selectedPreferenceProfile, { accessToken: authAccessToken })
+        ? await updatePreferenceMutation.mutateAsync(selectedPreferenceProfile)
         : selectedPreferenceProfile
 
       storePreferenceProfile(preferenceProfile)
@@ -1763,7 +2116,7 @@ function App() {
 
     try {
       const preferenceProfile = isBackendAuthMode
-        ? await requestUpdatePreference(pendingPreferenceProfile, { accessToken: authAccessToken })
+        ? await updatePreferenceMutation.mutateAsync(pendingPreferenceProfile)
         : pendingPreferenceProfile
 
       storePreferenceProfile(preferenceProfile)
@@ -1833,6 +2186,11 @@ function App() {
     setSelectedPreviewImageKey(imageKey)
     setIsPreviewTrayOpen(false)
   }
+
+  const createRecommendationMutation = useMutation({
+    mutationFn: (payload: Parameters<typeof requestCreateRecommendation>[0]) =>
+      requestCreateRecommendation(payload),
+  })
 
   const submitChatMessage = async (message: string) => {
     const trimmedMessage = message.trim()
@@ -1999,7 +2357,7 @@ function App() {
       }
       
       const mappedTripType = tripTypeMap[selectedDurationLabel || ''] || '2d1n'
-      const response = await requestCreateRecommendation({
+      const response = await createRecommendationMutation.mutateAsync({
         entryType: 'chat',
         country: plannerCityContext?.country || 'KR',
         tripType: mappedTripType,
@@ -2028,7 +2386,7 @@ function App() {
         {
           id: createMessageId('assistant', currentMessages.length),
           role: 'assistant',
-          content: `${response.itinerary?.summary || '일정이 성공적으로 생성되었습니다.'} 지도를 참고하여 일정을 둘러보세요.${userNoticeText}`,
+          content: `${response.itinerary?.summary || '일정이 성공적으로 생성되었습니다.'} 우측에 생성된 일정을 둘러보세요.${userNoticeText}`,
         },
       ])
 
@@ -2123,7 +2481,6 @@ function App() {
           authNotice={authNotice}
           isSignInDisabled={isAuthSessionRestoring || shouldHandleAuthCallback}
           signInPendingProvider={signInPendingProvider}
-          onOpenLegalNotice={setActiveLegalNoticeType}
           onSignIn={
             isCognitoAuthMode
               ? startCognitoOAuthSignIn
@@ -2163,8 +2520,6 @@ function App() {
             goHome={goHome}
             currentProviderLabel={currentProviderLabel}
             currentUser={currentUser}
-            isSessionMenuOpen={isSessionMenuOpen}
-            toggleSessionMenu={toggleSessionMenu}
             openMyPage={openMyPage}
             signOut={signOut}
           />
@@ -2178,41 +2533,41 @@ function App() {
               openChat={openChat}
               openMap={openMap}
               onOpenMonthlyRecommendationDetail={openMonthlyRecommendationDetail}
-              isQuickActionsOpen={isQuickActionsOpen}
               onOpenChatFromQuickAction={openChatFromQuickAction}
               onScrollToTop={scrollToTop}
-              onToggleQuickActions={() => setIsQuickActionsOpen((isOpen) => !isOpen)}
             />
           ) : activeView === 'map' ? (
-            <div className="pt-28">
+            <div className="pt-[72px]">
               {renderCityMapDiscoverySection()}
             </div>
           ) : activeView === 'themeDetail' ? (
             <ThemeDetailView recommendation={activeMonthlyRecommendation} goHome={goHome} openMonthlyRecommendationPlan={openMonthlyRecommendationPlan} />
           ) : activeView === 'planDetail' ? (
-            <PlanDetailView
-              isPlannerReady={isActivePlanDetailReady}
-              shouldAskFestivalTheme={shouldAskFestivalTheme}
-              returnToChatWorkspace={returnToChatWorkspace}
-              currentPlanTitle={activePlanDetailTitle}
-              planDraft={activePlanDetailDraft}
-              plannerBasisLabel={activePlanDetailBasisLabel}
-              cityImageUrl={plannerCityContext?.imageUrl ?? undefined}
-              destinationName={plannerCityContext?.cityName ?? generatedPlanDestinationName ?? undefined}
-              planId={activePlanDetailId}
-              planLike={activeSavedPlanDetailLike}
-              onSelectSavedPlanLike={selectSavedPlanLike}
-              savedPlanLikePending={isSavedPlanLikePending(activePlanDetailId)}
-              savedPlanLikeError={getSavedPlanLikeError(activePlanDetailId)}
-              isSavedPlanDetailLoading={isBackendRoutePlanLoading}
-              saveGeneratedPlan={saveGeneratedPlan}
-              isPlanSaving={isSavingPlan}
-              isCurrentPlanSaved={isActivePlanDetailSaved}
-              savedPlanDeletePending={isSavedPlanDeletePending(activePlanDetailId)}
-              onDeleteSavedPlan={deleteSavedPlan}
-              openMyPage={openMyPage}
-              savedPlanNotice={savedPlanNotice}
-            />
+            <ErrorBoundary>
+              <PlanDetailView
+                isPlannerReady={isActivePlanDetailReady}
+                shouldAskFestivalTheme={shouldAskFestivalTheme}
+                returnToChatWorkspace={returnToChatWorkspace}
+                currentPlanTitle={activePlanDetailTitle}
+                planDraft={activePlanDetailDraft}
+                plannerBasisLabel={activePlanDetailBasisLabel}
+                cityImageUrl={plannerCityContext?.imageUrl ?? undefined}
+                destinationName={plannerCityContext?.cityName ?? generatedPlanDestinationName ?? undefined}
+                planId={activePlanDetailId}
+                planLike={activeSavedPlanDetailLike}
+                onSelectSavedPlanLike={selectSavedPlanLike}
+                savedPlanLikePending={isSavedPlanLikePending(activePlanDetailId)}
+                savedPlanLikeError={getSavedPlanLikeError(activePlanDetailId)}
+                isSavedPlanDetailLoading={isBackendRoutePlanLoading}
+                saveGeneratedPlan={saveGeneratedPlan}
+                isPlanSaving={isSavingPlan}
+                isCurrentPlanSaved={isActivePlanDetailSaved}
+                savedPlanDeletePending={isSavedPlanDeletePending(activePlanDetailId)}
+                onDeleteSavedPlan={deleteSavedPlan}
+                openMyPage={openMyPage}
+                savedPlanNotice={savedPlanNotice}
+              />
+            </ErrorBoundary>
           ) : activeView === 'mypage' ? (
             <MyPageView
               goHome={goHome}
@@ -2220,8 +2575,6 @@ function App() {
               selectedPreferenceLabel={selectedPreferenceLabel}
               savedPlanNotice={savedPlanNotice}
               preferenceNotice={preferenceNotice}
-              selectedPreferenceEditorialNotes={selectedPreferenceEditorialNotes}
-              selectedThemeHashtags={selectedThemeHashtags}
               currentUser={currentUser}
               savedPlans={savedPlans}
               getSavedPlanLike={getSavedPlanLike}
@@ -2233,52 +2586,59 @@ function App() {
               onDeleteSavedPlan={deleteSavedPlan}
               openPreferenceEdit={openPreferenceEdit}
               signOut={signOut}
+              canLinkSocialAccounts={isApiAuthMode}
+              socialAccounts={socialAccountsQuery.data ?? []}
+              linkingProvider={linkingProvider}
+              accountLinkNotice={accountLinkNotice}
+              onLinkProvider={startLinkProvider}
+              onUpdateProfile={updateProfile}
+              isUpdatingProfile={isUpdatingProfile}
+              profileUpdateError={profileUpdateError}
             />
           ) : (
-            <PlannerWorkspace
-              goHome={goHome}
-              plannerCityContext={plannerCityContext}
-              shouldAskFestivalTheme={shouldAskFestivalTheme}
-              plannerPreferenceLabel={plannerPreferenceLabel}
-              plannerStateSteps={plannerStateSteps}
-              chatMessages={chatMessages}
-              shouldShowFestivalPrompt={shouldShowFestivalPrompt}
-              festivalThemeChoice={festivalThemeChoice}
-              submitChatMessage={submitChatMessage}
-              shouldShowDurationPrompt={shouldShowDurationPrompt}
-              shouldShowTravelMonthPrompt={shouldShowTravelMonthPrompt}
-              isPlannerReady={isPlannerReady}
-              planDraft={planDraft}
-              plannerConditionExtraction={plannerConditionExtraction}
-              chatInput={chatInput}
-              setChatInput={setChatInput}
-              selectedTravelMonth={selectedTravelMonth}
-              hasGuidedPlannerChoices={hasGuidedPlannerChoices}
-              canSubmitChatInput={canSubmitChatInput}
-              submitChatForm={submitChatForm}
-              currentPlanTitle={currentPlanTitle}
-              plannerPreferenceProfile={plannerPreferenceProfile}
-              openPlanDetailView={openPlanDetailView}
-              isCurrentPlanLiked={isCurrentPlanLiked}
-              toggleGeneratedPlanLike={toggleGeneratedPlanLike}
-              resetPlannerFlow={() => resetPlannerFlow()}
-              saveGeneratedPlan={saveGeneratedPlan}
-              isPlanSaving={isSavingPlan}
-              isCurrentPlanSaved={isCurrentPlanSaved}
-              openMyPage={openMyPage}
-              savedPlanNotice={savedPlanNotice}
-              isPlannerLoading={isPlannerLoading}
-              planDestinationName={plannerCityContext?.cityName ?? generatedPlanDestinationName ?? undefined}
-            />
+            <ErrorBoundary>
+              <PlannerWorkspace
+                goHome={goHome}
+                plannerCityContext={plannerCityContext}
+                shouldAskFestivalTheme={shouldAskFestivalTheme}
+                plannerPreferenceLabel={plannerPreferenceLabel}
+                plannerStateSteps={plannerStateSteps}
+                chatMessages={chatMessages}
+                shouldShowFestivalPrompt={shouldShowFestivalPrompt}
+                festivalThemeChoice={festivalThemeChoice}
+                submitChatMessage={submitChatMessage}
+                shouldShowDurationPrompt={shouldShowDurationPrompt}
+                shouldShowTravelMonthPrompt={shouldShowTravelMonthPrompt}
+                isPlannerReady={isPlannerReady}
+                planDraft={planDraft}
+                plannerConditionExtraction={plannerConditionExtraction}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                selectedTravelMonth={selectedTravelMonth}
+                hasGuidedPlannerChoices={hasGuidedPlannerChoices}
+                canSubmitChatInput={canSubmitChatInput}
+                submitChatForm={submitChatForm}
+                currentPlanTitle={currentPlanTitle}
+                plannerPreferenceProfile={plannerPreferenceProfile}
+                openPlanDetailView={openPlanDetailView}
+                isCurrentPlanLiked={isCurrentPlanLiked}
+                toggleGeneratedPlanLike={toggleGeneratedPlanLike}
+                resetPlannerFlow={() => resetPlannerFlow()}
+                saveGeneratedPlan={saveGeneratedPlan}
+                isPlanSaving={isSavingPlan}
+                isCurrentPlanSaved={isCurrentPlanSaved}
+                openMyPage={openMyPage}
+                savedPlanNotice={savedPlanNotice}
+                isPlannerLoading={isPlannerLoading}
+                planDestinationName={plannerCityContext?.cityName ?? generatedPlanDestinationName ?? undefined}
+              />
+            </ErrorBoundary>
           )}
 
-          <Footer onOpenLegalNotice={setActiveLegalNoticeType} />
+          <Footer />
         </>
         )}
-        <LegalNoticeDialog
-          noticeType={activeLegalNoticeType}
-          onClose={() => setActiveLegalNoticeType(null)}
-        />
+        <LegalNoticeDialog />
       </div>
     </main>
   )
