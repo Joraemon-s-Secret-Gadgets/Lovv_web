@@ -22,7 +22,7 @@ import {
   type SmallCityPlaceCategory,
 } from './smallCities'
 
-export type SmallCityCatalogSource = 'static-catalog'
+export type SmallCityCatalogSource = 'static-catalog' | 'live-api'
 
 export type SmallCityCatalogState =
   | {
@@ -93,6 +93,65 @@ export type SmallCityDetailState =
     }
 
 export const staticSmallCityCatalogSource: SmallCityCatalogSource = 'static-catalog'
+export const liveSmallCityCatalogSource: SmallCityCatalogSource = 'live-api'
+
+export type SmallCityCatalogQueryResult = {
+  status: 'pending' | 'error' | 'success'
+  data?: SmallCityApiAdapterResult
+  error?: unknown
+}
+
+const readSmallCityCatalogErrorMessage = (error: unknown) =>
+  error instanceof Error && error.message ? error.message : '소도시 목록을 불러오지 못했습니다.'
+
+export const createSmallCityCatalogStateFromQueryResult = (
+  queryResult: SmallCityCatalogQueryResult,
+  queryKey: string,
+): SmallCityCatalogState => {
+  if (queryResult.status === 'pending') {
+    return {
+      status: 'loading',
+      source: liveSmallCityCatalogSource,
+      cities: [],
+      rejectedRecords: [],
+      queryKey,
+      errorMessage: null,
+    }
+  }
+
+  if (queryResult.status === 'error') {
+    return {
+      status: 'error',
+      source: liveSmallCityCatalogSource,
+      cities: [],
+      rejectedRecords: [],
+      queryKey,
+      errorMessage: readSmallCityCatalogErrorMessage(queryResult.error),
+    }
+  }
+
+  const adapterResult = queryResult.data
+
+  if (!adapterResult || adapterResult.cities.length === 0) {
+    return {
+      status: 'empty',
+      source: liveSmallCityCatalogSource,
+      cities: [],
+      rejectedRecords: adapterResult?.rejectedRecords ?? [],
+      queryKey,
+      errorMessage: null,
+    }
+  }
+
+  return {
+    status: 'success',
+    source: liveSmallCityCatalogSource,
+    cities: adapterResult.cities,
+    rejectedRecords: adapterResult.rejectedRecords,
+    queryKey,
+    errorMessage: null,
+  }
+}
 
 const countryLabels = {
   KR: '한국',

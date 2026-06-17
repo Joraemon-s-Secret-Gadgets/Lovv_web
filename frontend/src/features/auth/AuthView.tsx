@@ -5,17 +5,16 @@
  */
 
 import logoImage from '../../assets/lovv-logo.png'
-import type { LegalNoticeType } from '../../shared/components/legalNoticeContent'
 import type { SocialAuthProvider } from '../../shared/types/app'
 import type { AuthExceptionNotice } from './authException'
 import { authJourneyItems, authServiceBullets, authServiceCards } from './authModel'
+import { useUiToggleStore } from '../../shared/store/uiToggleStore'
 
 type AuthViewProps = {
   authExceptionNotice?: AuthExceptionNotice | null
   authNotice?: string
   isSignInDisabled?: boolean
   signInPendingProvider?: SocialAuthProvider | null
-  onOpenLegalNotice?: (noticeType: LegalNoticeType) => void
   onSignIn: (provider: SocialAuthProvider) => void
 }
 
@@ -84,9 +83,9 @@ export function AuthView({
   authNotice,
   isSignInDisabled = false,
   signInPendingProvider = null,
-  onOpenLegalNotice,
   onSignIn,
 }: AuthViewProps) {
+  const onOpenLegalNotice = useUiToggleStore((state) => state.openLegalNotice)
   const isSignInPending = Boolean(signInPendingProvider)
   const isGoogleSignInPending = signInPendingProvider === 'google'
   const isKakaoSignInPending = signInPendingProvider === 'kakao'

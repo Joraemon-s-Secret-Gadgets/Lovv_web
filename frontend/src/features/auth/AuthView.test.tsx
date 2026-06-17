@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { AuthView } from './AuthView'
+import { useUiToggleStore } from '../../shared/store/uiToggleStore'
 
 describe('AuthView', () => {
   it('keeps the story summary line break responsive', () => {
@@ -49,17 +50,16 @@ describe('AuthView', () => {
     expect(onSignIn).not.toHaveBeenCalled()
   })
 
-  it('routes legal notice actions through the shared opener', () => {
-    const onOpenLegalNotice = vi.fn()
-
-    render(<AuthView onSignIn={vi.fn()} onOpenLegalNotice={onOpenLegalNotice} />)
+  it('routes legal notice actions through the shared ui toggle store', () => {
+    render(<AuthView onSignIn={vi.fn()} />)
 
     fireEvent.click(screen.getByRole('button', { name: '이용약관' }))
-    fireEvent.click(screen.getByRole('button', { name: '개인정보처리방침' }))
-    fireEvent.click(screen.getByRole('button', { name: '문의하기' }))
+    expect(useUiToggleStore.getState().activeLegalNoticeType).toBe('terms')
 
-    expect(onOpenLegalNotice).toHaveBeenNthCalledWith(1, 'terms')
-    expect(onOpenLegalNotice).toHaveBeenNthCalledWith(2, 'privacy')
-    expect(onOpenLegalNotice).toHaveBeenNthCalledWith(3, 'contact')
+    fireEvent.click(screen.getByRole('button', { name: '개인정보처리방침' }))
+    expect(useUiToggleStore.getState().activeLegalNoticeType).toBe('privacy')
+
+    fireEvent.click(screen.getByRole('button', { name: '문의하기' }))
+    expect(useUiToggleStore.getState().activeLegalNoticeType).toBe('contact')
   })
 })

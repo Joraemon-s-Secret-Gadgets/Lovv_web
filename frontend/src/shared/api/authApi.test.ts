@@ -91,6 +91,8 @@ describe('auth API adapter', () => {
         avatarInitial: 'M',
         provider: 'google',
         roles: ['R-USER'],
+        birthDate: null,
+        createdAt: null,
       },
       preferenceProfile: null,
       onboardingCompleted: false,
@@ -126,6 +128,8 @@ describe('auth API adapter', () => {
       email: '',
       avatarInitial: 'K',
       provider: 'kakao',
+      birthDate: null,
+      createdAt: null,
     })
     expect(result.preferenceProfile).toEqual({
       version: 2,
@@ -254,7 +258,7 @@ describe('auth API adapter', () => {
       }),
     })
 
-    const result = await requestAuthSession({ fetchImpl })
+    const result = await requestAuthSession({ fetchImpl, baseUrl: '' })
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/v1/auth/session', {
       method: 'GET',
@@ -331,6 +335,8 @@ describe('auth API adapter', () => {
       email: 'cognito@example.com',
       avatarInitial: 'C',
       provider: 'cognito',
+      birthDate: null,
+      createdAt: null,
     })
   })
 
@@ -376,7 +382,7 @@ describe('auth API adapter', () => {
       }),
     })
 
-    const result = await requestAuthMe({ accessToken: 'access-token-3', fetchImpl })
+    const result = await requestAuthMe({ accessToken: 'access-token-3', fetchImpl, baseUrl: '' })
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/v1/auth/me', {
       method: 'GET',
@@ -394,7 +400,7 @@ describe('auth API adapter', () => {
       status: 204,
     })
 
-    await expect(requestAuthLogout({ fetchImpl })).resolves.toBe(true)
+    await expect(requestAuthLogout({ fetchImpl, baseUrl: '' })).resolves.toBe(true)
     expect(fetchImpl).toHaveBeenCalledWith('/api/v1/auth/logout', {
       method: 'POST',
       credentials: 'include',

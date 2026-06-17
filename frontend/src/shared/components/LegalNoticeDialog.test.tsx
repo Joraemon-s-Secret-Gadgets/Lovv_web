@@ -1,10 +1,14 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
 import { LegalNoticeDialog } from './LegalNoticeDialog'
+import { useUiToggleStore } from '../store/uiToggleStore'
 
 describe('LegalNoticeDialog', () => {
   it('renders the selected legal notice content', () => {
-    render(<LegalNoticeDialog noticeType="terms" onClose={vi.fn()} />)
+    act(() => {
+      useUiToggleStore.getState().openLegalNotice('terms')
+    })
+    render(<LegalNoticeDialog />)
 
     expect(screen.getByRole('dialog', { name: '이용약관' })).toBeInTheDocument()
     expect(screen.getByText(/소도시 여행지를 탐색하고/)).toBeInTheDocument()
@@ -13,12 +17,17 @@ describe('LegalNoticeDialog', () => {
   })
 
   it('renders privacy and contact notices without exposing empty placeholder links', () => {
-    const { rerender } = render(<LegalNoticeDialog noticeType="privacy" onClose={vi.fn()} />)
+    act(() => {
+      useUiToggleStore.getState().openLegalNotice('privacy')
+    })
+    render(<LegalNoticeDialog />)
 
     expect(screen.getByRole('dialog', { name: '개인정보 처리방침' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '수집 및 이용 항목' })).toBeInTheDocument()
 
-    rerender(<LegalNoticeDialog noticeType="contact" onClose={vi.fn()} />)
+    act(() => {
+      useUiToggleStore.getState().openLegalNotice('contact')
+    })
 
     expect(screen.getByRole('dialog', { name: '문의하기' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '접수 채널' })).toBeInTheDocument()
@@ -26,15 +35,30 @@ describe('LegalNoticeDialog', () => {
   })
 
   it('closes from the close button, confirm button, backdrop, and Escape key', () => {
-    const onClose = vi.fn()
-
-    render(<LegalNoticeDialog noticeType="contact" onClose={onClose} />)
+    act(() => {
+      useUiToggleStore.getState().openLegalNotice('contact')
+    })
+    render(<LegalNoticeDialog />)
 
     fireEvent.click(screen.getByRole('button', { name: '문의하기 닫기' }))
-    fireEvent.click(screen.getByRole('button', { name: '확인' }))
-    fireEvent.click(screen.getByTestId('legal-notice-backdrop'))
-    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(useUiToggleStore.getState().activeLegalNoticeType).toBeNull()
 
-    expect(onClose).toHaveBeenCalledTimes(4)
+    act(() => {
+      useUiToggleStore.getState().openLegalNotice('contact')
+    })
+    fireEvent.click(screen.getByRole('button', { name: '확인' }))
+    expect(useUiToggleStore.getState().activeLegalNoticeType).toBeNull()
+
+    act(() => {
+      useUiToggleStore.getState().openLegalNotice('contact')
+    })
+    fireEvent.click(screen.getByTestId('legal-notice-backdrop'))
+    expect(useUiToggleStore.getState().activeLegalNoticeType).toBeNull()
+
+    act(() => {
+      useUiToggleStore.getState().openLegalNotice('contact')
+    })
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(useUiToggleStore.getState().activeLegalNoticeType).toBeNull()
   })
 })

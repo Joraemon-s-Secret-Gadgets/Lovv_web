@@ -319,6 +319,7 @@ describe('saved plans API adapter', () => {
       requestGetSavedPlan('server-plan-1', {
         accessToken: 'Bearer access-token',
         fetchImpl,
+        baseUrl: '',
       }),
     ).resolves.toMatchObject({
       id: 'server-plan-1',
@@ -351,6 +352,7 @@ describe('saved plans API adapter', () => {
       requestLikeSavedPlan('server-plan-1', {
         accessToken: 'access-token',
         fetchImpl,
+        baseUrl: '',
       }),
     ).resolves.toBe(true)
 
@@ -358,6 +360,7 @@ describe('saved plans API adapter', () => {
       requestUnlikeSavedPlan('server-plan-1', {
         accessToken: 'access-token',
         fetchImpl,
+        baseUrl: '',
       }),
     ).resolves.toBe(true)
 
@@ -386,6 +389,7 @@ describe('saved plans API adapter', () => {
     await requestDeleteSavedPlan('plan-1', {
       accessToken: 'Bearer restored-access-token',
       fetchImpl,
+      baseUrl: '',
     })
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/v1/me/itineraries/plan-1', {

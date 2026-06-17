@@ -199,6 +199,12 @@ function AuthLoadingView() {
   )
 }
 
+// Grace period before the callback page falls back to re-reading the session from the bridge
+// cookie. Kept far longer than a normal token+bridge exchange (~sub-second) so it never races the
+// happy path; it only fires when the in-tab exchange continuation was dropped and the tab would
+// otherwise spin forever.
+const authCallbackRecoveryDelayMs = 5000
+
 function App() {
   const cityMapDetailPanelRef = useRef<HTMLDivElement | null>(null)
   const location = useLocation()
@@ -214,6 +220,7 @@ function App() {
       isCognitoAuthCallbackPath(window.location.pathname),
   )
   const processedOAuthCallbackKeyRef = useRef('')
+  const recoveredOAuthCallbackKeyRef = useRef('')
   const authRuntimeMode = useMemo(() => getDefaultAuthRuntimeMode(), [])
   const isApiAuthMode = authRuntimeMode === 'api'
   const isCognitoAuthMode = authRuntimeMode === 'cognito'
@@ -1301,6 +1308,96 @@ function App() {
     authRuntimeMode,
     cognitoBridgeMutation,
     commitCurrentUser,
+    location.search,
+    navigate,
+    shouldHandleCognitoAuthCallback,
+  ])
+
+  // Recovery fallback for a dropped callback continuation.
+  //
+  // The Cognito callback effect above creates the Lovv session cookie server-side, then drives the
+  // exit off the callback URL purely through its in-tab promise continuation. If that continuation
+  // is ever lost — e.g. a remount after `lovv.auth.processed_callback` was already set, so the
+  // effect early-returns without re-driving navigation — the cookie exists but this tab stays on
+  // `/auth/callback/cognito` showing AuthLoadingView forever. (A fresh tab opened at `/` recovers
+  // via the session query, which is why reopening the app then looks logged in.) The session query
+  // is disabled on the callback path, so nothing else re-checks. This timeout re-reads the session
+  // from the cookie and resumes routing if we're still stuck after the grace period.
+  useEffect(() => {
+    if (!shouldHandleCognitoAuthCallback) {
+      return undefined
+    }
+
+    const callbackKey = `cognito:${location.search}`
+
+    if (recoveredOAuthCallbackKeyRef.current === callbackKey) {
+      return undefined
+    }
+
+    let isActive = true
+
+    const timeoutId = window.setTimeout(() => {
+      // Still on the callback page with no authenticated user => the continuation was dropped.
+      if (!isActive || currentUser) {
+        return
+      }
+
+      recoveredOAuthCallbackKeyRef.current = callbackKey
+
+      requestAuthSession()
+        .then((state) => {
+          if (!isActive) {
+            return
+          }
+
+          const session = adaptApiAuthSessionSnapshot(state, authRuntimeMode)
+          clearPendingOAuthLogins(window.sessionStorage)
+
+          if (!session.user) {
+            setAuthAccessToken(null)
+            commitCurrentUser(null)
+            setHasCompletedPreference(false)
+            setIsAuthSessionRestoring(false)
+            navigate('/auth', { replace: true })
+            return
+          }
+
+          setAuthFlowNotice(null)
+          setAuthAccessToken(session.accessToken)
+          commitCurrentUser(session.user, readStoredSocialAuthProvider())
+          setHasCompletedPreference(session.onboardingCompleted)
+
+          if (session.preferenceProfile) {
+            setSelectedPreferenceProfile(session.preferenceProfile)
+            storePreferenceProfile(session.preferenceProfile)
+          } else if (session.onboardingCompleted) {
+            const localProfile = readStoredPreferenceProfile()
+            if (localProfile) {
+              setSelectedPreferenceProfile(localProfile)
+            }
+          }
+
+          setIsAuthSessionRestoring(false)
+          setPendingAuthRedirectPath(session.onboardingCompleted ? '/home' : '/onboarding')
+        })
+        .catch(() => {
+          if (!isActive) {
+            return
+          }
+
+          setIsAuthSessionRestoring(false)
+          navigate('/auth', { replace: true })
+        })
+    }, authCallbackRecoveryDelayMs)
+
+    return () => {
+      isActive = false
+      window.clearTimeout(timeoutId)
+    }
+  }, [
+    authRuntimeMode,
+    commitCurrentUser,
+    currentUser,
     location.search,
     navigate,
     shouldHandleCognitoAuthCallback,

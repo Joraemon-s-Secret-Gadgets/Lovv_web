@@ -148,6 +148,16 @@ export type LovvUser = {
   avatarInitial: string
   provider: AuthProvider
   roles?: LovvRole[]
+  birthDate?: string | null
+  createdAt?: string | null
+}
+
+export type SocialAccountSummary = {
+  provider: SocialAuthProvider
+  nickname: string | null
+  avatarUrl: string | null
+  linkedAt: string | null
+  lastLoginAt: string | null
 }
 
 export type View =

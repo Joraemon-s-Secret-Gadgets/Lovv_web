@@ -198,7 +198,7 @@ export function PlannerWorkspace({
     <section
       aria-label="Planner State"
       data-testid="chat-planner-summary"
-      className="min-w-0 rounded-[18px] border border-transparent bg-[#fffffa]/92 p-6 shadow-[0_18px_42px_-28px_rgba(51,39,30,0.22)]"
+      className="min-w-0 rounded-[18px] border border-white/60 bg-[#fffffa]/40 p-6 shadow-[0_18px_42px_-28px_rgba(51,39,30,0.15)] backdrop-blur-2xl"
     >
       <div className="grid grid-cols-[minmax(220px,0.8fr)_minmax(0,1.45fr)_minmax(220px,0.7fr)] items-start gap-5 max-xl:grid-cols-1">
         <div>
@@ -257,7 +257,7 @@ export function PlannerWorkspace({
           ))}
         </ol>
 
-        <div className="rounded-[14px] border border-transparent bg-[#FFF8F6] p-5 shadow-[0_14px_30px_-28px_rgba(51,39,30,0.28)]">
+        <div className="rounded-[14px] border border-white/40 bg-[#FFF8F6]/75 p-5 shadow-[0_14px_30px_-28px_rgba(51,39,30,0.1)] backdrop-blur-sm">
           <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#A92B10]">AI Tip</p>
           <p className="mt-3 break-keep text-sm font-semibold leading-6 text-[#33271E]">
             {plannerCityContext
@@ -283,12 +283,12 @@ export function PlannerWorkspace({
   ) => (
     <div className="flex max-w-[760px] items-start gap-3">
       <span
-        className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] shadow-[0_10px_22px_-16px_rgba(51,39,30,0.55)]"
+        className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] shadow-[0_10px_22px_-16px_rgba(51,39,30,0.5)]"
         aria-hidden="true"
       >
         <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
       </span>
-      <div className="min-w-0 rounded-[20px] border border-[#F3B489]/45 bg-white/78 p-3 shadow-[0_16px_34px_-28px_rgba(51,39,30,0.32)]">
+      <div className="min-w-0 rounded-[20px] border border-white/50 bg-white/45 p-3 shadow-[0_16px_34px_-28px_rgba(51,39,30,0.15)] backdrop-blur-md">
         <p className="mb-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#315B3E]">
           Lovv AI
         </p>
@@ -302,10 +302,10 @@ export function PlannerWorkspace({
               type="button"
               aria-pressed={option.selected}
               onClick={option.onClick}
-              className={`inline-flex min-h-[38px] items-center rounded-full border px-4 py-1 text-[12px] font-bold leading-4 text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+              className={`inline-flex min-h-[38px] items-center rounded-full border px-4 py-1 text-[12px] font-bold leading-4 text-[#33271E] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
                 option.selected
-                  ? 'border-[#A92B10] bg-[#F36B12]'
-                  : 'border-transparent bg-[#FFF8F6]'
+                  ? 'border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-[#33271E] shadow-sm hover:scale-[1.01]'
+                  : 'border-white/60 bg-[#fffffa]/60 hover:bg-[#FFE0CA]'
               }`}
             >
               {option.label}
@@ -320,9 +320,9 @@ export function PlannerWorkspace({
     <section
       aria-labelledby="chat-title"
       data-testid="chat-conversation-panel"
-      className="flex h-full min-h-[680px] min-w-0 flex-col overflow-hidden rounded-[22px] border border-[#F3B489]/40 bg-[#fffffa]/96 shadow-[0_24px_56px_-34px_rgba(51,39,30,0.32)] xl:min-h-0"
+      className="flex h-full min-h-[680px] min-w-0 flex-col overflow-hidden rounded-[22px] border border-white/60 bg-[#fffffa]/40 shadow-[0_24px_56px_-34px_rgba(51,39,30,0.25)] backdrop-blur-2xl xl:min-h-0"
     >
-      <header className="border-b border-[#F3B489]/35 bg-[#FFF8F6]/92 px-6 py-5">
+      <header className="border-b border-white/50 bg-[#FFF8F6]/60 px-6 py-5 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-5">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#A92B10]">
@@ -335,7 +335,7 @@ export function PlannerWorkspace({
               대화에서 조건을 좁히고, 옆 요약 패널에서 일정 초안을 바로 확인합니다.
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-full border border-[#F3B489]/55 bg-[#fffffa] px-3 py-2 shadow-[0_12px_24px_-22px_rgba(51,39,30,0.35)]">
+          <div className="flex shrink-0 items-center gap-2 rounded-full border border-white/60 bg-[#fffffa]/80 px-3 py-2 shadow-sm backdrop-blur-sm">
             <span
               className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4]"
               aria-hidden="true"
@@ -350,7 +350,7 @@ export function PlannerWorkspace({
         ref={chatScrollRef}
         role="log"
         aria-label="AI 일정 대화"
-        className="flex-1 space-y-5 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,250,0.94),rgba(255,248,246,0.88))] px-6 py-6"
+        className="flex-1 space-y-5 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,250,0.4),rgba(255,248,246,0.3))] px-6 py-6"
       >
         {chatMessages.map((message) => {
           const isAssistant = message.role === 'assistant'
@@ -363,7 +363,7 @@ export function PlannerWorkspace({
             >
               {isAssistant ? (
                 <span
-                  className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] shadow-[0_10px_22px_-16px_rgba(51,39,30,0.55)]"
+                  className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] shadow-[0_10px_22px_-16px_rgba(51,39,30,0.5)]"
                   aria-hidden="true"
                 >
                   <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
@@ -382,10 +382,10 @@ export function PlannerWorkspace({
                   {isAssistant ? 'Lovv AI' : '내 조건'}
                 </p>
                 <div
-                  className={`break-keep whitespace-pre-wrap rounded-[20px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-[0_16px_34px_-26px_rgba(51,39,30,0.28)] max-sm:text-[13px] max-sm:leading-6 ${
+                  className={`break-keep whitespace-pre-wrap rounded-[20px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-sm max-sm:text-[13px] max-sm:leading-6 ${
                     isAssistant
-                      ? 'border-[#F3B489]/30 bg-white'
-                      : 'ml-auto border-transparent bg-[#F36B12] font-bold'
+                      ? 'border-white/50 bg-white/60 backdrop-blur-sm'
+                      : 'ml-auto border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-[#33271E] font-bold shadow-sm'
                   }`}
                 >
                   {isLoading ? (
@@ -436,18 +436,18 @@ export function PlannerWorkspace({
           : null}
 
         {isPlannerReady ? (
-          <div aria-label="조건 해석 결과" className="rounded-[18px] border border-transparent bg-[#FFF8F6] p-5">
+          <div aria-label="조건 해석 결과" className="rounded-[18px] border border-white/40 bg-[#FFF8F6]/75 p-5 backdrop-blur-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-[5px] bg-[#fffffa] px-3 py-1 text-[12px] font-bold text-[#33271E]">
+              <span className="rounded-[5px] border border-white/65 bg-[#fffffa]/90 px-3 py-1 text-[12px] font-bold text-[#33271E] shadow-sm">
                 일정 초안
               </span>
-              <span className="rounded-[5px] bg-[#FFF0E4] px-3 py-1 text-[12px] font-bold text-[#33271E]">
+              <span className="rounded-[5px] border border-white/65 bg-[#FFF0E4]/90 px-3 py-1 text-[12px] font-bold text-[#33271E] shadow-sm">
                 {planDraft.durationLabel}
               </span>
               {plannerConditionExtraction?.activeRequiredThemes.map((themeId) => (
                 <span
                   key={`active-theme-${themeId}`}
-                  className="rounded-[5px] bg-[#fffffa] px-3 py-1 text-[12px] font-bold text-[#33271E]"
+                  className="rounded-[5px] border border-white/65 bg-[#fffffa]/90 px-3 py-1 text-[12px] font-bold text-[#33271E] shadow-sm"
                 >
                   {getThemeDefinition(themeId).label}
                 </span>
@@ -469,10 +469,10 @@ export function PlannerWorkspace({
           </div>
         ) : null}
       </div>
-      <div className="border-t border-[#F3B489]/35 bg-[#FFF8F6]/95 p-5">
+      <div className="border-t border-white/50 bg-[#FFF8F6]/40 p-5 backdrop-blur-md">
         <form
           onSubmit={submitChatForm}
-          className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[24px] border border-[#F3B489]/70 bg-[#fffffa] p-2 shadow-[0_16px_32px_-26px_rgba(51,39,30,0.35)] max-sm:grid-cols-1 max-sm:rounded-[22px]"
+          className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[24px] border border-white/60 bg-white/65 p-2 shadow-[0_16px_32px_-26px_rgba(51,39,30,0.15)] max-sm:grid-cols-1 max-sm:rounded-[22px] backdrop-blur-sm"
         >
           <input
             aria-label="여행 조건 입력"
@@ -490,13 +490,13 @@ export function PlannerWorkspace({
                   ? '축제 포함 여부와 여행 기간을 먼저 선택해 주세요'
                   : '여행 기간을 먼저 선택해 주세요'
             }
-            className="min-h-12 min-w-0 rounded-[18px] border-0 bg-transparent px-4 py-2 break-keep text-sm leading-5 text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-65 focus:bg-[#FFF8F6] max-sm:text-[13px]"
+            className="min-h-12 min-w-0 rounded-[18px] border-0 bg-transparent px-4 py-2 break-keep text-sm leading-5 text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-65 transition-all focus:bg-white max-sm:text-[13px]"
           />
           <button
             type="submit"
             aria-label="메시지 보내기"
             disabled={!canSubmitChatInput}
-            className="inline-flex min-h-12 items-center justify-center rounded-[18px] border border-[#A92B10] bg-[#F36B12] px-6 text-sm font-black text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-[#A92B10] disabled:hover:bg-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+            className="inline-flex min-h-12 items-center justify-center rounded-[18px] border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-6 text-sm font-black text-[#33271E] shadow-sm transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
           >
             보내기
           </button>
@@ -509,9 +509,9 @@ export function PlannerWorkspace({
     <section
       aria-label="AI 일정 생성 중"
       aria-busy="true"
-      className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28 xl:min-h-0"
+      className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-white/50 bg-[#fffffa]/30 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:sticky xl:top-[96px] xl:min-h-0 backdrop-blur-xl"
     >
-      <div className="shrink-0 bg-[#FFF0E4] px-6 py-6">
+      <div className="shrink-0 border-b border-white/40 bg-[#FFF0E4]/45 px-6 py-6 backdrop-blur-md">
         <div className="grid grid-cols-[1fr_auto] items-start gap-5">
           <div>
             <div className="h-4 w-20 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
@@ -522,7 +522,7 @@ export function PlannerWorkspace({
         </div>
         <div className="mt-5 grid grid-cols-2 gap-3">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-11 rounded-[14px] bg-[#fffffa]" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${i * 80}ms` }} />
+            <div key={i} className="h-11 rounded-[14px] bg-[#fffffa]/80 border border-white/40 shadow-sm" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${i * 80}ms` }} />
           ))}
         </div>
       </div>
@@ -531,13 +531,13 @@ export function PlannerWorkspace({
         <div className="h-4 w-24 rounded-md bg-[#F3B489]/35" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
         <div className="mt-2 h-6 w-48 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '100ms' }} />
 
-        <div className="mt-4 rounded-[16px] bg-[#FFF8F6] p-4">
+        <div className="mt-4 rounded-[16px] border border-white/40 bg-[#FFF8F6]/75 p-4 shadow-sm backdrop-blur-sm">
           <div className="h-3 w-20 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
           <div className="mt-2 h-4 w-full rounded-md bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '80ms' }} />
           <div className="mt-1 h-4 w-3/4 rounded-md bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '160ms' }} />
         </div>
 
-        <div className="mt-6 rounded-[20px] bg-[#FFF7F0] p-5">
+        <div className="mt-6 rounded-[20px] border border-white/50 bg-[#FFF7F0]/70 p-5 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
               <div className="h-3 w-16 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
@@ -550,7 +550,7 @@ export function PlannerWorkspace({
             {[1, 2, 3].map((day) => (
               <li
                 key={day}
-                className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-start gap-3 rounded-[16px] bg-[#fffffa] px-4 py-3"
+                className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-start gap-3 rounded-[16px] border border-white/40 bg-[#fffffa]/80 px-4 py-3 shadow-sm"
               >
                 <div className="size-9 rounded-full bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100}ms` }} />
                 <div>
@@ -577,7 +577,7 @@ export function PlannerWorkspace({
       return (
         <section
           aria-label="AI 일정 결과"
-          className="flex h-full min-h-[680px] flex-col justify-between overflow-hidden rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 p-6 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28 xl:min-h-0"
+          className="flex h-full min-h-[680px] flex-col justify-between overflow-hidden rounded-[22px] border border-white/50 bg-[#fffffa]/30 p-6 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:sticky xl:top-[96px] xl:min-h-0 backdrop-blur-xl"
         >
           <div>
             <p className="text-sm font-semibold text-[#33271E]">맞춤 일정 결과</p>
@@ -592,7 +592,7 @@ export function PlannerWorkspace({
                   : '여행 기간을 고른 뒤 해당 소도시의 동선 단서를 기준으로 일정 초안이 여기에 표시됩니다.'}
             </p>
           </div>
-          <div className="mt-8 rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
+          <div className="mt-8 rounded-[18px] border border-white/45 bg-[#FFF0E4]/75 p-5 shadow-sm backdrop-blur-sm">
             <p className="text-[12px] font-bold text-[#33271E]">다음 입력</p>
             <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
               {shouldShowFestivalPrompt
@@ -612,9 +612,9 @@ export function PlannerWorkspace({
       <section
         ref={planResultPanelRef}
         aria-labelledby="generated-plan-title"
-        className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-[#F3B489]/35 bg-[#fffffa]/94 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.2)] xl:sticky xl:top-28 xl:min-h-0"
+        className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-white/50 bg-[#fffffa]/30 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:sticky xl:top-[96px] xl:min-h-0 backdrop-blur-xl"
       >
-        <div className="shrink-0 bg-[#FFF0E4] px-6 py-6">
+        <div className="shrink-0 border-b border-white/40 bg-[#FFF0E4]/45 px-6 py-6 backdrop-blur-md">
           <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">
             <div>
               <p className="text-sm font-semibold text-[#33271E]">맞춤 일정 결과</p>
@@ -628,7 +628,7 @@ export function PlannerWorkspace({
                 챗봇에서 정리된 조건을 바탕으로, 핵심 흐름만 압축해서 보여줍니다.
               </p>
             </div>
-            <span className="inline-flex h-10 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-[12px] font-bold text-[#33271E]">
+            <span className="inline-flex h-10 items-center justify-center rounded-full border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-5 text-[12px] font-bold text-[#33271E] shadow-sm">
               {planDraft.dayCount}일 구성
             </span>
           </div>
@@ -643,7 +643,7 @@ export function PlannerWorkspace({
             ].filter((item): item is string => Boolean(item)).map((item) => (
               <span
                 key={item}
-                className="inline-flex min-h-11 min-w-0 items-center rounded-[14px] bg-[#fffffa] px-4 py-2 break-keep text-sm font-bold leading-5 text-[#33271E] max-sm:text-[13px]"
+                className="inline-flex min-h-11 min-w-0 items-center rounded-[14px] border border-white/50 bg-[#fffffa]/80 px-4 py-2 break-keep text-sm font-bold leading-5 text-[#33271E] shadow-sm max-sm:text-[13px]"
               >
                 {item}
               </span>
@@ -651,7 +651,7 @@ export function PlannerWorkspace({
           </div>
 
           {planDraft.userNotice && planDraft.userNotice.length > 0 && (
-            <div className="mt-4 rounded-[12px] bg-[#FFF3E0] px-4 py-3 text-[13px] leading-5 text-[#7A4F2D]">
+            <div className="mt-4 rounded-[12px] border border-white/45 bg-[#FFF3E0]/75 px-4 py-3 text-[13px] leading-5 text-[#7A4F2D] shadow-sm backdrop-blur-sm">
               {planDraft.userNotice.map((notice, i) => (
                 <p key={i}>{notice}</p>
               ))}
@@ -670,12 +670,12 @@ export function PlannerWorkspace({
                 여기서는 코스를 빠르게 확인하고, 추천 이유는 세부 일정에서 확인합니다.
               </p>
             </div>
-            <span className="rounded-full bg-[#FFF0E4] px-4 py-2 text-[12px] font-bold text-[#33271E]">
+            <span className="rounded-full border border-white/60 bg-[#fffffa]/80 px-4 py-2 text-[12px] font-bold text-[#33271E] shadow-sm">
               총 {planDraft.stops.length}개 코스
             </span>
           </div>
 
-          <div className="mt-4 rounded-[16px] border border-transparent bg-[#FFF8F6] p-4">
+          <div className="mt-4 rounded-[16px] border border-white/40 bg-[#FFF8F6]/75 p-4 shadow-sm backdrop-blur-sm">
             <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#A92B10]">
               핵심 추천 기준
             </p>
@@ -686,7 +686,7 @@ export function PlannerWorkspace({
 
           <section
             aria-labelledby="generated-plan-summary-title"
-            className="mt-6 rounded-[20px] bg-[#FFF7F0] p-5"
+            className="mt-6 rounded-[20px] border border-white/50 bg-[#FFF7F0]/70 p-5 backdrop-blur-sm"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -700,7 +700,7 @@ export function PlannerWorkspace({
                   일차별 핵심 흐름
                 </h5>
               </div>
-              <span className="rounded-full bg-[#fffffa] px-4 py-2 text-[12px] font-bold text-[#33271E]">
+              <span className="rounded-full border border-white/60 bg-[#fffffa]/80 px-4 py-2 text-[12px] font-bold text-[#33271E] shadow-sm">
                 {planDraft.dayCount}일 요약
               </span>
             </div>
@@ -709,9 +709,9 @@ export function PlannerWorkspace({
               {planDraft.days.map((day) => (
                 <li
                   key={day.day}
-                  className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-start gap-3 rounded-[16px] bg-[#fffffa] px-4 py-3 max-sm:grid-cols-[38px_minmax(0,1fr)]"
+                  className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-start gap-3 rounded-[16px] border border-white/40 bg-[#fffffa]/80 px-4 py-3 max-sm:grid-cols-[38px_minmax(0,1fr)] shadow-sm"
                 >
-                  <span className="flex size-9 items-center justify-center rounded-full bg-[#F36B12] text-sm font-black text-[#33271E]">
+                  <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-sm font-black text-[#33271E]">
                     {day.day}
                   </span>
                   <div className="min-w-0">
@@ -722,7 +722,7 @@ export function PlannerWorkspace({
                       {day.summary}
                     </p>
                   </div>
-                  <span className="rounded-full bg-[#FFF0E4] px-3 py-1 text-[12px] font-bold text-[#33271E] max-sm:col-start-2 max-sm:w-fit">
+                  <span className="rounded-full border border-white/60 bg-[#fffffa]/80 px-3 py-1 text-[12px] font-bold text-[#33271E] max-sm:col-start-2 max-sm:w-fit shadow-sm">
                     {day.stops.length}개 코스
                   </span>
                 </li>
@@ -732,7 +732,7 @@ export function PlannerWorkspace({
             <button
               type="button"
               onClick={openPlanDetailView}
-              className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+              className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-5 text-sm font-black text-[#33271E] shadow-sm transition hover:scale-[1.01] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
             >
               세부 일정 보기
             </button>
@@ -748,8 +748,8 @@ export function PlannerWorkspace({
               onClick={toggleGeneratedPlanLike}
               className={`inline-flex min-h-12 items-center justify-center rounded-full border px-5 text-sm font-bold text-[#33271E] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
                 isCurrentPlanLiked
-                  ? 'border-[#A92B10] bg-[#F36B12] hover:bg-[#FF8A2A]'
-                  : 'border-[#F3B489] bg-[#fffffa] hover:border-[#F36B12] hover:bg-[#FFE0CA]'
+                  ? 'border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-[#33271E] shadow-sm hover:scale-[1.01]'
+                  : 'border-white/60 bg-[#fffffa]/80 hover:border-[#F36B12] hover:bg-[#FFE0CA] shadow-sm hover:scale-[1.01]'
               }`}
             >
               {isCurrentPlanLiked ? '좋아요 취소' : '좋아요'}
@@ -758,9 +758,9 @@ export function PlannerWorkspace({
               type="button"
               onClick={saveGeneratedPlan}
               disabled={isCurrentPlanSaved || isPlanSaving}
-              className={`inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:border-[#A92B10] hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+              className={`inline-flex min-h-12 items-center justify-center rounded-full border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-5 text-sm font-black text-[#33271E] shadow-sm transition hover:scale-[1.01] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
                 isCurrentPlanSaved
-                  ? 'disabled:cursor-default disabled:bg-[#FF8A2A]'
+                  ? 'disabled:cursor-default disabled:opacity-85'
                   : isPlanSaving
                   ? 'disabled:cursor-wait disabled:opacity-75'
                   : ''
@@ -777,7 +777,7 @@ export function PlannerWorkspace({
             <button
               type="button"
               onClick={() => resetPlannerFlow()}
-              className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-bold text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:col-span-1 md:col-span-2"
+              className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/60 bg-[#fffffa]/80 px-5 text-sm font-bold text-[#33271E] shadow-sm transition hover:border-[#F36B12] hover:bg-[#FFE0CA] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:col-span-1 md:col-span-2"
             >
               일정 다시짜기
             </button>
@@ -787,7 +787,7 @@ export function PlannerWorkspace({
             <button
               type="button"
               onClick={openMyPage}
-              className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-4 text-sm font-bold text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+              className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/60 bg-[#fffffa]/80 px-4 text-sm font-bold text-[#33271E] shadow-sm transition hover:border-[#F36B12] hover:bg-[#FFE0CA] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
             >
               마이페이지 보기
             </button>
@@ -807,13 +807,13 @@ export function PlannerWorkspace({
     <section
       id="chat"
       aria-labelledby="chat-title"
-      className="mx-auto min-h-dvh max-w-[1500px] px-16 pb-16 pt-28 max-lg:px-8 max-sm:px-5"
+      className="mx-auto min-h-dvh max-w-[1500px] px-16 pb-16 pt-[96px] max-lg:px-8 max-sm:px-5"
     >
       <div data-testid="chat-workspace" className="space-y-5">
         <button
           type="button"
           onClick={goHome}
-          className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-bold text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+          className="inline-flex min-h-10 items-center justify-center rounded-full border border-white/60 bg-[#fffffa]/80 px-5 text-sm font-bold text-[#33271E] shadow-sm transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
         >
           ← 이전으로 돌아가기
         </button>

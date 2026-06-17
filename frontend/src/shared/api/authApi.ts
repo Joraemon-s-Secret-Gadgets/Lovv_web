@@ -4,7 +4,14 @@
  * @lastModified 2026-06-12
  */
 
-import type { AuthProvider, LovvRole, LovvUser, PreferenceProfile, SocialAuthProvider } from '../types/app'
+import type {
+  AuthProvider,
+  LovvRole,
+  LovvUser,
+  PreferenceProfile,
+  SocialAccountSummary,
+  SocialAuthProvider,
+} from '../types/app'
 import { adaptPreferenceApiRecord, type PreferenceApiRecord } from './preferencesApi'
 
 export const authApiEndpoints = {
@@ -14,7 +21,15 @@ export const authApiEndpoints = {
   me: '/api/v1/auth/me',
   session: '/api/v1/auth/session',
   logout: '/api/v1/auth/logout',
+  linkGoogle: '/api/v1/auth/link/google',
+  linkKakao: '/api/v1/auth/link/kakao',
+  socialAccounts: '/api/v1/auth/social-accounts',
 } as const
+
+const linkEndpointByProvider: Record<SocialAuthProvider, '/api/v1/auth/link/google' | '/api/v1/auth/link/kakao'> = {
+  google: authApiEndpoints.linkGoogle,
+  kakao: authApiEndpoints.linkKakao,
+}
 
 export type AuthCredentialType = 'id_token' | 'authorization_code' | 'access_token'
 
@@ -40,6 +55,31 @@ export type AuthApiUserRecord = {
   roles?: unknown
   isNewUser?: unknown
   is_new_user?: unknown
+  birthDate?: unknown
+  birth_date?: unknown
+  createdAt?: unknown
+  created_at?: unknown
+}
+
+export type AuthApiSocialAccountRecord = {
+  provider?: unknown
+  nickname?: unknown
+  avatarUrl?: unknown
+  avatar_url?: unknown
+  linkedAt?: unknown
+  linked_at?: unknown
+  lastLoginAt?: unknown
+  last_login_at?: unknown
+}
+
+export type SocialAccountsApiResponse = {
+  socialAccounts?: AuthApiSocialAccountRecord[] | null
+  social_accounts?: AuthApiSocialAccountRecord[] | null
+}
+
+export type ProfileUpdateRequest = {
+  displayName?: string
+  birthDate?: string | null
 }
 
 export type AuthApiSessionRecord = {
@@ -107,6 +147,17 @@ const readRoles = (...values: unknown[]): LovvRole[] => {
   return roles.filter((role): role is LovvRole => typeof role === 'string' && validRoles.has(role as LovvRole))
 }
 
+const readNullableString = (...values: unknown[]) => {
+  const value = values.find((item): item is string => typeof item === 'string')
+
+  return value && value.trim().length > 0 ? value.trim() : null
+}
+
+const readSocialProvider = (...values: unknown[]) =>
+  values.find(
+    (value): value is SocialAuthProvider => value === 'google' || value === 'kakao',
+  ) ?? null
+
 const avatarInitialFrom = (...values: unknown[]) => {
   const source = readString(...values)
   const firstCharacter = Array.from(source)[0]
@@ -149,7 +200,37 @@ export const adaptAuthApiUserRecord = (
     avatarInitial: avatarInitialFrom(name, email, provider),
     provider,
     ...(roles.length > 0 ? { roles } : {}),
+    birthDate: readNullableString(record.birthDate, record.birth_date),
+    createdAt: readNullableString(record.createdAt, record.created_at),
   }
+}
+
+export const adaptAuthApiSocialAccountRecord = (
+  record: AuthApiSocialAccountRecord,
+): SocialAccountSummary | null => {
+  const provider = readSocialProvider(record.provider)
+
+  if (!provider) {
+    return null
+  }
+
+  return {
+    provider,
+    nickname: readNullableString(record.nickname),
+    avatarUrl: readNullableString(record.avatarUrl, record.avatar_url),
+    linkedAt: readNullableString(record.linkedAt, record.linked_at),
+    lastLoginAt: readNullableString(record.lastLoginAt, record.last_login_at),
+  }
+}
+
+export const adaptSocialAccountsApiResponse = (
+  response: SocialAccountsApiResponse,
+): SocialAccountSummary[] => {
+  const records = response.socialAccounts ?? response.social_accounts ?? []
+
+  return records
+    .map(adaptAuthApiSocialAccountRecord)
+    .filter((account): account is SocialAccountSummary => account !== null)
 }
 
 export const adaptAuthApiResponse = (response: AuthApiResponse): AuthApiState => {
@@ -340,6 +421,54 @@ export const requestAuthMe = async (options: AuthApiRequestOptions = {}) => {
   )
 
   return adaptAuthApiResponse(payload)
+}
+
+export const requestUpdateProfile = async (
+  update: ProfileUpdateRequest,
+  options: AuthApiRequestOptions = {},
+) => {
+  const payload = await requestAuthApiJson(
+    authApiEndpoints.me,
+    {
+      method: 'PATCH',
+      headers: createAuthHeaders(options, true),
+      body: JSON.stringify(update),
+    },
+    options,
+  )
+
+  return adaptAuthApiResponse(payload)
+}
+
+export const requestListSocialAccounts = async (options: AuthApiRequestOptions = {}) => {
+  const payload = await requestAuthApiJson(
+    authApiEndpoints.socialAccounts,
+    {
+      method: 'GET',
+      headers: createAuthHeaders(options),
+    },
+    options,
+  )
+
+  return adaptSocialAccountsApiResponse(payload as SocialAccountsApiResponse)
+}
+
+export const requestLinkProvider = async (
+  provider: SocialAuthProvider,
+  request: AuthLoginRequest,
+  options: AuthApiRequestOptions = {},
+) => {
+  const payload = await requestAuthApiJson(
+    linkEndpointByProvider[provider],
+    {
+      method: 'POST',
+      headers: createAuthHeaders(options, true),
+      body: JSON.stringify(serializeAuthLoginRequest(request)),
+    },
+    options,
+  )
+
+  return adaptSocialAccountsApiResponse(payload as SocialAccountsApiResponse)
 }
 
 export const requestAuthLogout = async (options: AuthApiRequestOptions = {}) => {

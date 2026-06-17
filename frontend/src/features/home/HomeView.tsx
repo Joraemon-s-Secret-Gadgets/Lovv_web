@@ -266,11 +266,11 @@ export function HomeView({
                       className="grid min-h-[126px] grid-cols-[1fr_auto] items-center gap-8 rounded-3xl border border-white/60 bg-white/45 px-[31px] py-7 shadow-[0_12px_28px_-14px_rgba(51,39,30,0.1)] backdrop-blur-2xl max-lg:grid-cols-1"
                     >
                       <div>
-                        <h2 className="break-keep text-[22px] font-semibold leading-7 text-[#33271E] max-sm:text-xl">
-                          처음엔 작게, 추천은 명확하게
+                        <h2 className="break-keep text-[22px] font-bold leading-7 text-[#33271E] max-sm:text-xl">
+                          붐비는 유명지 대신, 취향에 맞는 소도시
                         </h2>
                         <p className="mt-2 break-keep text-sm leading-5 text-[#33271E]">
-                          Lovv는 선택한 기준 테마를 먼저 보고, 같은 분위기의 소도시 후보를 좁힙니다.
+                          어디로 갈지 못정했어도 괜찮아요 - 시기만 정하면 조건에 맞는 소도시를 골라드려요.
                         </p>
                       </div>
                       <ul

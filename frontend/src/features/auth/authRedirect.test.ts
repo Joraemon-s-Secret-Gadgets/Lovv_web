@@ -74,6 +74,7 @@ describe('OAuth redirect helpers', () => {
       redirectUri: 'https://lovv.example/auth/callback/google',
       codeVerifier: 'google-pkce-verifier',
       createdAt: 1_800_000_000_000,
+      mode: 'login',
     })
 
     expect(readPendingOAuthLogin(sessionStorage, 'google')).toEqual({
@@ -82,6 +83,7 @@ describe('OAuth redirect helpers', () => {
       redirectUri: 'https://lovv.example/auth/callback/google',
       codeVerifier: 'google-pkce-verifier',
       createdAt: 1_800_000_000_000,
+      mode: 'login',
     })
 
     clearPendingOAuthLogin(sessionStorage, 'google')
@@ -95,6 +97,7 @@ describe('OAuth redirect helpers', () => {
       redirectUri: 'https://lovv.example/auth/callback/cognito',
       codeVerifier: 'cognito-pkce-verifier',
       createdAt: 1_800_000_000_000,
+      mode: 'login',
     })
 
     expect(readPendingOAuthLoginByState(sessionStorage, 'state-2')).toEqual({
@@ -103,8 +106,35 @@ describe('OAuth redirect helpers', () => {
       redirectUri: 'https://lovv.example/auth/callback/cognito',
       codeVerifier: 'cognito-pkce-verifier',
       createdAt: 1_800_000_000_000,
+      mode: 'login',
     })
     expect(readPendingOAuthLoginByState(sessionStorage, 'missing-state')).toBeNull()
+  })
+
+  it('builds a link-mode Google authorization request and round-trips it through callback resolution', async () => {
+    const crypto = createCryptoMock()
+    const request = await createOAuthAuthorizationRequest('google', {
+      origin: 'https://lovv.example',
+      env: {
+        VITE_GOOGLE_OAUTH_CLIENT_ID: 'lovv-google-client-id',
+      },
+      storage: sessionStorage,
+      crypto,
+      now: 1_800_000_000_000,
+      mode: 'link',
+    })
+
+    expect(request.pending.mode).toBe('link')
+    expect(readPendingOAuthLogin(sessionStorage, 'google')).toEqual(request.pending)
+
+    const result = createAuthLoginRequestFromCallback(
+      'google',
+      `?code=google-auth-code&state=${request.pending.state}`,
+      sessionStorage,
+    )
+
+    expect(result.status).toBe('success')
+    expect(result.status === 'success' && result.mode).toBe('link')
   })
 
   it('builds Google authorization URLs with state and PKCE verifier metadata', async () => {
@@ -244,6 +274,7 @@ describe('OAuth redirect helpers', () => {
       redirectUri: 'https://lovv.example/auth/callback/google',
       codeVerifier: 'google-pkce-verifier',
       createdAt: 1_800_000_000_000,
+      mode: 'login',
     })
 
     expect(
@@ -256,6 +287,7 @@ describe('OAuth redirect helpers', () => {
         redirectUri: 'https://lovv.example/auth/callback/google',
         codeVerifier: 'google-pkce-verifier',
       },
+      mode: 'login',
     })
   })
 
@@ -266,6 +298,7 @@ describe('OAuth redirect helpers', () => {
       redirectUri: 'https://lovv.example/auth/callback/cognito',
       codeVerifier: 'cognito-pkce-verifier',
       createdAt: 1_800_000_000_000,
+      mode: 'login',
     })
 
     expect(createCognitoTokenRequestFromCallback('?code=cognito-code&state=state-1', sessionStorage)).toEqual({
@@ -285,6 +318,7 @@ describe('OAuth redirect helpers', () => {
       state: 'state-1',
       redirectUri: 'https://lovv.example/auth/callback/kakao',
       createdAt: 1_800_000_000_000,
+      mode: 'login',
     })
 
     expect(

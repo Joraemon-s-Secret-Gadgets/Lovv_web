@@ -486,14 +486,14 @@ export const getPreferenceProfileLabel = (profile: PreferenceProfile) =>
 
 export const getPlannerStepClassName = (status: PlannerStepStatus) => {
   if (status === 'completed') {
-    return 'border-transparent bg-[#F36B12] text-[#33271E] shadow-[0_12px_26px_-22px_rgba(51,39,30,0.5)]'
+    return 'border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-[#33271E] shadow-sm'
   }
 
   if (status === 'active') {
-    return 'border-transparent bg-[#FFF0E4] text-[#33271E]'
+    return 'border border-white/50 bg-[#FFF0E4]/70 text-[#33271E] backdrop-blur-sm'
   }
 
-  return 'border-transparent bg-[#fffffa]/78 text-[#897163]'
+  return 'border border-white/30 bg-white/20 text-[#897163] backdrop-blur-sm'
 }
 
 export const createSinglePreferenceProfile = (
