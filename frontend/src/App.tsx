@@ -90,6 +90,7 @@ import {
 import { PlannerWorkspace, type PlannerStateStep } from './features/planner/PlannerWorkspace'
 import { PlanDetailView } from './features/planner/PlanDetailView'
 import { ErrorBoundary } from './shared/components/ErrorBoundary'
+import { log } from './shared/logger'
 import {
   clearStoredSavedPlanState,
   getNextSavedPlanLike,
@@ -501,10 +502,14 @@ function App() {
   const shouldAskFestivalTheme = false  // 축제 질문 비활성화 - 여행 월 선택으로 대체
   const shouldShowFestivalPrompt = false
   const shouldShowDurationPrompt = selectedDurationLabel === null
+  // After a duration is chosen, always ask the travel month (1~12 buttons) before
+  // collecting free-text conditions. The month prompt stays hidden once a draft has been
+  // generated (plannerConditionExtraction set) — e.g. the selected-city flow that produces a
+  // draft straight after the duration — so it only surfaces while genuinely awaiting a month.
   const shouldShowTravelMonthPrompt =
-    shouldAskTravelMonthForCity(plannerCityContext, festivalThemeChoice) &&
     selectedDurationLabel !== null &&
-    selectedTravelMonth === null
+    selectedTravelMonth === null &&
+    plannerConditionExtraction === null
   const hasSettledFestivalChoice = true
   const hasGuidedPlannerChoices =
     selectedDurationLabel !== null && !shouldShowTravelMonthPrompt
@@ -766,6 +771,10 @@ function App() {
     if (authSessionQuery.status === 'success') {
       const session = authSessionQuery.data
 
+      log.info('AUTH', 'Session restored', {
+        userId: session.user?.id,
+        onboardingCompleted: session.onboardingCompleted,
+      })
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAuthAccessToken(session.accessToken)
       commitCurrentUser(session.user, readStoredSocialAuthProvider())
@@ -785,6 +794,7 @@ function App() {
       }
       setIsAuthSessionRestoring(false)
     } else if (authSessionQuery.status === 'error') {
+      log.info('AUTH', 'No active session to restore (signed out)')
       setAuthAccessToken(null)
       commitCurrentUser(null)
       setHasCompletedPreference(false)
@@ -922,6 +932,7 @@ function App() {
     // savedPlansQuery.data directly in render) because other mutations elsewhere in this file
     // (like/unlike/delete/create) still update them optimistically; those call sites migrate to
     // React Query in a later step.
+    log.info('PLAN', `Saved plans loaded (${savedPlansQuery.data.savedPlans.length})`)
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSavedPlans(savedPlansQuery.data.savedPlans)
     setSavedPlanLikes(savedPlansQuery.data.savedPlanLikes)
@@ -2291,10 +2302,6 @@ function App() {
         plannerCityContext,
         nextTravelMonth,
       )
-      const nextExtraction = createMockConditionExtraction(
-        '',
-        getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
-      )
 
       setChatMessages((currentMessages) => [
         ...currentMessages,
@@ -2306,7 +2313,7 @@ function App() {
         {
           id: createMessageId('assistant', currentMessages.length + 1),
           role: 'assistant',
-          content: createAssistantReply(plannerBasisLabel, nextDraft, nextExtraction, plannerCityContext),
+          content: `${getTravelMonthLabel(nextTravelMonth)} 여행으로 잡아둘게요. 이제 동행, 관심사, 걷는 정도 등 원하는 조건을 자유롭게 알려주세요.`,
         },
       ])
       setSelectedTravelMonth(nextTravelMonth)
@@ -2399,8 +2406,8 @@ function App() {
         setGeneratedPlanDestinationName(destName)
       }
     } catch (err) {
-      console.error('API integration failed, falling back to mock logic:', err)
-      
+      log.error('PLAN', 'Recommendation API failed, falling back to mock logic', err)
+
       // Resilient fallback to local mock generation
       const fallbackDraft = createPlanDraft(
         plannerPreference,

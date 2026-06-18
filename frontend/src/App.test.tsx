@@ -216,6 +216,13 @@ const completeGuidedPlanner = async ({
 } = {}) => {
   fireEvent.click(screen.getByRole('button', { name: duration }))
 
+  // Preference-based planning now asks for a travel month (1~12 buttons) after the duration,
+  // before free-text conditions. City-context flows generate a draft straight away and skip it.
+  const travelMonthButton = screen.queryByRole('button', { name: '6월' })
+  if (travelMonthButton) {
+    fireEvent.click(travelMonthButton)
+  }
+
   const input = screen.getByRole('textbox', { name: '여행 조건 입력' })
   const sendButton = screen.getByRole('button', { name: '메시지 보내기' })
 
@@ -1668,6 +1675,10 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
+    // Travel month is asked before free-text conditions.
+    expect(within(summary).getByText('여행 예정 월을 선택해 주세요.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '6월' }))
+
     expect(within(summary).getByText('동행, 관심사, 걷는 정도를 자연어로 입력하면 초안이 완성됩니다.')).toBeInTheDocument()
     expect(within(summary).getByText('조건 입력 대기')).toBeInTheDocument()
 
@@ -1677,7 +1688,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '메시지 보내기' }))
 
     await screen.findByText('초안 준비')
-    expect(within(summary).getByText(/1박 2일 · 자연·트레킹/)).toBeInTheDocument()
+    expect(within(summary).getByText(/1박 2일 · 6월 · 자연·트레킹/)).toBeInTheDocument()
   })
 
   it('opens floating quick actions for chat and top navigation', () => {
@@ -2000,6 +2011,9 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
+    // Pick the travel month before entering free-text conditions.
+    fireEvent.click(screen.getByRole('button', { name: '6월' }))
+
     expect(within(chatLog).queryByText('일정 기간을 먼저 골라주세요')).not.toBeInTheDocument()
     expect(within(chatLog).queryByRole('button', { name: '1박 2일' })).not.toBeInTheDocument()
     expect(input).not.toBeDisabled()
@@ -2035,6 +2049,9 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '2박 3일' }))
 
+    // Pick the travel month before free-text conditions.
+    fireEvent.click(screen.getByRole('button', { name: '6월' }))
+
     expect(input).not.toBeDisabled()
     fireEvent.change(input, { target: { value: '전시랑 편집숍 위주로 덜 걷고 싶어요' } })
     expect(sendButton).not.toBeDisabled()
@@ -2054,6 +2071,9 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
+
+    // Pick the travel month before free-text conditions.
+    fireEvent.click(screen.getByRole('button', { name: '6월' }))
 
     const chatLog = screen.getByRole('log', { name: 'AI 일정 대화' })
 
