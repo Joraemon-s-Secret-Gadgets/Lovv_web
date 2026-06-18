@@ -324,6 +324,7 @@ function App() {
     setSavedPlanLikeErrors({})
     if (clearStorage) {
       clearStoredSavedPlanState()
+      sessionStorage.removeItem('lovv.planner_active_profile')
     }
   }, [])
   // Declared early (rather than alongside the other saved-plans effects below) because the
@@ -406,16 +407,38 @@ function App() {
     },
     [],
   )
-  const [plannerPreferenceProfile, setPlannerPreferenceProfile] = useState(() => selectedPreferenceProfile)
+  const [plannerPreferenceProfile, setPlannerPreferenceProfile] = useState<PreferenceProfile>(() => {
+    try {
+      const stored = sessionStorage.getItem('lovv.planner_active_profile')
+      if (stored) {
+        return JSON.parse(stored) as PreferenceProfile
+      }
+    } catch (err) {
+      log.error('SYSTEM', 'Failed to parse stored planner preference profile', err)
+    }
+    return selectedPreferenceProfile ?? getDefaultPreferenceProfile()
+  })
 
   // Keep plannerPreferenceProfile in sync when the global profile changes (e.g. after session restore).
   // Only sync when the planner is idle (no city context and no stops generated yet).
   useEffect(() => {
     if (!plannerCityContext && planDraft.stops.length === 0) {
-      setPlannerPreferenceProfile(selectedPreferenceProfile)
+      const stored = sessionStorage.getItem('lovv.planner_active_profile')
+      if (!stored && selectedPreferenceProfile) {
+        setPlannerPreferenceProfile(selectedPreferenceProfile)
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPreferenceProfile])
+
+  // Save active planner preference profile to sessionStorage to persist across page reloads
+  useEffect(() => {
+    if (plannerPreferenceProfile) {
+      sessionStorage.setItem('lovv.planner_active_profile', JSON.stringify(plannerPreferenceProfile))
+    } else {
+      sessionStorage.removeItem('lovv.planner_active_profile')
+    }
+  }, [plannerPreferenceProfile])
 
   const plannerPreferences = useMemo(
     () => getPreferencesForProfile(plannerPreferenceProfile),
