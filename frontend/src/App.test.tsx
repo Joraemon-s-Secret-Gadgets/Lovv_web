@@ -895,7 +895,7 @@ describe('MVP main entry screen', () => {
     expect(requestCognitoBridgeSession).not.toHaveBeenCalled()
     expect(requestAuthLogin).not.toHaveBeenCalled()
     expect(localStorage.getItem(authStorageKey)).toBeNull()
-    expect(screen.getByText('로그인 요청이 만료되었습니다.')).toBeInTheDocument()
+    expect(await screen.findByText('로그인 요청이 만료되었습니다.')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('이전 로그인 요청을 더 이상 사용할 수 없습니다. 다시 시도해 주세요.')
   })
 
@@ -919,7 +919,7 @@ describe('MVP main entry screen', () => {
     expect(requestCognitoBridgeSession).not.toHaveBeenCalled()
     expect(sessionStorage.getItem('lovv.auth.oauth.google')).toBeNull()
     expect(localStorage.getItem(authStorageKey)).toBeNull()
-    expect(screen.getByText('로그인 세션 정보가 없습니다.')).toBeInTheDocument()
+    expect(await screen.findByText('로그인 세션 정보가 없습니다.')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('브라우저의 로그인 세션 정보를 확인할 수 없습니다. 다시 시도해 주세요.')
   })
 
@@ -954,7 +954,7 @@ describe('MVP main entry screen', () => {
     expect(requestCognitoBridgeSession).toHaveBeenCalledWith('cognito-id-token')
     expect(sessionStorage.getItem('lovv.auth.oauth.google')).toBeNull()
     expect(localStorage.getItem(authStorageKey)).toBeNull()
-    expect(screen.getByText('외부 로그인 서버 응답이 지연되고 있습니다.')).toBeInTheDocument()
+    expect(await screen.findByText('외부 로그인 서버 응답이 지연되고 있습니다.')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('잠시 후 다시 시도해 주세요.')
   })
 
