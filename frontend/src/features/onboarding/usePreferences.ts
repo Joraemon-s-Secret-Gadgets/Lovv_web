@@ -1,3 +1,9 @@
+/**
+ * @file usePreferences.ts
+ * @description Custom hook for managing global user preference profile, theme selection states, and edit views.
+ * @lastModified 2026-06-23
+ */
+
 import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import {
@@ -33,6 +39,9 @@ export interface UsePreferencesOptions {
   activeView: View
 }
 
+/**
+ * Custom hook to manage user onboarding/edit preferences state, operations, and previews.
+ */
 export function usePreferences({
   authAccessToken,
   isBackendAuthMode,
@@ -44,33 +53,40 @@ export function usePreferences({
   navigateToView,
   activeView,
 }: UsePreferencesOptions) {
+  // Local states for staging preferences before saving
   const [pendingPreferenceProfile, setPendingPreferenceProfile] = useState(() => selectedPreferenceProfile)
   const [selectedPreviewImageKey, setSelectedPreviewImageKey] = useState<string | null>(null)
   const [isPreviewTrayOpen, setIsPreviewTrayOpen] = useState(false)
   const [hasSelectedCover, setHasSelectedCover] = useState(false)
   
+  // UX and notice messages
   const [preferenceNotice, setPreferenceNotice] = useState<string | null>(null)
   const [themeSelectionNotice, setThemeSelectionNotice] = useState<string | null>(null)
   const [isPreferenceSaving, setIsPreferenceSaving] = useState(false)
 
+  // Memoize resolved preferences from active profile
   const selectedPreferences = useMemo(
     () => getPreferencesForProfile(selectedPreferenceProfile),
     [selectedPreferenceProfile],
   )
   const selectedPreference = selectedPreferences[0] ?? preferences[0]
 
+  // Memoize staging preferences
   const pendingPreferences = useMemo(
     () => getPreferencesForProfile(pendingPreferenceProfile),
     [pendingPreferenceProfile],
   )
 
+  // Check if current view is the onboarding or settings preferences page
   const isPreferenceEditView = activeView === 'preferences' || activeView === 'preferenceEdit'
 
+  // Mutation to persist preferences to backend
   const updatePreferenceMutation = useMutation({
     mutationFn: (profile: PreferenceProfile) =>
       requestUpdatePreference(profile, { accessToken: authAccessToken }),
   })
 
+  // Get selected theme IDs based on active view state
   const getActiveThemeIds = () => {
     const activeProfile = isPreferenceEditView ? pendingPreferenceProfile : selectedPreferenceProfile
     return isPreferenceEditView || hasSelectedCover ? activeProfile.selectedThemeIds : []
@@ -81,12 +97,14 @@ export function usePreferences({
   const activeThemePreferences = useMemo(() => activeThemeIds.map(getPreferenceByThemeId), [activeThemeIds])
   const activeCountryTrack = (isPreferenceEditView ? pendingPreferenceProfile : selectedPreferenceProfile).countryTrack
 
+  // Validate theme count limits (1 to 3 allowed)
   const hasValidThemeSelection = activeThemeIds.length > 0 && activeThemeIds.length <= 3
 
   const fallbackPreferenceSelection = isPreferenceEditView
     ? pendingPreferences[0] ?? selectedPreference
     : selectedPreference
 
+  // Generate previews list for selected themes
   const selectedPreviewImages = useMemo(() => {
     const prefs = activeThemePreferences.length > 0 ? activeThemePreferences : [fallbackPreferenceSelection]
     return prefs.flatMap((preference: Preference, preferenceIndex: number) =>
@@ -99,6 +117,7 @@ export function usePreferences({
     )
   }, [activeThemePreferences, fallbackPreferenceSelection])
 
+  // Resolve main/featured preview image
   const selectedPreviewPrimaryImage = useMemo(() => {
     return (
       selectedPreviewImages.find((previewImage) => previewImage.key === selectedPreviewImageKey) ??
@@ -112,6 +131,7 @@ export function usePreferences({
     )
   }, [selectedPreviewImages, selectedPreviewImageKey, fallbackPreferenceSelection])
 
+  // Find index of currently selected image
   const selectedPreviewImageIndex = useMemo(() => {
     return Math.max(
       selectedPreviewImages.findIndex((previewImage) => previewImage.key === selectedPreviewPrimaryImage.key),
@@ -119,6 +139,7 @@ export function usePreferences({
     )
   }, [selectedPreviewImages, selectedPreviewPrimaryImage])
 
+  // Get thumbnails list excluding the primary featured image
   const selectedPreviewThumbnails = useMemo(() => {
     return selectedPreviewImages.filter(
       (previewImage) => previewImage.key !== selectedPreviewPrimaryImage.key,
@@ -127,18 +148,22 @@ export function usePreferences({
 
   const selectedPreviewTrayCover = selectedPreviewThumbnails[0]
 
+  // Progress text label e.g., "1 / 4"
   const selectedPreviewThemePosition = useMemo(() => {
     return selectedPreviewImages.length > 0
       ? `${selectedPreviewImageIndex + 1} / ${selectedPreviewImages.length}`
       : '1 / 1'
   }, [selectedPreviewImages, selectedPreviewImageIndex])
 
+  // Determine current active preview card description metadata
   const selectedPreviewPreference = useMemo(() => {
     return activeThemePreferences[selectedPreviewPrimaryImage.themeIndex] ?? activeThemePreferences[0] ?? fallbackPreferenceSelection
   }, [activeThemePreferences, selectedPreviewPrimaryImage.themeIndex, fallbackPreferenceSelection])
 
+  // Resolve hashtags for home dashboard display
   const selectedThemeHashtags = useMemo(() => getThemeHashtags(selectedPreferenceProfile), [selectedPreferenceProfile])
 
+  // Initial Onboarding preference commit handler
   const enterMainWithPreference = async () => {
     if (!hasValidThemeSelection) {
       setThemeSelectionNotice('원하는 테마를 1개 이상 선택해 주세요.')
@@ -164,6 +189,7 @@ export function usePreferences({
     }
   }
 
+  // Settings page preference update handler
   const savePreferenceEdit = async () => {
     if (!hasValidThemeSelection) {
       setThemeSelectionNotice('원하는 테마를 1개 이상 선택해 주세요.')
@@ -194,6 +220,7 @@ export function usePreferences({
     }
   }
 
+  // Update country track filter (KR vs JP)
   const selectPreferenceCountryTrack = (countryTrack: CountryTrack) => {
     const activeProfile = isPreferenceEditView ? pendingPreferenceProfile : selectedPreferenceProfile
     const nextProfile = {
@@ -209,6 +236,7 @@ export function usePreferences({
     }
   }
 
+  // Toggle theme ID selection (min 1, max 3)
   const togglePreferenceTheme = (themeId: ThemeId) => {
     const source = isPreferenceEditView ? 'preference_edit' : 'onboarding'
     const themeIds = activeThemeIds
@@ -243,17 +271,20 @@ export function usePreferences({
     )
   }
 
+  // Preview thumbnail click handler
   const selectPreviewImage = (imageKey: string) => {
     setSelectedPreviewImageKey(imageKey)
     setIsPreviewTrayOpen(false)
   }
 
+  // Enter edit view action
   const enterPreferenceEdit = () => {
     setPreferenceNotice(null)
     setThemeSelectionNotice(null)
     navigateToView('preferences')
   }
 
+  // Revert changes and exit edit view
   const cancelPreferenceEdit = () => {
     setPendingPreferenceProfile(selectedPreferenceProfile)
     setSelectedPreviewImageKey(null)
@@ -308,3 +339,5 @@ export function usePreferences({
     cancelPreferenceEdit,
   }
 }
+
+// EOF: usePreferences.ts

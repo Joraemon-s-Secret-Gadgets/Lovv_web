@@ -1,3 +1,9 @@
+/**
+ * @file useAuth.ts
+ * @description Custom hook for managing authentication state, session restoring, Cognito configuration, and saved itineraries.
+ * @lastModified 2026-06-23
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -1033,3 +1039,5 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
     setPlannerPreferenceProfile,
   }
 }
+
+// EOF: useAuth.ts

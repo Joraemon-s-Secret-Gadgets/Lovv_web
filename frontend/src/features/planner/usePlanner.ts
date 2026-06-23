@@ -1,3 +1,9 @@
+/**
+ * @file usePlanner.ts
+ * @description Custom hook for managing the chatbot-based interactive planner, itineraries drafts, and AI generation state.
+ * @lastModified 2026-06-23
+ */
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
@@ -967,3 +973,5 @@ export function usePlanner({
     getSavedPlanLikeError,
   }
 }
+
+// EOF: usePlanner.ts

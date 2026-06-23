@@ -1,3 +1,9 @@
+/**
+ * @file AppHeader.tsx
+ * @description Header component containing the site logo, central navigation buttons, and user session menu.
+ * @lastModified 2026-06-23
+ */
+
 import logoImage from '../../assets/lovv-logo.png'
 import type { MouseEvent } from 'react'
 import type { LovvUser } from '../types/app'
@@ -17,6 +23,9 @@ type AppHeaderProps = {
   openRecommendation: () => void
 }
 
+/**
+ * Shared AppHeader navigation component.
+ */
 export function AppHeader({
   goHome,
   currentProviderLabel,
@@ -28,6 +37,7 @@ export function AppHeader({
   openPlanner,
   openRecommendation,
 }: AppHeaderProps) {
+  // Session menu state from central store
   const isSessionMenuOpen = useUiToggleStore((state) => state.isSessionMenuOpen)
   const toggleSessionMenu = useUiToggleStore((state) => state.toggleSessionMenu)
 
@@ -95,7 +105,7 @@ export function AppHeader({
         {/* Right: Session Menu */}
         <div className="flex items-center justify-end">
           <div className="relative shrink-0">
-            {/* 아바타 단독 버튼으로 구성하여 Figma 디자인 유지 및 테스트 호환성 확보 */}
+            {/* Avatar single button representation for accessibility and consistency */}
             <button
               type="button"
               aria-haspopup="menu"
@@ -109,7 +119,7 @@ export function AppHeader({
               </span>
             </button>
 
-            {/* 세션 메뉴 (리퀴드 글래스 질감 반영) */}
+            {/* Session dropdown menu overlay (Liquid glass style) */}
             <div
               role="menu"
               aria-label="세션 메뉴"
@@ -144,3 +154,5 @@ export function AppHeader({
     </header>
   )
 }
+
+// EOF: AppHeader.tsx

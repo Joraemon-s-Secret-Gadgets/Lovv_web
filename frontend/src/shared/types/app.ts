@@ -1,3 +1,9 @@
+/**
+ * @file app.ts
+ * @description Global type definitions for the Lovv frontend application.
+ * @lastModified 2026-06-23
+ */
+
 export type CityCoverImage = {
   city: string
   image: string
@@ -175,3 +181,5 @@ export type View =
   | 'themeDetail'
   | 'recommendation'
   | 'admin'
+
+// EOF: app.ts

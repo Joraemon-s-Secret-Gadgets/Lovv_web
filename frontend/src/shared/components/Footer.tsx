@@ -1,12 +1,21 @@
+/**
+ * @file Footer.tsx
+ * @description Footer component containing copyright information and links to legal notice dialogs (Terms, Privacy, Contact).
+ * @lastModified 2026-06-23
+ */
+
 import { useUiToggleStore } from '../store/uiToggleStore'
 import { FileText, ShieldCheck, Mail, Heart } from 'lucide-react'
 
+/**
+ * Shared Footer navigation component.
+ */
 export function Footer() {
   const onOpenLegalNotice = useUiToggleStore((state) => state.openLegalNotice)
 
   return (
     <footer className="mx-auto max-w-[1440px] px-16 pb-12 pt-4 max-lg:px-8 max-sm:px-5" role="contentinfo">
-      {/* 리퀴드 글래스모피즘(Glassmorphism) 스타일을 극대화한 푸터 테두리 및 투명도 튜닝 */}
+      {/* Liquid Glassmorphism container border styling */}
       <div className="grid gap-6 rounded-[24px] border border-white/70 bg-white/20 px-8 py-6 shadow-[0_22px_56px_-32px_rgba(51,39,30,0.15)] backdrop-blur-xl md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -48,3 +57,5 @@ export function Footer() {
     </footer>
   )
 }
+
+// EOF: Footer.tsx
