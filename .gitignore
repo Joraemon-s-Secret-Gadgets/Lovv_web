@@ -75,6 +75,9 @@ dmypy.json
 .env
 .env.*
 !.env.example
+# Tracked: public, non-secret build-time config (Vite VITE_* inlined at build).
+# Real secrets (API keys) must stay in .env.production.local / CI, never here.
+!.env.production
 .envrc
 local_settings.py
 db.sqlite3

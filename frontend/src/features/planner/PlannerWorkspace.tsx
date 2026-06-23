@@ -4,6 +4,7 @@ import type { FormEvent, MouseEvent } from 'react'
 import {
   durationGuidePrompts,
   festivalThemePrompts,
+  followUpPrompts,
   getTravelMonthLabel,
   getPlannerStepClassName,
   travelMonthPrompts,
@@ -242,7 +243,7 @@ export function PlannerWorkspace({
                     {step.body}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    {step.chips.slice(0, 2).map((chip) => (
+                    {step.chips.slice(0, 3).map((chip) => (
                       <span
                         key={`${step.id}-${chip}`}
                         className="inline-flex min-h-7 items-center rounded-[5px] bg-white/52 px-2.5 py-0.5 text-[11px] font-black leading-4"
@@ -470,6 +471,24 @@ export function PlannerWorkspace({
         ) : null}
       </div>
       <div className="border-t border-white/50 bg-[#FFF8F6]/40 p-5 backdrop-blur-md">
+        {isPlannerReady ? (
+          <div className="mb-3">
+            <p className="text-[12px] font-black text-[#A92B10]">자주 쓰는 조건</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {followUpPrompts.map((prompt) => (
+                <button
+                  key={prompt.label}
+                  type="button"
+                  onClick={() => submitChatMessage(prompt.query)}
+                  disabled={isPlannerLoading}
+                  className="inline-flex min-h-9 items-center rounded-full border border-[#F3B489] bg-[#fffffa] px-4 text-[12px] font-bold text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                >
+                  {prompt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <form
           onSubmit={submitChatForm}
           className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[24px] border border-white/60 bg-white/65 p-2 shadow-[0_16px_32px_-26px_rgba(51,39,30,0.15)] max-sm:grid-cols-1 max-sm:rounded-[22px] backdrop-blur-sm"
@@ -511,59 +530,103 @@ export function PlannerWorkspace({
       aria-busy="true"
       className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-white/50 bg-[#fffffa]/30 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:sticky xl:top-[96px] xl:min-h-0 backdrop-blur-xl"
     >
+      {/* Mirrors renderItineraryPanel's result header 1:1 so there is no layout jump when the
+          real plan replaces this. Known values (city for city flows, day count, theme chips)
+          render for real; only genuinely-unknown content (title body, summary, day details)
+          stays as a shimmer. */}
       <div className="shrink-0 border-b border-white/40 bg-[#FFF0E4]/45 px-6 py-6 backdrop-blur-md">
-        <div className="grid grid-cols-[1fr_auto] items-start gap-5">
-          <div>
-            <div className="h-4 w-20 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
-            <div className="mt-3 h-7 w-40 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '100ms' }} />
-            <div className="mt-2 h-4 w-56 rounded-md bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '200ms' }} />
+        <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[#33271E]">AI가 맞춤 일정을 짜는 중…</p>
+            <h3 className="mt-2 break-keep text-2xl font-bold leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7">
+              {planDestinationName ?? plannerCityContext?.cityName ?? (
+                <span
+                  className="inline-block h-7 w-40 rounded-md bg-[#F3B489]/40 align-middle"
+                  style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }}
+                  aria-label="추천 도시를 찾는 중"
+                />
+              )}
+            </h3>
+            <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
+              고른 조건을 바탕으로 핵심 흐름을 정리하고 있어요.
+            </p>
           </div>
-          <div className="h-10 w-16 rounded-full bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
+          <span className="inline-flex h-10 items-center justify-center rounded-full border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-5 text-[12px] font-bold text-[#33271E] shadow-sm">
+            {Math.max(1, planDraft.dayCount)}일 구성
+          </span>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-11 rounded-[14px] bg-[#fffffa]/80 border border-white/40 shadow-sm" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${i * 80}ms` }} />
+
+        <div className="mt-5 grid grid-cols-2 gap-3 max-md:grid-cols-1">
+          {[
+            plannerCityContext ? `${plannerCityContext.cityName} 중심` : `${plannerPreferenceLabel} 중심`,
+            `${plannerPreferenceProfile.selectedThemeIds.length}개 테마 반영`,
+          ].map((item, index) => (
+            <span
+              key={item}
+              className="inline-flex min-h-11 min-w-0 items-center rounded-[14px] border border-white/50 bg-[#fffffa]/80 px-4 py-2 break-keep text-sm font-bold leading-5 text-[#33271E] shadow-sm max-sm:text-[13px]"
+              style={{ animation: 'lovv-chip-in 0.34s ease-out both', animationDelay: `${index * 160}ms` }}
+            >
+              {item}
+            </span>
           ))}
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        <div className="h-4 w-24 rounded-md bg-[#F3B489]/35" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
-        <div className="mt-2 h-6 w-48 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '100ms' }} />
+        <div className="grid grid-cols-[1fr_auto] items-start gap-4 max-md:grid-cols-1">
+          <div>
+            <p className="text-sm font-bold text-[#33271E]">추천 흐름 요약</p>
+            <h4 className="mt-2 break-keep text-xl font-bold leading-7 text-[#33271E] max-sm:text-lg max-sm:leading-6">
+              {currentPlanTitle}
+            </h4>
+            <p className="mt-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
+              AI가 코스를 정리하는 중이에요. 잠시만 기다려 주세요.
+            </p>
+          </div>
+          <span
+            className="h-9 w-20 rounded-full bg-[#F3B489]/30"
+            style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }}
+          />
+        </div>
 
         <div className="mt-4 rounded-[16px] border border-white/40 bg-[#FFF8F6]/75 p-4 shadow-sm backdrop-blur-sm">
-          <div className="h-3 w-20 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
+          <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#A92B10]">핵심 추천 기준</p>
           <div className="mt-2 h-4 w-full rounded-md bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '80ms' }} />
           <div className="mt-1 h-4 w-3/4 rounded-md bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '160ms' }} />
         </div>
 
-        <div className="mt-6 rounded-[20px] border border-white/50 bg-[#FFF7F0]/70 p-5 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
+        <section className="mt-6 rounded-[20px] border border-white/50 bg-[#FFF7F0]/70 p-5 backdrop-blur-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="h-3 w-16 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
-              <div className="mt-2 h-6 w-28 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '100ms' }} />
+              <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#F36B12]">Summary</p>
+              <h5 className="mt-2 break-keep text-lg font-black leading-7 text-[#33271E]">일차별 핵심 흐름</h5>
             </div>
-            <div className="h-8 w-16 rounded-full bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
+            <span className="rounded-full border border-white/60 bg-[#fffffa]/80 px-4 py-2 text-[12px] font-bold text-[#33271E] shadow-sm">
+              {Math.max(1, planDraft.dayCount)}일 요약
+            </span>
           </div>
 
           <ol className="mt-4 grid gap-3" aria-label="일정 로딩 중">
-            {[1, 2, 3].map((day) => (
+            {Array.from({ length: Math.max(1, planDraft.dayCount) }, (_, i) => i + 1).map((day) => (
               <li
                 key={day}
-                className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-start gap-3 rounded-[16px] border border-white/40 bg-[#fffffa]/80 px-4 py-3 shadow-sm"
+                className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-start gap-3 rounded-[16px] border border-white/40 bg-[#fffffa]/80 px-4 py-3 max-sm:grid-cols-[38px_minmax(0,1fr)] shadow-sm"
               >
-                <div className="size-9 rounded-full bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100}ms` }} />
-                <div>
+                <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-sm font-black text-[#33271E]">
+                  {day}
+                </span>
+                <div className="min-w-0">
                   <div className="h-4 w-32 rounded-md bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100 + 50}ms` }} />
-                  <div className="mt-1 h-3 w-48 rounded-md bg-[#F3B489]/25" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100 + 100}ms` }} />
+                  <div className="mt-2 h-3 w-48 rounded-md bg-[#F3B489]/25" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100 + 100}ms` }} />
                 </div>
-                <div className="h-6 w-14 rounded-full bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100 + 150}ms` }} />
+                <span
+                  className="h-6 w-14 rounded-full bg-[#F3B489]/30 max-sm:col-start-2 max-sm:w-fit"
+                  style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: `${day * 100 + 150}ms` }}
+                />
               </li>
             ))}
           </ol>
-
-          <div className="mt-5 h-12 w-full rounded-full bg-[#F3B489]/40" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite' }} />
-        </div>
+        </section>
       </div>
     </section>
   )

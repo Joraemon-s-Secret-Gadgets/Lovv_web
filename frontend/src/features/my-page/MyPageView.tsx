@@ -88,13 +88,15 @@ export function MyPageView({
   }, [])
   const [nameInput, setNameInput] = useState(currentUser?.name ?? '')
   const [birthDateInput, setBirthDateInput] = useState(currentUser?.birthDate ?? '')
+  const [genderInput, setGenderInput] = useState<string | null>(currentUser?.gender ?? null)
   const [profileSavedNotice, setProfileSavedNotice] = useState<string | null>(null)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setNameInput(currentUser?.name ?? '')
     setBirthDateInput(currentUser?.birthDate ?? '')
-  }, [currentUser?.name, currentUser?.birthDate])
+    setGenderInput(currentUser?.gender ?? null)
+  }, [currentUser?.name, currentUser?.birthDate, currentUser?.gender])
 
   const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -105,6 +107,7 @@ export function MyPageView({
     const succeeded = await onUpdateProfile({
       ...(trimmedName ? { displayName: trimmedName } : {}),
       birthDate: trimmedBirthDate ? trimmedBirthDate : null,
+      gender: genderInput ?? null,
     })
 
     if (succeeded) {
@@ -425,6 +428,27 @@ export function MyPageView({
                           onChange={(event) => setBirthDateInput(event.target.value)}
                           className="mt-2 w-full rounded-[12px] border border-white/80 bg-[#fffffa]/80 px-3 py-2.5 text-sm font-semibold text-[#33271E] transition-all focus:border-[#F36B12] focus:bg-white focus-visible:outline-none"
                         />
+                        <span className="mt-4 block text-[12px] font-black text-[#33271E]">성별 (선택)</span>
+                        <div className="mt-2 grid grid-cols-2 gap-2" role="group" aria-label="성별">
+                          {(['남', '여'] as const).map((option) => {
+                            const isActive = genderInput === option
+                            return (
+                              <button
+                                key={option}
+                                type="button"
+                                aria-pressed={isActive}
+                                onClick={() => setGenderInput(isActive ? null : option)}
+                                className={`inline-flex min-h-10 items-center justify-center rounded-[12px] border px-3 text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                                  isActive
+                                    ? 'border-[#A92B10] bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-[#33271E]'
+                                    : 'border-white/80 bg-[#fffffa]/80 text-[#33271E] hover:border-[#F36B12] hover:bg-[#FFE0CA]'
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            )
+                          })}
+                        </div>
                         {profileUpdateError ? (
                           <p role="alert" className="mt-3 break-keep text-[12px] font-bold leading-5 text-[#A92B10]">
                             {profileUpdateError}

@@ -57,6 +57,7 @@ export type AuthApiUserRecord = {
   is_new_user?: unknown
   birthDate?: unknown
   birth_date?: unknown
+  gender?: unknown
   createdAt?: unknown
   created_at?: unknown
 }
@@ -80,6 +81,7 @@ export type SocialAccountsApiResponse = {
 export type ProfileUpdateRequest = {
   displayName?: string
   birthDate?: string | null
+  gender?: string | null
 }
 
 export type AuthApiSessionRecord = {
@@ -201,6 +203,7 @@ export const adaptAuthApiUserRecord = (
     provider,
     ...(roles.length > 0 ? { roles } : {}),
     birthDate: readNullableString(record.birthDate, record.birth_date),
+    gender: readNullableString(record.gender),
     createdAt: readNullableString(record.createdAt, record.created_at),
   }
 }

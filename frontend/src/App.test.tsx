@@ -8,6 +8,7 @@ import {
   requestAuthLogout,
   requestAuthSession,
   requestCognitoBridgeSession,
+  requestUpdateProfile,
 } from './shared/api/authApi'
 import {
   requestCreateSavedPlan,
@@ -42,6 +43,7 @@ vi.mock('./shared/api/authApi', async (importOriginal) => {
     requestAuthLogout: vi.fn(),
     requestAuthSession: vi.fn(),
     requestCognitoBridgeSession: vi.fn(),
+    requestUpdateProfile: vi.fn(),
   }
 })
 
@@ -207,6 +209,12 @@ const signOutFromSessionMenu = () => {
   fireEvent.click(screen.getByRole('menuitem', { name: '로그아웃' }))
 }
 
+// The login modal is closed (and inert / aria-hidden) on the auth landing; a
+// real user opens it via the "시작하기" trigger before the social buttons appear.
+const openAuthModal = () => {
+  fireEvent.click(screen.getByRole('button', { name: '회원가입하고 Lovv 시작하기' }))
+}
+
 const completeGuidedPlanner = async ({
   duration = '1박 2일',
   query = '동행 없이 여유롭게 덜 걷고 싶어요',
@@ -215,6 +223,13 @@ const completeGuidedPlanner = async ({
   query?: string
 } = {}) => {
   fireEvent.click(screen.getByRole('button', { name: duration }))
+
+  // Preference-based planning now asks for a travel month (1~12 buttons) after the duration,
+  // before free-text conditions. City-context flows generate a draft straight away and skip it.
+  const travelMonthButton = screen.queryByRole('button', { name: '6월' })
+  if (travelMonthButton) {
+    fireEvent.click(travelMonthButton)
+  }
 
   const input = screen.getByRole('textbox', { name: '여행 조건 입력' })
   const sendButton = screen.getByRole('button', { name: '메시지 보내기' })
@@ -369,9 +384,15 @@ describe('MVP main entry screen', () => {
     vi.stubEnv('VITE_LOVV_AUTH_MODE', 'mock')
     renderApp('/auth')
 
-    expect(screen.getByRole('heading', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
     expect(screen.getByText('회원가입하고 Lovv 시작하기')).toBeInTheDocument()
     expect(screen.queryByText(/저장한 취향과 여행 일정/)).not.toBeInTheDocument()
+
+    // Closed modal is hidden from assistive tech; controls appear only once opened.
+    expect(screen.getByTestId('auth-fixed-panel')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByRole('button', { name: 'Google로 계속하기' })).not.toBeInTheDocument()
+    openAuthModal()
+    expect(screen.getByRole('heading', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Google로 계속하기' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Kakao로 계속하기' })).toBeInTheDocument()
     expect(screen.getByText(/로컬 세션으로 로그인 흐름을 확인합니다/)).toBeInTheDocument()
@@ -387,7 +408,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByTestId('auth-scroll-panel')).toHaveClass('lovv-auth-story-panel')
     expect(screen.getByTestId('auth-scroll-panel')).toHaveClass('lovv-liquid-panel')
     expect(screen.queryByRole('img', { name: '손을 흔드는 오렌지색 캐리어 캐릭터' })).not.toBeInTheDocument()
-    expect(screen.getByText('지금은 이곳')).toHaveClass('text-[#F36B12]')
+    expect(screen.getByText('간편 로그인')).toHaveClass('text-[#F36B12]')
     fireEvent.click(screen.getByRole('button', { name: '문의하기' }))
     expect(screen.getByRole('dialog', { name: '문의하기' })).toBeInTheDocument()
     expect(screen.getByText('현재 데모 버전에서는 별도 문의 접수 폼을 제공하지 않습니다.')).toBeInTheDocument()
@@ -403,6 +424,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByText('취향 큐레이션')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Lovv의 여정' })).toBeInTheDocument()
 
+    openAuthModal()
     fireEvent.click(screen.getByRole('button', { name: 'Google로 계속하기' }))
 
     expect(localStorage.getItem(authStorageKey)).toContain('Lovv Google User')
@@ -414,6 +436,7 @@ describe('MVP main entry screen', () => {
     vi.stubEnv('VITE_LOVV_AUTH_MODE', 'mock')
     renderApp('/auth')
 
+    openAuthModal()
     fireEvent.click(screen.getByRole('button', { name: 'Kakao로 계속하기' }))
 
     expect(localStorage.getItem(authStorageKey)).toContain('Lovv Kakao User')
@@ -439,7 +462,7 @@ describe('MVP main entry screen', () => {
     expect(
       await screen.findByRole('button', { name: '현재 세션: Google 메뉴 열기' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('처음엔 작게, 추천은 명확하게')).toBeInTheDocument()
+    expect(screen.getByText('붐비는 유명지 대신, 취향에 맞는 소도시')).toBeInTheDocument()
   })
 
   it('loads backend saved itineraries into My Page after API-mode session restore', async () => {
@@ -573,6 +596,7 @@ describe('MVP main entry screen', () => {
       expect(requestAuthSession).toHaveBeenCalledTimes(1)
     })
 
+    openAuthModal()
     const googleButton = screen.getByRole('button', { name: 'Google로 계속하기' })
 
     // Session restore now settles through a query (an extra render/effect cycle versus the prior
@@ -600,7 +624,8 @@ describe('MVP main entry screen', () => {
     renderApp('/auth')
 
     expect(screen.queryByText('로그인 정보를 확인하고 있어요')).not.toBeInTheDocument()
-    expect(screen.getByRole('region', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
+    openAuthModal()
     expect(screen.getByRole('button', { name: 'Google로 계속하기' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Kakao로 계속하기' })).toBeDisabled()
   })
@@ -870,7 +895,7 @@ describe('MVP main entry screen', () => {
     expect(requestCognitoBridgeSession).not.toHaveBeenCalled()
     expect(requestAuthLogin).not.toHaveBeenCalled()
     expect(localStorage.getItem(authStorageKey)).toBeNull()
-    expect(screen.getByText('로그인 요청이 만료되었습니다.')).toBeInTheDocument()
+    expect(await screen.findByText('로그인 요청이 만료되었습니다.')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('이전 로그인 요청을 더 이상 사용할 수 없습니다. 다시 시도해 주세요.')
   })
 
@@ -894,7 +919,7 @@ describe('MVP main entry screen', () => {
     expect(requestCognitoBridgeSession).not.toHaveBeenCalled()
     expect(sessionStorage.getItem('lovv.auth.oauth.google')).toBeNull()
     expect(localStorage.getItem(authStorageKey)).toBeNull()
-    expect(screen.getByText('로그인 세션 정보가 없습니다.')).toBeInTheDocument()
+    expect(await screen.findByText('로그인 세션 정보가 없습니다.')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('브라우저의 로그인 세션 정보를 확인할 수 없습니다. 다시 시도해 주세요.')
   })
 
@@ -929,7 +954,7 @@ describe('MVP main entry screen', () => {
     expect(requestCognitoBridgeSession).toHaveBeenCalledWith('cognito-id-token')
     expect(sessionStorage.getItem('lovv.auth.oauth.google')).toBeNull()
     expect(localStorage.getItem(authStorageKey)).toBeNull()
-    expect(screen.getByText('외부 로그인 서버 응답이 지연되고 있습니다.')).toBeInTheDocument()
+    expect(await screen.findByText('외부 로그인 서버 응답이 지연되고 있습니다.')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('잠시 후 다시 시도해 주세요.')
   })
 
@@ -956,14 +981,14 @@ describe('MVP main entry screen', () => {
     })
     expect(screen.queryByText('부산 · 오키나와 감성으로 시작합니다')).not.toBeInTheDocument()
     expect(screen.queryByText('Next action')).not.toBeInTheDocument()
-    const proofHeading = screen.getByText('처음엔 작게, 추천은 명확하게')
+    const proofHeading = screen.getByText('붐비는 유명지 대신, 취향에 맞는 소도시')
     const proofSummaryPanel = screen.getByTestId('proof-summary-panel')
     const recommendationBasis = screen.getByRole('list', { name: '추천 근거 해시태그' })
     const monthlyHeading = screen.getByRole('heading', { name: '이번 달 추천 소도시' })
 
     expect(proofSummaryPanel).toHaveClass('border')
     expect(proofSummaryPanel).toHaveClass('border-white/60')
-    expect(screen.getByText(/선택한 기준 테마를 먼저 보고/)).toBeInTheDocument()
+    expect(screen.getByText(/어디로 갈지 못정했어도 괜찮아요/)).toBeInTheDocument()
     expect(within(recommendationBasis).getAllByRole('listitem')).toHaveLength(2)
     ;['#바다', '#해안'].forEach((tag) => {
       expect(within(recommendationBasis).getByText(tag)).toBeInTheDocument()
@@ -1006,7 +1031,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByRole('button', { name: '빠른 이동 메뉴 열기' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '여행지 찾아보기' })).toHaveAttribute('href', '/map')
     expect(screen.getByRole('link', { name: 'AI 일정 짜기' })).toHaveAttribute('href', '/planner')
-    expect(screen.getByText('처음엔 작게, 추천은 명확하게')).toBeInTheDocument()
+    expect(screen.getByText('붐비는 유명지 대신, 취향에 맞는 소도시')).toBeInTheDocument()
   })
 
   it('keeps route changes in browser history for back navigation', async () => {
@@ -1079,7 +1104,7 @@ describe('MVP main entry screen', () => {
     await waitFor(() => {
       expect(window.location.pathname).toBe('/auth')
     })
-    expect(screen.getByRole('heading', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
     unauthenticatedApp.unmount()
 
     seedUser()
@@ -1668,6 +1693,10 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
+    // Travel month is asked before free-text conditions.
+    expect(within(summary).getByText('여행 예정 월을 선택해 주세요.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '6월' }))
+
     expect(within(summary).getByText('동행, 관심사, 걷는 정도를 자연어로 입력하면 초안이 완성됩니다.')).toBeInTheDocument()
     expect(within(summary).getByText('조건 입력 대기')).toBeInTheDocument()
 
@@ -1677,7 +1706,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '메시지 보내기' }))
 
     await screen.findByText('초안 준비')
-    expect(within(summary).getByText(/1박 2일 · 자연·트레킹/)).toBeInTheDocument()
+    expect(within(summary).getByText(/1박 2일 · 6월 · 자연·트레킹/)).toBeInTheDocument()
   })
 
   it('opens floating quick actions for chat and top navigation', () => {
@@ -1797,6 +1826,7 @@ describe('MVP main entry screen', () => {
 
   it('shows onboarding after signup before the main screen on first entry', () => {
     renderApp()
+    openAuthModal()
     fireEvent.click(screen.getByRole('button', { name: 'Google로 계속하기' }))
 
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
@@ -2000,6 +2030,9 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
+    // Pick the travel month before entering free-text conditions.
+    fireEvent.click(screen.getByRole('button', { name: '6월' }))
+
     expect(within(chatLog).queryByText('일정 기간을 먼저 골라주세요')).not.toBeInTheDocument()
     expect(within(chatLog).queryByRole('button', { name: '1박 2일' })).not.toBeInTheDocument()
     expect(input).not.toBeDisabled()
@@ -2035,6 +2068,9 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '2박 3일' }))
 
+    // Pick the travel month before free-text conditions.
+    fireEvent.click(screen.getByRole('button', { name: '6월' }))
+
     expect(input).not.toBeDisabled()
     fireEvent.change(input, { target: { value: '전시랑 편집숍 위주로 덜 걷고 싶어요' } })
     expect(sendButton).not.toBeDisabled()
@@ -2054,6 +2090,9 @@ describe('MVP main entry screen', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
+
+    // Pick the travel month before free-text conditions.
+    fireEvent.click(screen.getByRole('button', { name: '6월' }))
 
     const chatLog = screen.getByRole('log', { name: 'AI 일정 대화' })
 
@@ -2160,6 +2199,9 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '세부 일정 보기' }))
     expect(screen.getByText('신정호 관광지')).toBeInTheDocument()
     expect(screen.getByText('아산 온천')).toBeInTheDocument()
+    // 현충사 is a day-2 stop — now behind the 2일차 tab instead of one long scroll.
+    expect(screen.queryByText('현충사')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: '2일차' }))
     expect(screen.getByText('현충사')).toBeInTheDocument()
   })
 
@@ -2234,14 +2276,21 @@ describe('MVP main entry screen', () => {
     expect(within(detailView).getByText('2박 3일')).toBeInTheDocument()
     expect(within(detailView).queryByText('축제 포함')).not.toBeInTheDocument()
     expect(within(detailView).getByText('덜 걷는 일정')).toBeInTheDocument()
+    // Day 1 is shown by default; days 2-3 live behind day tabs (no long scroll).
     expect(within(detailView).getByText('1일차 추천 일정')).toBeInTheDocument()
-    expect(within(detailView).getByText('2일차 추천 일정')).toBeInTheDocument()
-    expect(within(detailView).getByText('3일차 추천 일정')).toBeInTheDocument()
     expect(within(detailView).getByText('가볍게 도착하고 가까운 동네부터 보기')).toBeInTheDocument()
     expect(within(detailView).getByText('취향에 맞는 핵심 장소 둘러보기')).toBeInTheDocument()
     expect(within(detailView).getByText('무리하지 않는 마무리 동선')).toBeInTheDocument()
-    expect(within(detailView).getAllByText('추천 이유')).toHaveLength(9)
+    expect(within(detailView).getAllByText('추천 이유')).toHaveLength(3)
     expect(within(detailView).getAllByText('다음 장소까지 12분').length).toBeGreaterThanOrEqual(1)
+    expect(within(detailView).queryByText('2일차 추천 일정')).not.toBeInTheDocument()
+    expect(within(detailView).queryByText('3일차 추천 일정')).not.toBeInTheDocument()
+
+    fireEvent.click(within(detailView).getByRole('tab', { name: '2일차' }))
+    expect(within(detailView).getByText('2일차 추천 일정')).toBeInTheDocument()
+    fireEvent.click(within(detailView).getByRole('tab', { name: '3일차' }))
+    expect(within(detailView).getByText('3일차 추천 일정')).toBeInTheDocument()
+    fireEvent.click(within(detailView).getByRole('tab', { name: '1일차' }))
 
     fireEvent.click(within(detailView).getByRole('button', { name: '좋아요' }))
     fireEvent.click(within(detailView).getByRole('button', { name: '마이페이지에 저장' }))
@@ -2693,7 +2742,7 @@ describe('MVP main entry screen', () => {
 
     expect(localStorage.getItem(authStorageKey)).toBeNull()
     expectStoredThemeIds(['history_tradition'])
-    expect(screen.getByRole('heading', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
     expect(screen.queryByText('경주 · 교토 감성으로 시작합니다')).not.toBeInTheDocument()
   })
@@ -2717,7 +2766,82 @@ describe('MVP main entry screen', () => {
     })
     expect(localStorage.getItem(authStorageKey)).toBeNull()
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
     })
+  })
+
+  it('hydrates the planner active profile from the restored session when sessionStorage is empty', async () => {
+    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
+    vi.mocked(requestAuthSession).mockResolvedValue(restoredGoogleAuthState)
+    vi.mocked(requestListSavedPlans).mockResolvedValue({ savedPlans: [], likes: {} })
+
+    expect(sessionStorage.getItem('lovv.planner_active_profile')).toBeNull()
+
+    renderApp('/auth')
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/home')
+    })
+
+    // The server profile (history_tradition) must overwrite the local default and
+    // be persisted to sessionStorage so reloads keep the restored preference.
+    await waitFor(() => {
+      const stored = sessionStorage.getItem('lovv.planner_active_profile')
+      expect(stored).not.toBeNull()
+      expect(JSON.parse(stored ?? '{}')).toMatchObject({
+        version: 2,
+        countryTrack: 'KR',
+        selectedThemeIds: ['history_tradition'],
+        source: 'onboarding',
+      })
+    })
+    expect(JSON.parse(localStorage.getItem(preferenceStorageKey) ?? '{}')).toMatchObject({
+      selectedThemeIds: ['history_tradition'],
+    })
+  })
+
+  it('submits the selected gender through the profile update API from My Page', async () => {
+    seedUser()
+    seedPreference('아산/온양 · 벳푸')
+    vi.mocked(requestUpdateProfile).mockResolvedValue(restoredGoogleAuthState)
+
+    renderApp('/mypage')
+
+    expect(screen.getByRole('heading', { name: '마이페이지' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '남' }))
+    expect(screen.getByRole('button', { name: '남' })).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: '저장하기' }))
+
+    await waitFor(() => {
+      expect(requestUpdateProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ gender: '남' }),
+        expect.anything(),
+      )
+    })
+    expect(await screen.findByText('프로필이 저장되었어요.')).toBeInTheDocument()
+  })
+
+  it('exposes WAI-ARIA tab semantics on the saved-plan day tabs', async () => {
+    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
+    vi.mocked(requestAuthSession).mockResolvedValue(restoredGoogleAuthState)
+    vi.mocked(requestListSavedPlans).mockResolvedValue({ savedPlans: [], likes: {} })
+    vi.mocked(requestGetSavedPlan).mockResolvedValue(serverSavedPlan)
+
+    renderApp('/plans/server-plan-1')
+
+    await waitFor(() => {
+      expect(screen.getByText('서버 저장 일정')).toBeInTheDocument()
+    })
+
+    const tab = screen.getByRole('tab')
+    expect(tab).toHaveAttribute('id', 'day-tab-1')
+    expect(tab).toHaveAttribute('aria-selected', 'true')
+    expect(tab).toHaveAttribute('aria-controls', 'day-panel-1')
+
+    const tabPanel = screen.getByRole('tabpanel')
+    expect(tabPanel).toHaveAttribute('id', 'day-panel-1')
+    expect(tabPanel).toHaveAttribute('aria-labelledby', 'day-tab-1')
   })
 })

@@ -23,6 +23,16 @@ export const durationGuidePrompts = ['당일치기', '1박 2일', '2박 3일']
 
 export const travelMonthPrompts = Array.from({ length: 12 }, (_, index) => index + 1)
 
+// One-tap follow-up conditions shown above the planner chat input once a plan exists.
+// `label` is the chip text; `query` is the natural-language message sent to the recommender.
+export const followUpPrompts: { label: string; query: string }[] = [
+  { label: '더 조용한 곳', query: '더 조용하고 한적한 곳으로 추천해줘' },
+  { label: '축제 있는 곳', query: '축제가 있는 곳으로 추천해줘' },
+  { label: '비 와도 되는 곳', query: '비가 와도 괜찮은 실내 위주로 추천해줘' },
+  { label: '이동 짧은 곳', query: '이동이 짧고 동선이 가까운 곳으로 추천해줘' },
+  { label: '다른 테마로', query: '다른 테마로 다시 추천해줘' },
+]
+
 export const festivalThemePrompts: { label: string; choice: FestivalThemeChoice }[] = [
   { label: '축제 포함', choice: 'include' },
   { label: '축제 제외', choice: 'exclude' },
@@ -413,6 +423,7 @@ export const createPlanDraft = (
 export const createInitialChatMessages = (
   basisLabel: string,
   cityContext: PlannerCityContext | null = null,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _shouldAskFestival?: boolean,
 ): ChatMessage[] => [
   {

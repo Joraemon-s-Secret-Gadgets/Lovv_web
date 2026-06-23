@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react'
 import type { LovvUser } from '../types/app'
 import { useUiToggleStore } from '../store/uiToggleStore'
 import { User, LogOut } from 'lucide-react'
+import type { View } from '../types/app'
 
 type AppHeaderProps = {
   goHome: (event?: MouseEvent<HTMLElement>) => void
@@ -10,6 +11,10 @@ type AppHeaderProps = {
   currentUser: LovvUser | null
   openMyPage: () => void
   signOut: () => void
+  activeView: View
+  openMap: () => void
+  openPlanner: () => void
+  openRecommendation: () => void
 }
 
 export function AppHeader({
@@ -18,25 +23,77 @@ export function AppHeader({
   currentUser,
   openMyPage,
   signOut,
+  activeView,
+  openMap,
+  openPlanner,
+  openRecommendation,
 }: AppHeaderProps) {
   const isSessionMenuOpen = useUiToggleStore((state) => state.isSessionMenuOpen)
   const toggleSessionMenu = useUiToggleStore((state) => state.toggleSessionMenu)
 
   return (
-    <header className="fixed inset-x-0 top-0 z-20 border-b border-white/60 bg-white/40 shadow-[0_12px_40px_-30px_rgba(51,39,30,0.3)] backdrop-blur-2xl">
-      <div className="mx-auto flex min-h-[72px] max-w-[1440px] flex-wrap items-center gap-3 px-9 py-2 max-lg:px-8 max-sm:px-5">
-        <a
-          href="/home"
-          aria-label="Lovv home"
-          onClick={goHome}
-          className="flex h-14 w-[104px] shrink-0 items-center overflow-hidden"
-        >
-          <img src={logoImage} alt="Lovv" className="h-full w-full object-contain" />
-        </a>
+    <header className="fixed inset-x-0 top-0 z-20 border-b border-white/60 bg-white/40 shadow-[0_8px_32px_-24px_rgba(51,39,30,0.25)] backdrop-blur-2xl">
+      <div className="relative mx-auto flex items-center justify-between min-h-[58px] max-w-[1440px] px-9 py-1 max-lg:px-8 max-sm:px-4">
+        {/* Left: Logo */}
+        <div className="flex justify-start">
+          <a
+            href="/home"
+            aria-label="Lovv home"
+            onClick={goHome}
+            className="flex h-10 w-[74px] shrink-0 items-center overflow-hidden"
+          >
+            <img src={logoImage} alt="Lovv" className="h-full w-full object-contain" />
+          </a>
+        </div>
 
-        <div className="min-w-0 flex-1" />
+        {/* Center: Navigation — 'AI 일정 짜기' anchored at exact center */}
+        <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 grid grid-cols-3 items-center gap-7 max-sm:gap-3.5" role="navigation" aria-label="메인 메뉴">
+          <button
+            type="button"
+            onClick={openMap}
+            className={`justify-self-end min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
+              activeView === 'map'
+                ? 'text-[#F36B12] font-black'
+                : 'text-[#33271E] hover:text-[#F36B12]'
+            }`}
+          >
+            여행지 찾아보기
+            {activeView === 'map' && (
+              <span className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-[#F36B12]" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={openPlanner}
+            className={`justify-self-center min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
+              activeView === 'planner' || activeView === 'chat' || activeView === 'planDetail'
+                ? 'text-[#F36B12] font-black'
+                : 'text-[#33271E] hover:text-[#F36B12]'
+            }`}
+          >
+            AI 일정 짜기
+            {(activeView === 'planner' || activeView === 'chat' || activeView === 'planDetail') && (
+              <span className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-[#F36B12]" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={openRecommendation}
+            className={`justify-self-start min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
+              activeView === 'recommendation'
+                ? 'text-[#F36B12] font-black'
+                : 'text-[#33271E] hover:text-[#F36B12]'
+            }`}
+          >
+            추천
+            {activeView === 'recommendation' && (
+              <span className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-[#F36B12]" />
+            )}
+          </button>
+        </nav>
 
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-sm:w-auto">
+        {/* Right: Session Menu */}
+        <div className="flex items-center justify-end">
           <div className="relative shrink-0">
             {/* 아바타 단독 버튼으로 구성하여 Figma 디자인 유지 및 테스트 호환성 확보 */}
             <button

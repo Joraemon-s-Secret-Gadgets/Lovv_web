@@ -1,3 +1,4 @@
+import { log } from '../logger'
 import type { CountryTrack, PreferenceProfile, PreferenceProfileSource, ThemeId } from '../types/app'
 
 export const preferencesApiEndpoints = {
@@ -152,15 +153,20 @@ const requestPreferencesApiJson = async (
   options: PreferenceApiRequestOptions,
 ) => {
   const fetchImpl = options.fetchImpl ?? fetch
+  const method = init.method ?? 'GET'
+  log.debug('PREF', `→ ${method} ${endpoint}`)
   const response = await fetchImpl(buildPreferencesApiUrl(endpoint, options.baseUrl), {
     ...init,
     credentials: 'include',
   })
 
   if (!response.ok) {
-    throw await createPreferenceApiRequestError(response)
+    const error = await createPreferenceApiRequestError(response)
+    log.error('PREF', `✗ ${method} ${endpoint} → ${response.status} ${error.code}`)
+    throw error
   }
 
+  log.info('PREF', `✓ ${method} ${endpoint} → ${response.status}`)
   const payload = await readResponseJson(response)
 
   return isRecord(payload) ? (payload as PreferenceApiResponse) : {}

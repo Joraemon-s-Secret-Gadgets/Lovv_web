@@ -149,6 +149,7 @@ export type LovvUser = {
   provider: AuthProvider
   roles?: LovvRole[]
   birthDate?: string | null
+  gender?: string | null
   createdAt?: string | null
 }
 
@@ -172,4 +173,5 @@ export type View =
   | 'preferences'
   | 'preferenceEdit'
   | 'themeDetail'
+  | 'recommendation'
   | 'admin'

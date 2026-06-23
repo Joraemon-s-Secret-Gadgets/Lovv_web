@@ -1,0 +1,3 @@
+# Provisioning outputs (bucket / distribution id / domain) — environment-specific
+.seoul-cdn.env
+*.release-bak

@@ -10,6 +10,7 @@ import {
   type SmallCityCountry,
   type SmallCityTheme,
 } from '../../features/map-city/smallCities'
+import { log } from '../logger'
 
 export const smallCityApiEndpoints = {
   list: '/api/small-cities',
@@ -818,15 +819,20 @@ const requestSmallCityApi = async (
   options: SmallCityApiRequestOptions,
 ) => {
   const fetchImpl = options.fetchImpl ?? fetch
+  const method = init.method ?? 'GET'
+  log.debug('CITY', `→ ${method} ${endpoint}`)
   const response = await fetchImpl(buildSmallCityApiUrl(endpoint, options.baseUrl), {
     ...init,
     credentials: 'include',
   })
 
   if (!response.ok) {
-    throw await createSmallCityApiRequestError(response)
+    const error = await createSmallCityApiRequestError(response)
+    log.error('CITY', `✗ ${method} ${endpoint} → ${response.status} ${error.code}`)
+    throw error
   }
 
+  log.debug('CITY', `✓ ${method} ${endpoint} → ${response.status}`)
   return response
 }
 

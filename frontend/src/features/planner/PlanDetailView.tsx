@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { PlanDraft, SavedPlanLike } from '../../shared/types/app'
 import { SavedPlanLikeControls } from '../saved-plans/SavedPlanLikeControls'
 
@@ -52,6 +52,15 @@ export function PlanDetailView({
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
+
+  // Day-by-day tabs (당일 / N일차) instead of one long scroll of every day.
+  const [activeDayIndex, setActiveDayIndex] = useState(0)
+
+  // Reset to the first day whenever a different plan is opened.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActiveDayIndex(0)
+  }, [planId])
 
   if (isSavedPlanDetailLoading) {
       return (
@@ -108,6 +117,11 @@ export function PlanDetailView({
         </section>
       )
     }
+
+    const days = planDraft.days
+    const safeDayIndex = Math.min(activeDayIndex, Math.max(0, days.length - 1))
+    const activeDay = days[safeDayIndex]
+    const dayTabLabel = (dayNumber: number) => (days.length <= 1 ? '당일' : `${dayNumber}일차`)
 
     return (
       <section className="mx-auto min-h-dvh max-w-[1280px] px-16 pb-16 pt-28 max-lg:px-8 max-sm:px-5">
@@ -192,69 +206,95 @@ export function PlanDetailView({
                   {planDraft.dayCount}일 구성
                 </span>
               </div>
-
-              <div className="mt-7 space-y-7">
-                {planDraft.days.map((day) => (
-                  <section key={day.day} aria-labelledby={`plan-detail-day-${day.day}`}>
-                    <div className="flex flex-wrap items-start justify-between gap-3 rounded-[18px] bg-[#FFF7F0] px-5 py-4">
-                      <div className="min-w-0">
-                        <h3
-                          id={`plan-detail-day-${day.day}`}
-                          className="break-keep text-lg font-black leading-7 text-[#33271E]"
-                        >
-                          {day.title}
-                        </h3>
-                        <p className="mt-1 break-keep text-sm font-semibold leading-6 text-[#33271E]/75">
-                          {day.summary}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-black leading-4 text-[#33271E]">
-                        {day.stops.length}개 코스
-                      </span>
-                    </div>
-
-                    <div className="mt-4 space-y-4">
-                      {day.stops.map((item, index) => (
-                        <article
-                          key={`${day.day}-${item.time}-${item.title}`}
-                          className="grid grid-cols-[42px_minmax(0,1fr)] gap-4"
-                        >
-                          <div className="flex flex-col items-center">
-                            <span className="flex size-10 items-center justify-center rounded-full bg-[#F36B12] text-sm font-black text-[#33271E] shadow-[0_8px_18px_-14px_rgba(51,39,30,0.5)]">
-                              {index + 1}
-                            </span>
-                            {index < day.stops.length - 1 ? (
-                              <span className="mt-2 h-full min-h-8 w-px bg-[#F3B489]/45" />
-                            ) : null}
-                          </div>
-                          <div className="min-w-0 rounded-[20px] border border-transparent bg-[#FFF0E4] p-5">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-black leading-4 text-[#33271E]">
-                                {item.time}
-                              </span>
-                              <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-bold leading-4 text-[#33271E]">
-                                다음 장소까지 {item.move}
-                              </span>
-                            </div>
-                            <h4 className="mt-4 break-keep text-xl font-black leading-8 text-[#33271E] max-sm:text-lg max-sm:leading-7">
-                              {item.title}
-                            </h4>
-                            <p className="mt-2 break-keep text-sm font-semibold leading-7 text-[#33271E]">
-                              {item.body}
-                            </p>
-                            <div className="mt-4 rounded-[16px] border border-transparent bg-[#fffffa] px-4 py-3">
-                              <p className="text-[12px] font-black text-[#A92B10]">추천 이유</p>
-                              <p className="mt-1 break-keep text-sm font-semibold leading-6 text-[#33271E]">
-                                {item.reason}
-                              </p>
-                            </div>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </section>
-                ))}
+              <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="일차 선택">
+                {days.map((day, index) => {
+                  const isActive = index === safeDayIndex
+                  return (
+                    <button
+                      key={day.day}
+                      id={`day-tab-${day.day}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-controls={`day-panel-${day.day}`}
+                      onClick={() => setActiveDayIndex(index)}
+                      className={`inline-flex min-h-10 items-center rounded-full px-5 text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                        isActive
+                          ? 'border border-[#A92B10] bg-[#F36B12] text-[#33271E]'
+                          : 'border border-[#F3B489] bg-[#fffffa] text-[#33271E] hover:border-[#F36B12] hover:bg-[#FFE0CA]'
+                      }`}
+                    >
+                      {dayTabLabel(day.day)}
+                    </button>
+                  )
+                })}
               </div>
+
+              {activeDay ? (
+                <section
+                  role="tabpanel"
+                  id={`day-panel-${activeDay.day}`}
+                  aria-labelledby={`day-tab-${activeDay.day}`}
+                  className="mt-6"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3 rounded-[18px] bg-[#FFF7F0] px-5 py-4">
+                    <div className="min-w-0">
+                      <h3
+                        id={`plan-detail-day-heading-${activeDay.day}`}
+                        className="break-keep text-lg font-black leading-7 text-[#33271E]"
+                      >
+                        {activeDay.title}
+                      </h3>
+                      <p className="mt-1 break-keep text-sm font-semibold leading-6 text-[#33271E]/75">
+                        {activeDay.summary}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-black leading-4 text-[#33271E]">
+                      {activeDay.stops.length}개 코스
+                    </span>
+                  </div>
+
+                  <div className="mt-4 space-y-4">
+                    {activeDay.stops.map((item, index) => (
+                      <article
+                        key={`${activeDay.day}-${item.time}-${item.title}`}
+                        className="grid grid-cols-[42px_minmax(0,1fr)] gap-4"
+                      >
+                        <div className="flex flex-col items-center">
+                          <span className="flex size-10 items-center justify-center rounded-full bg-[#F36B12] text-sm font-black text-[#33271E] shadow-[0_8px_18px_-14px_rgba(51,39,30,0.5)]">
+                            {index + 1}
+                          </span>
+                          {index < activeDay.stops.length - 1 ? (
+                            <span className="mt-2 h-full min-h-8 w-px bg-[#F3B489]/45" />
+                          ) : null}
+                        </div>
+                        <div className="min-w-0 rounded-[20px] border border-transparent bg-[#FFF0E4] p-5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-black leading-4 text-[#33271E]">
+                              {item.time}
+                            </span>
+                            <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-bold leading-4 text-[#33271E]">
+                              다음 장소까지 {item.move}
+                            </span>
+                          </div>
+                          <h4 className="mt-4 break-keep text-xl font-black leading-8 text-[#33271E] max-sm:text-lg max-sm:leading-7">
+                            {item.title}
+                          </h4>
+                          <p className="mt-2 break-keep text-sm font-semibold leading-7 text-[#33271E]">
+                            {item.body}
+                          </p>
+                          <div className="mt-4 rounded-[16px] border border-transparent bg-[#fffffa] px-4 py-3">
+                            <p className="text-[12px] font-black text-[#A92B10]">추천 이유</p>
+                            <p className="mt-1 break-keep text-sm font-semibold leading-6 text-[#33271E]">
+                              {item.reason}
+                            </p>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
             </div>
 
             <aside className="rounded-[20px] border border-transparent bg-[#FFF0E4] p-5">

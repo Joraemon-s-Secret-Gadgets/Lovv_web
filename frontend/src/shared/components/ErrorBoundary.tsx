@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import type { ReactNode, ErrorInfo } from 'react'
+import { log } from '../logger'
 
 type Props = {
   children: ReactNode
@@ -23,7 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary] Uncaught error:', error, info)
+    log.error('SYSTEM', 'Uncaught render error caught by ErrorBoundary', error, info)
     this.props.onError?.(error, info)
   }
 

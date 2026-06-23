@@ -1,3 +1,4 @@
+import { log } from '../logger'
 import type { PlanDay, PlanStop, SavedPlan, SavedPlanLike } from '../types/app'
 
 export const savedPlansApiEndpoints = {
@@ -228,15 +229,20 @@ const requestSavedPlansApi = async (
   options: SavedPlansApiRequestOptions,
 ) => {
   const fetchImpl = options.fetchImpl ?? fetch
+  const method = init.method ?? 'GET'
+  log.debug('PLAN', `→ ${method} ${endpoint}`)
   const response = await fetchImpl(buildSavedPlansApiUrl(endpoint, options.baseUrl), {
     ...init,
     credentials: 'include',
   })
 
   if (!response.ok) {
-    throw await createSavedPlansApiRequestError(response)
+    const error = await createSavedPlansApiRequestError(response)
+    log.error('PLAN', `✗ ${method} ${endpoint} → ${response.status} ${error.code}`)
+    throw error
   }
 
+  log.debug('PLAN', `✓ ${method} ${endpoint} → ${response.status}`)
   return response
 }
 

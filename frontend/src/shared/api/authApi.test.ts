@@ -92,6 +92,7 @@ describe('auth API adapter', () => {
         provider: 'google',
         roles: ['R-USER'],
         birthDate: null,
+        gender: null,
         createdAt: null,
       },
       preferenceProfile: null,
@@ -129,6 +130,7 @@ describe('auth API adapter', () => {
       avatarInitial: 'K',
       provider: 'kakao',
       birthDate: null,
+      gender: null,
       createdAt: null,
     })
     expect(result.preferenceProfile).toEqual({
@@ -336,6 +338,7 @@ describe('auth API adapter', () => {
       avatarInitial: 'C',
       provider: 'cognito',
       birthDate: null,
+      gender: null,
       createdAt: null,
     })
   })
