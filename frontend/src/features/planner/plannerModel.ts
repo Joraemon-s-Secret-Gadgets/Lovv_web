@@ -423,6 +423,7 @@ export const createPlanDraft = (
 export const createInitialChatMessages = (
   basisLabel: string,
   cityContext: PlannerCityContext | null = null,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _shouldAskFestival?: boolean,
 ): ChatMessage[] => [
   {
