@@ -376,7 +376,7 @@ describe('MVP main entry screen', () => {
     vi.stubEnv('VITE_LOVV_AUTH_MODE', 'mock')
     renderApp('/auth')
 
-    expect(screen.getByRole('heading', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
     expect(screen.getByText('회원가입하고 Lovv 시작하기')).toBeInTheDocument()
     expect(screen.queryByText(/저장한 취향과 여행 일정/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Google로 계속하기' })).toBeInTheDocument()
@@ -394,7 +394,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByTestId('auth-scroll-panel')).toHaveClass('lovv-auth-story-panel')
     expect(screen.getByTestId('auth-scroll-panel')).toHaveClass('lovv-liquid-panel')
     expect(screen.queryByRole('img', { name: '손을 흔드는 오렌지색 캐리어 캐릭터' })).not.toBeInTheDocument()
-    expect(screen.getByText('지금은 이곳')).toHaveClass('text-[#F36B12]')
+    expect(screen.getByText('간편 로그인')).toHaveClass('text-[#F36B12]')
     fireEvent.click(screen.getByRole('button', { name: '문의하기' }))
     expect(screen.getByRole('dialog', { name: '문의하기' })).toBeInTheDocument()
     expect(screen.getByText('현재 데모 버전에서는 별도 문의 접수 폼을 제공하지 않습니다.')).toBeInTheDocument()
@@ -607,7 +607,7 @@ describe('MVP main entry screen', () => {
     renderApp('/auth')
 
     expect(screen.queryByText('로그인 정보를 확인하고 있어요')).not.toBeInTheDocument()
-    expect(screen.getByRole('region', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Google로 계속하기' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Kakao로 계속하기' })).toBeDisabled()
   })
@@ -1086,7 +1086,7 @@ describe('MVP main entry screen', () => {
     await waitFor(() => {
       expect(window.location.pathname).toBe('/auth')
     })
-    expect(screen.getByRole('heading', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
     unauthenticatedApp.unmount()
 
     seedUser()
@@ -2723,7 +2723,7 @@ describe('MVP main entry screen', () => {
 
     expect(localStorage.getItem(authStorageKey)).toBeNull()
     expectStoredThemeIds(['history_tradition'])
-    expect(screen.getByRole('heading', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
     expect(screen.queryByText('경주 · 교토 감성으로 시작합니다')).not.toBeInTheDocument()
   })
@@ -2747,7 +2747,7 @@ describe('MVP main entry screen', () => {
     })
     expect(localStorage.getItem(authStorageKey)).toBeNull()
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: '서울/오사카 말고, 지금은 이곳' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
     })
   })
 })

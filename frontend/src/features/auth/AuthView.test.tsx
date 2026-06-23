@@ -8,7 +8,7 @@ describe('AuthView', () => {
     render(<AuthView onSignIn={vi.fn()} />)
 
     const summary = screen.getByTestId('auth-story-summary')
-    const authRegion = screen.getByRole('region', { name: '서울/오사카 말고, 지금은 이곳' })
+    const authRegion = screen.getByRole('region', { name: '서울/오사카 말고, 간편 로그인' })
 
     expect(authRegion).toHaveClass('lovv-auth-liquid-shell')
     expect(screen.getByTestId('auth-fixed-panel')).toHaveClass('lovv-liquid-panel')
@@ -39,7 +39,7 @@ describe('AuthView', () => {
       'aria-busy',
       'true',
     )
-    expect(screen.getByRole('region', { name: '서울/오사카 말고, 지금은 이곳' })).toHaveAttribute(
+    expect(screen.getByRole('region', { name: '서울/오사카 말고, 간편 로그인' })).toHaveAttribute(
       'aria-busy',
       'true',
     )

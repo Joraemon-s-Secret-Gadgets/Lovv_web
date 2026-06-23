@@ -11,6 +11,7 @@ export const canonicalRoutePaths = {
   mypage: '/mypage',
   preferences: '/preferences',
   admin: '/admin',
+  recommendation: '/recommendation',
 } as const
 
 export const routeAliases = {
@@ -26,6 +27,7 @@ const canonicalPathViews = new Map<string, View>([
   [canonicalRoutePaths.mypage, 'mypage'],
   [canonicalRoutePaths.preferences, 'preferences'],
   [canonicalRoutePaths.admin, 'admin'],
+  [canonicalRoutePaths.recommendation, 'recommendation'],
   [routeAliases.savedPlans, 'mypage'],
 ])
 
@@ -65,6 +67,7 @@ export const getPathForView = (view: View, planId?: string) => {
     case 'mypage':
     case 'preferences':
     case 'admin':
+    case 'recommendation':
       return canonicalRoutePaths[view]
     case 'chat':
       return canonicalRoutePaths.planner
@@ -88,6 +91,7 @@ export const getLegacyViewRedirectPath = (search: string, readyPlanId?: string |
     case 'home':
     case 'map':
     case 'mypage':
+    case 'recommendation':
       return getPathForView(legacyView)
     case 'chat':
       return canonicalRoutePaths.planner

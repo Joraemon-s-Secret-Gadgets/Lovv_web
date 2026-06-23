@@ -34,7 +34,7 @@ export function LegalNoticeDialog() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#33271E]/45 px-5 py-8 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[200] grid place-items-center bg-[#33271E]/45 px-5 py-8 backdrop-blur-sm">
       <button
         type="button"
         data-testid="legal-notice-backdrop"

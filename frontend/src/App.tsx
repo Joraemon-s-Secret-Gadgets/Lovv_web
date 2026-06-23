@@ -35,6 +35,7 @@ import { requestCognitoToken } from './features/auth/cognitoAuth'
 import { heroRotationIntervalMs, heroThemes, monthlyRecommendations } from './features/home/homeContent'
 import { HomeView } from './features/home/HomeView'
 import { ThemeDetailView } from './features/home/ThemeDetailView'
+import { RecommendationView } from './features/recommendation/RecommendationView'
 import { CityMapDiscoverySection } from './features/map-city/CityMapDiscoverySection'
 import {
   createSmallCityMapMarkers,
@@ -2018,6 +2019,12 @@ function App() {
     window.scrollTo?.({ behavior: 'smooth', top: 0 })
   }
 
+  const openRecommendation = () => {
+    closeSessionMenu()
+    closeQuickActions()
+    navigateToView('recommendation')
+  }
+
   const createSinglePreferenceProfile = (
     preference: Preference,
     source: PreferenceProfileSource,
@@ -2558,6 +2565,10 @@ function App() {
             currentUser={currentUser}
             openMyPage={openMyPage}
             signOut={signOut}
+            activeView={activeView}
+            openMap={openMap}
+            openPlanner={openChat}
+            openRecommendation={openRecommendation}
           />
 
           {activeView === 'home' ? (
@@ -2571,10 +2582,19 @@ function App() {
               onOpenMonthlyRecommendationDetail={openMonthlyRecommendationDetail}
               onOpenChatFromQuickAction={openChatFromQuickAction}
               onScrollToTop={scrollToTop}
+              savedPlansCount={savedPlans.length}
+              likedPlansCount={Object.keys(savedPlanLikes).length}
+              currentUser={currentUser}
             />
           ) : activeView === 'map' ? (
-            <div className="pt-[72px]">
+            <div className="pt-[58px]">
               {renderCityMapDiscoverySection()}
+            </div>
+          ) : activeView === 'recommendation' ? (
+            <div className="pt-[58px]">
+              <RecommendationView
+                onOpenMonthlyRecommendationDetail={openMonthlyRecommendationDetail}
+              />
             </div>
           ) : activeView === 'themeDetail' ? (
             <ThemeDetailView recommendation={activeMonthlyRecommendation} goHome={goHome} openMonthlyRecommendationPlan={openMonthlyRecommendationPlan} />

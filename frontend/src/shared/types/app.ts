@@ -173,4 +173,5 @@ export type View =
   | 'preferences'
   | 'preferenceEdit'
   | 'themeDetail'
+  | 'recommendation'
   | 'admin'
