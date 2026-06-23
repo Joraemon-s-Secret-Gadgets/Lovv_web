@@ -66,6 +66,7 @@ import {
   preferences,
   readStoredPreferenceProfile,
   storePreferenceProfile,
+  validatePreferenceProfile,
 } from './features/onboarding/preferenceModel'
 import {
   createAssistantReply,
@@ -408,11 +409,17 @@ function App() {
     },
     [],
   )
+
   const [plannerPreferenceProfile, setPlannerPreferenceProfile] = useState<PreferenceProfile>(() => {
     try {
       const stored = sessionStorage.getItem('lovv.planner_active_profile')
       if (stored) {
-        return JSON.parse(stored) as PreferenceProfile
+        const parsed = JSON.parse(stored)
+        if (validatePreferenceProfile(parsed)) {
+          return parsed
+        } else {
+          sessionStorage.removeItem('lovv.planner_active_profile')
+        }
       }
     } catch (err) {
       log.error('SYSTEM', 'Failed to parse stored planner preference profile', err)
@@ -423,23 +430,25 @@ function App() {
   // Keep plannerPreferenceProfile in sync when the global profile changes (e.g. after session restore).
   // Only sync when the planner is idle (no city context and no stops generated yet).
   useEffect(() => {
+    if (isAuthSessionRestoring) return
     if (!plannerCityContext && planDraft.stops.length === 0) {
-      const stored = sessionStorage.getItem('lovv.planner_active_profile')
-      if (!stored && selectedPreferenceProfile) {
+      if (selectedPreferenceProfile) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPlannerPreferenceProfile(selectedPreferenceProfile)
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPreferenceProfile])
+  }, [selectedPreferenceProfile, isAuthSessionRestoring])
 
   // Save active planner preference profile to sessionStorage to persist across page reloads
   useEffect(() => {
+    if (isAuthSessionRestoring) return
     if (plannerPreferenceProfile) {
       sessionStorage.setItem('lovv.planner_active_profile', JSON.stringify(plannerPreferenceProfile))
     } else {
       sessionStorage.removeItem('lovv.planner_active_profile')
     }
-  }, [plannerPreferenceProfile])
+  }, [plannerPreferenceProfile, isAuthSessionRestoring])
 
   const plannerPreferences = useMemo(
     () => getPreferencesForProfile(plannerPreferenceProfile),
@@ -807,6 +816,8 @@ function App() {
       if (session.preferenceProfile) {
         setSelectedPreferenceProfile(session.preferenceProfile)
         storePreferenceProfile(session.preferenceProfile)
+        setPlannerPreferenceProfile(session.preferenceProfile)
+        sessionStorage.setItem('lovv.planner_active_profile', JSON.stringify(session.preferenceProfile))
       } else if (session.onboardingCompleted) {
         // Backend confirmed onboarding done but returned no preference
         // (e.g. empty mappedThemes or SameSite cookie issue on prior request).
@@ -814,6 +825,8 @@ function App() {
         const localProfile = readStoredPreferenceProfile()
         if (localProfile) {
           setSelectedPreferenceProfile(localProfile)
+          setPlannerPreferenceProfile(localProfile)
+          sessionStorage.setItem('lovv.planner_active_profile', JSON.stringify(localProfile))
         }
       }
       setIsAuthSessionRestoring(false)
@@ -823,6 +836,13 @@ function App() {
       commitCurrentUser(null)
       setHasCompletedPreference(false)
       clearSavedPlanUiState(true)
+
+      const localProfile = readStoredPreferenceProfile()
+      const finalProfile = localProfile ?? getDefaultPreferenceProfile()
+      setSelectedPreferenceProfile(finalProfile)
+      setPlannerPreferenceProfile(finalProfile)
+      sessionStorage.setItem('lovv.planner_active_profile', JSON.stringify(finalProfile))
+
       setIsAuthSessionRestoring(false)
     }
   }, [

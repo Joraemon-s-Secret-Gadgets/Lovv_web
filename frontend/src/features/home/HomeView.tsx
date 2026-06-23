@@ -425,9 +425,9 @@ export function HomeView({
 
                             let cardBorderClass = 'border-white/20 bg-[#33271E]/95 shadow-sm'
                             let gradientClass = 'from-[#1F1A17]/95 via-[#1F1A17]/35 to-transparent'
-                            let textTitleClass = 'text-white font-black'
-                            let textSubtitleClass = 'text-white/70 font-bold'
-                            let cardBottomBg = 'bg-white/10 border-white/10 text-white/90'
+                            const textTitleClass = 'text-white font-black'
+                            const textSubtitleClass = 'text-white/70 font-bold'
+                            const cardBottomBg = 'bg-white/10 border-white/10 text-white/90'
 
                             if (isPersonalizedCard) {
                               cardBorderClass = 'border-[#D8B4FE]/30 bg-[#1E0B36]/95 shadow-[0_10px_25px_-12px_rgba(91,33,182,0.15)]'

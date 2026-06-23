@@ -229,6 +229,23 @@ export const getDefaultPreferenceProfile = () =>
 export const getThemeLabels = (themeIds: ThemeId[]) =>
   themeIds.map((themeId) => getThemeDefinition(themeId).label)
 
+export const validatePreferenceProfile = (value: unknown): value is PreferenceProfile => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const profile = value as Record<string, unknown>
+  const normalizedThemeIds = normalizeThemeIds(profile.selectedThemeIds)
+
+  return (
+    profile.version === preferenceProfileVersion &&
+    normalizedThemeIds.length > 0 &&
+    isCountryTrack(profile.countryTrack) &&
+    isPreferenceProfileSource(profile.source) &&
+    typeof profile.updatedAt === 'string'
+  )
+}
+
 export const readStoredPreferenceProfile = (): PreferenceProfile | null => {
   try {
     const rawPreference = localStorage.getItem(preferenceStorageKey)

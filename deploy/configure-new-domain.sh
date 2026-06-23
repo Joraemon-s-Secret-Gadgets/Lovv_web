@@ -34,8 +34,15 @@ if [ ! -f "$BE_DEV_YAML" ]; then
   exit 1
 fi
 
-# Persist the domain for release-seoul.sh
-echo "SEOUL_CF_DOMAIN=${ORIGIN#https://}" >> "$HERE/.seoul-cdn.env"
+# Persist the domain for release-seoul.sh (upsert: no duplicate keys on re-run)
+upsert_env() { # key value file
+  local key="$1" val="$2" file="$3" tmp
+  tmp="$(mktemp)"
+  [ -f "$file" ] && grep -v "^${key}=" "$file" > "$tmp" || true
+  printf '%s=%s\n' "$key" "$val" >> "$tmp"
+  mv "$tmp" "$file"
+}
+upsert_env SEOUL_CF_DOMAIN "${ORIGIN#https://}" "$HERE/.seoul-cdn.env"
 
 python3 - "$BE_DEV_YAML" "$ORIGIN" <<'PY'
 import sys, re

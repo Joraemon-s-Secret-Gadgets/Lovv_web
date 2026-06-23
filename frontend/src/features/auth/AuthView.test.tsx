@@ -4,6 +4,10 @@ import { AuthView } from './AuthView'
 import { useUiToggleStore } from '../../shared/store/uiToggleStore'
 
 describe('AuthView', () => {
+  const openAuthModal = () => {
+    fireEvent.click(screen.getByRole('button', { name: '회원가입하고 Lovv 시작하기' }))
+  }
+
   it('keeps the story summary line break responsive', () => {
     render(<AuthView onSignIn={vi.fn()} />)
 
@@ -13,6 +17,13 @@ describe('AuthView', () => {
     expect(authRegion).toHaveClass('lovv-auth-liquid-shell')
     expect(screen.getByTestId('auth-fixed-panel')).toHaveClass('lovv-liquid-panel')
     expect(screen.getByTestId('auth-scroll-panel')).toHaveClass('lovv-liquid-panel')
+
+    // The closed login modal must stay out of the accessibility tree.
+    expect(screen.getByTestId('auth-fixed-panel')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByRole('button', { name: 'Google로 계속하기' })).not.toBeInTheDocument()
+
+    openAuthModal()
+    expect(screen.getByTestId('auth-fixed-panel')).not.toHaveAttribute('aria-hidden')
     expect(screen.getByRole('button', { name: 'Google로 계속하기' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Kakao로 계속하기' })).toBeInTheDocument()
     expect(screen.getByTestId('google-brand-mark')).toBeInTheDocument()
@@ -33,6 +44,7 @@ describe('AuthView', () => {
     const onSignIn = vi.fn()
 
     render(<AuthView onSignIn={onSignIn} signInPendingProvider="google" />)
+    openAuthModal()
 
     expect(screen.getByRole('button', { name: 'Google로 이동 중...' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Google로 이동 중...' })).toHaveAttribute(
@@ -52,6 +64,7 @@ describe('AuthView', () => {
 
   it('routes legal notice actions through the shared ui toggle store', () => {
     render(<AuthView onSignIn={vi.fn()} />)
+    openAuthModal()
 
     fireEvent.click(screen.getByRole('button', { name: '이용약관' }))
     expect(useUiToggleStore.getState().activeLegalNoticeType).toBe('terms')

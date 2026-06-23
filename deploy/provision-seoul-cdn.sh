@@ -23,11 +23,19 @@ set -euo pipefail
 AWS_PROFILE="${AWS_PROFILE:-default}"
 ACCOUNT_ID="${ACCOUNT_ID:-925273580929}"
 REGION="ap-northeast-2"
-# S3 bucket names are globally unique -> suffix with the account id.
-BUCKET="${SEOUL_BUCKET:-lovv-frontend-dev-seoul-${ACCOUNT_ID}}"
 OAC_NAME="lovv-frontend-dev-seoul-oac"
 CALLER_REF="lovv-frontend-dev-seoul-$(date +%s)"
 OUT_ENV="$(cd "$(dirname "$0")" && pwd)/.seoul-cdn.env"
+
+# Reuse prior outputs so re-runs are idempotent (no duplicate distributions).
+PRIOR_DISTRIBUTION_ID=""
+if [ -f "$OUT_ENV" ]; then
+  # shellcheck disable=SC1090
+  source "$OUT_ENV"
+  PRIOR_DISTRIBUTION_ID="${SEOUL_DISTRIBUTION_ID:-}"
+fi
+# S3 bucket names are globally unique -> suffix with the account id.
+BUCKET="${SEOUL_BUCKET:-lovv-frontend-dev-seoul-${ACCOUNT_ID}}"
 
 export AWS_PROFILE
 say() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
@@ -114,11 +122,31 @@ cat > "$DIST_CONFIG" <<JSON
 }
 JSON
 
-say "Creating CloudFront distribution"
-CREATE_OUT="$(aws cloudfront create-distribution --distribution-config "file://${DIST_CONFIG}")"
-DIST_ID="$(echo "$CREATE_OUT" | python3 -c 'import sys,json;print(json.load(sys.stdin)["Distribution"]["Id"])')"
-CF_DOMAIN="$(echo "$CREATE_OUT" | python3 -c 'import sys,json;print(json.load(sys.stdin)["Distribution"]["DomainName"])')"
+# Idempotency: reuse an existing distribution instead of creating duplicates.
+# Resolution order: (1) SEOUL_DISTRIBUTION_ID from .seoul-cdn.env if it still
+# exists, then (2) any distribution whose origin is this bucket.
+DIST_ID=""
+if [ -n "$PRIOR_DISTRIBUTION_ID" ] && \
+   aws cloudfront get-distribution --id "$PRIOR_DISTRIBUTION_ID" >/dev/null 2>&1; then
+  DIST_ID="$PRIOR_DISTRIBUTION_ID"
+  say "Reusing distribution from .seoul-cdn.env: $DIST_ID"
+else
+  DIST_ID="$(aws cloudfront list-distributions \
+    --query "DistributionList.Items[?Origins.Items[?DomainName=='${ORIGIN_DOMAIN}']].Id | [0]" \
+    --output text 2>/dev/null || true)"
+  [ "$DIST_ID" = "None" ] && DIST_ID=""
+  [ -n "$DIST_ID" ] && say "Reusing existing distribution for ${ORIGIN_DOMAIN}: $DIST_ID"
+fi
+
+if [ -z "$DIST_ID" ]; then
+  say "Creating CloudFront distribution"
+  CREATE_OUT="$(aws cloudfront create-distribution --distribution-config "file://${DIST_CONFIG}")"
+  DIST_ID="$(echo "$CREATE_OUT" | python3 -c 'import sys,json;print(json.load(sys.stdin)["Distribution"]["Id"])')"
+fi
 rm -f "$DIST_CONFIG"
+
+CF_DOMAIN="$(aws cloudfront get-distribution --id "$DIST_ID" \
+  --query 'Distribution.DomainName' --output text)"
 say "DIST_ID=$DIST_ID  CF_DOMAIN=$CF_DOMAIN"
 
 # ---- 4. Bucket policy (ACCESS CONTROL — review before applying) --------------

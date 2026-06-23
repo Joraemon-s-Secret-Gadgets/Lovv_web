@@ -206,16 +206,17 @@ export function PlanDetailView({
                   {planDraft.dayCount}일 구성
                 </span>
               </div>
-
               <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="일차 선택">
                 {days.map((day, index) => {
                   const isActive = index === safeDayIndex
                   return (
                     <button
                       key={day.day}
+                      id={`day-tab-${day.day}`}
                       type="button"
                       role="tab"
                       aria-selected={isActive}
+                      aria-controls={`day-panel-${day.day}`}
                       onClick={() => setActiveDayIndex(index)}
                       className={`inline-flex min-h-10 items-center rounded-full px-5 text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
                         isActive
@@ -230,11 +231,16 @@ export function PlanDetailView({
               </div>
 
               {activeDay ? (
-                <section className="mt-6" aria-labelledby={`plan-detail-day-${activeDay.day}`}>
+                <section
+                  role="tabpanel"
+                  id={`day-panel-${activeDay.day}`}
+                  aria-labelledby={`day-tab-${activeDay.day}`}
+                  className="mt-6"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3 rounded-[18px] bg-[#FFF7F0] px-5 py-4">
                     <div className="min-w-0">
                       <h3
-                        id={`plan-detail-day-${activeDay.day}`}
+                        id={`plan-detail-day-heading-${activeDay.day}`}
                         className="break-keep text-lg font-black leading-7 text-[#33271E]"
                       >
                         {activeDay.title}

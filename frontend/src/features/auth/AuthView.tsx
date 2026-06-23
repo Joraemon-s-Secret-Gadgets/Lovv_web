@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import logoImage from '../../assets/lovv-logo.png'
 import type { SocialAuthProvider } from '../../shared/types/app'
 import type { AuthExceptionNotice } from './authException'
@@ -85,6 +85,13 @@ export function AuthView({
   onSignIn,
 }: AuthViewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  // An auth error (e.g. a failed OAuth callback) must be visible to the user, so
+  // open the login modal automatically when an exception notice appears — otherwise
+  // the alert stays trapped in the hidden, inert overlay.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (authExceptionNotice) setIsModalOpen(true)
+  }, [authExceptionNotice])
   const onOpenLegalNotice = useUiToggleStore((state) => state.openLegalNotice)
   const isSignInPending = Boolean(signInPendingProvider)
   const isGoogleSignInPending = signInPendingProvider === 'google'
@@ -100,8 +107,20 @@ export function AuthView({
       }`}
     >
       {/* 1. Login Modal (Test: auth-fixed-panel) */}
+      {/*
+        When closed the overlay stays in the DOM for the opacity transition, so it
+        must be removed from the accessibility tree and tab order — otherwise screen
+        readers and keyboard users reach the hidden Google/Kakao buttons. `inert`
+        (React 19) disables focus + pointer + a11y for the whole subtree; aria-hidden
+        reinforces it for assistive tech.
+      */}
       <div
         data-testid="auth-fixed-panel"
+        role="dialog"
+        aria-modal={isModalOpen || undefined}
+        aria-labelledby="auth-title"
+        aria-hidden={!isModalOpen || undefined}
+        inert={!isModalOpen}
         className={`lovv-auth-left-panel lovv-liquid-panel modal-overlay ${
           isModalOpen ? 'active' : ''
         }`}

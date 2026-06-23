@@ -7,7 +7,10 @@ type RecommendationViewProps = {
   onOpenMonthlyRecommendationDetail: (recommendation: MonthlyRecommendation) => void
 }
 
-// Mock Likes data corresponding to monthlyRecommendations
+// NOTE: Demo/sample data only — these likes counts, rankings and age-group
+// groupings are hardcoded mocks, not real aggregated statistics. The UI labels
+// them as "데모 데이터" so users are not misled. Replace with a real aggregation
+// API before presenting these as live numbers.
 const rankingData = [
   { rank: 1, recommendation: monthlyRecommendations[2], likes: 1240, region: '경상북도 경주' }, // 경주
   { rank: 2, recommendation: monthlyRecommendations[4], likes: 980, region: '제주특별자치도' },   // 제주
@@ -48,13 +51,14 @@ export function RecommendationView({ onOpenMonthlyRecommendationDetail }: Recomm
       <div className="mb-12 text-center">
         <div className="inline-flex items-center gap-2 rounded-full border border-[#FFD9C0] bg-[#FFF2EA] px-4 py-1.5 text-xs font-black text-[#F36B12] shadow-sm mb-4">
           <Sparkles className="size-3.5 fill-[#F36B12]" />
-          <span>REAL-TIME TRAVEL PICKS</span>
+          <span>TRAVEL PICKS · 데모 데이터</span>
         </div>
         <h1 className="text-4xl font-black tracking-tight text-[#33271E] max-sm:text-3xl">
           지금 주목받는 인기 소도시
         </h1>
         <p className="mt-3 text-sm font-semibold text-[#7A5A45] max-sm:text-xs">
-          유저들의 실제 관심도와 트렌디한 나이대별 소통 데이터를 바탕으로 엄선된 추천 리스트
+          큐레이션 미리보기예요. 표시된 좋아요·순위·나이대 수치는 <strong className="font-black text-[#A92B10]">샘플(데모) 데이터</strong>로,
+          실제 집계 연동 전입니다.
         </p>
       </div>
 
@@ -69,7 +73,7 @@ export function RecommendationView({ onOpenMonthlyRecommendationDetail }: Recomm
               <h2 id="realtime-rank-title" className="text-xl font-black text-[#33271E]">
                 실시간 인기 여행지 TOP 6
               </h2>
-              <p className="text-xs text-[#7A5A45]">최근 일주일 동안 가장 많은 좋아요를 받은 순위</p>
+              <p className="text-xs text-[#7A5A45]">최근 일주일 좋아요 순위 (샘플 데이터)</p>
             </div>
           </div>
 
@@ -149,7 +153,7 @@ export function RecommendationView({ onOpenMonthlyRecommendationDetail }: Recomm
               <h2 id="age-recommend-title" className="text-xl font-black text-[#33271E]">
                 나이대별 맞춤 추천
               </h2>
-              <p className="text-xs text-[#7A5A45]">나와 비슷한 연령대가 지금 선호하는 이달의 코스</p>
+              <p className="text-xs text-[#7A5A45]">비슷한 연령대 선호 코스 (샘플 데이터)</p>
             </div>
           </div>
 
@@ -159,7 +163,7 @@ export function RecommendationView({ onOpenMonthlyRecommendationDetail }: Recomm
               <button
                 key={g.id}
                 type="button"
-                onClick={() => setActiveAgeTab(g.id as any)}
+                onClick={() => setActiveAgeTab(g.id as '20s' | '30s' | '40sPlus')}
                 className={`flex-1 rounded-lg py-2 text-sm font-black transition-all ${
                   activeAgeTab === g.id
                     ? 'bg-[#33271E] text-white shadow-sm'
