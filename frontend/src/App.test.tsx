@@ -20,17 +20,29 @@ import {
 } from './shared/api/savedPlansApi'
 import { requestUpdatePreference } from './shared/api/preferencesApi'
 import { requestCreateRecommendation } from './shared/api/recommendationsApi'
-import { adaptSmallCityApiResponse, requestListSmallCities } from './shared/api/smallCityApi'
+import {
+  adaptSmallCityApiResponse,
+  adaptSmallCityDetailApiResponse,
+  adaptSmallCityPlacesApiResponse,
+  requestListSmallCities,
+  requestGetSmallCityDetail,
+  requestGetSmallCityPlaces,
+  type SmallCityApiPlaceGroups,
+} from './shared/api/smallCityApi'
 import App from './App'
 import { requestCognitoToken } from './features/auth/cognitoAuth'
 import { socialAuthProviderStorageKey } from './features/auth/authModel'
 import { writePendingOAuthLogin } from './features/auth/authRedirect'
-import { createStaticSmallCityApiResponse } from './features/map-city/smallCityDataSource'
+import {
+  createStaticSmallCityApiResponse,
+  createStaticSmallCityDetailApiResponse,
+} from './features/map-city/smallCityDataSource'
 import {
   createSmallCityMapMarkers,
   smallCities,
   smallCityCounts,
   smallCityPlaceCategories,
+  type SmallCityPlaceGroups,
 } from './data/smallCities'
 import type { SavedPlan } from './shared/types/app'
 
@@ -89,6 +101,8 @@ vi.mock('./shared/api/smallCityApi', async (importOriginal) => {
   return {
     ...actual,
     requestListSmallCities: vi.fn(),
+    requestGetSmallCityDetail: vi.fn(),
+    requestGetSmallCityPlaces: vi.fn(),
   }
 })
 
@@ -258,6 +272,23 @@ beforeEach(() => {
   vi.mocked(requestListSmallCities).mockResolvedValue(
     adaptSmallCityApiResponse(createStaticSmallCityApiResponse(smallCities)),
   )
+  vi.mocked(requestGetSmallCityDetail).mockImplementation(async (cityId) => {
+    const city = smallCities.find((c) => c.id === cityId)
+    if (!city) return { detail: null, rejectedRecords: [] }
+    return adaptSmallCityDetailApiResponse(createStaticSmallCityDetailApiResponse(city))
+  })
+  vi.mocked(requestGetSmallCityPlaces).mockImplementation(async (cityId) => {
+    const city = smallCities.find((c) => c.id === cityId)
+    const emptyPlaceGroups: SmallCityPlaceGroups = { 관광지: [], 음식점: [], 카페: [], 숙소: [] }
+    if (!city) return { placesByCategory: emptyPlaceGroups, festivals: [], festivalCount: 0, rejectedRecords: [] }
+    const detail = createStaticSmallCityDetailApiResponse(city)
+    return adaptSmallCityPlacesApiResponse({
+      cityId: city.id,
+      cityName: city.nameKo,
+      summary: detail.summary,
+      places: detail.places as SmallCityApiPlaceGroups,
+    }, cityId)
+  })
 })
 
 afterEach(() => {
@@ -1282,6 +1313,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(within(filteredGoogleMap).getByRole('button', { name: '지도 마커: 닛코' }))
 
     expect(within(cityMapSection).getByTestId('city-map-detail-panel')).toHaveTextContent('닛코')
+    await within(cityMapSection).findByLabelText('관광지 장소 후보')
     expect(within(cityMapSection).getByTestId('city-map-detail-panel').className).toContain('overflow-hidden')
     expect(within(cityMapSection).getByTestId('city-map-detail-sticky-content').className).toContain('overflow-y-auto')
     expect(within(cityMapSection).getByTestId('city-map-detail-panel')).toHaveTextContent('게곤폭포')
@@ -1454,7 +1486,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(within(screen.getByTestId('city-map-result-list')).getByRole('button', { name: /진주/ }))
     const cityDetailPanel = within(nextCityMapSection).getByTestId('city-map-detail-panel')
     const placePanel = within(nextCityMapSection).getByTestId('city-map-detail-place-panel')
-    const tourismPlaces = within(placePanel).getByLabelText('관광지 장소 후보')
+    const tourismPlaces = await within(placePanel).findByLabelText('관광지 장소 후보')
     const festivalInfo = within(placePanel).getByLabelText('축제 정보')
 
     expect(cityDetailPanel).toHaveTextContent('진주남강유등축제')

@@ -6,6 +6,8 @@ import {
   createSmallCityApiQuery,
   defaultSmallCityApiPageSize,
   smallCityApiEndpoints,
+  requestGetSmallCityDetail,
+  requestGetSmallCityPlaces,
   type SmallCityApiDetailResponse,
   type SmallCityApiListResponse,
   type SmallCityApiPlacesResponse,
@@ -306,5 +308,18 @@ describe('small-city API contract adapter', () => {
       }),
     ).toBe('country=JP&q=%EC%8B%9C%EB%A7%8C%ED%86%A0+%EC%8B%9C%EC%9E%A5&themes=%EC%9E%90%EC%97%B0%2C%EB%B0%94%EB%8B%A4&page=2&page_size=80')
     expect(createSmallCityApiQuery({})).toBe(`page=1&page_size=${defaultSmallCityApiPageSize}`)
+  })
+
+  it('falls back to static catalog detail when live API fails', async () => {
+    const result = await requestGetSmallCityDetail('kr-001')
+    expect(result.detail).not.toBeNull()
+    expect(result.detail?.city.id).toBe('kr-001')
+    expect(result.detail?.city.nameKo).toBe('아산')
+  })
+
+  it('falls back to static places when live API fails', async () => {
+    const result = await requestGetSmallCityPlaces('kr-001')
+    expect(result.placesByCategory['관광지']).toHaveLength(1)
+    expect(result.placesByCategory['관광지'][0].name).toContain('산책')
   })
 })
