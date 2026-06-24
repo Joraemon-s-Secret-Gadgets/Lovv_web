@@ -4,7 +4,7 @@
  * @lastModified 2026-06-24
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PlanStop } from '../../shared/types/app'
 import { smallCityMapBounds, type SmallCityCountry } from '../map-city/smallCities'
 
@@ -146,13 +146,15 @@ export function PlanDetailGoogleMap({
   const [mapInstanceVersion, setMapInstanceVersion] = useState(0)
 
   // Map the stops to coordinates where possible
-  const validPoints = stops
-    .map((stop, index) => {
-      const key = stop.title.trim().toLowerCase().replace(/\s+/g, '')
-      const coords = nameToCoords[key]
-      return coords ? { index, stop, coords } : null
-    })
-    .filter((pt): pt is { index: number; stop: PlanStop; coords: GoogleLatLngLiteral } => pt !== null)
+  const validPoints = useMemo(() => {
+    return stops
+      .map((stop, index) => {
+        const key = stop.title.trim().toLowerCase().replace(/\s+/g, '')
+        const coords = nameToCoords[key]
+        return coords ? { index, stop, coords } : null
+      })
+      .filter((pt): pt is { index: number; stop: PlanStop; coords: GoogleLatLngLiteral } => pt !== null)
+  }, [stops, nameToCoords])
 
   useEffect(() => {
     if (!googleMapsApiKey || typeof window === 'undefined') {
@@ -219,7 +221,7 @@ export function PlanDetailGoogleMap({
     // Padding prevents markers from getting cut off at edge of sticky screen
     map.fitBounds(bounds, 64)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countryCode, validPoints.length, runtimeStatus, mapInstanceVersion])
+  }, [countryCode, validPoints, runtimeStatus, mapInstanceVersion])
 
   // Render markers and polyline paths
   useEffect(() => {
@@ -298,7 +300,7 @@ export function PlanDetailGoogleMap({
       })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [validPoints.length, activeStopIndex, runtimeStatus, mapInstanceVersion])
+  }, [validPoints, activeStopIndex, runtimeStatus, mapInstanceVersion])
 
   return (
     <div
