@@ -136,7 +136,9 @@ export type SavedPlan = {
   summary: string
   days?: PlanDay[]
   stops: PlanStop[]
+  destinationId?: string
   isLiked?: boolean
+
   createdAt: string
   savedAt: string
 }

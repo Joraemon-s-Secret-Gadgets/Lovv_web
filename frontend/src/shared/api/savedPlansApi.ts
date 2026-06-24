@@ -23,11 +23,14 @@ export type SavedPlanApiRecord = {
   cityPair?: string
   city_pair?: string
   destination?: {
+    id?: string
+    destinationId?: string
     name?: string
     nameKo?: string
     destinationName?: string
     cityName?: string
   }
+  destinationId?: string
   themeTag?: string
   theme_tag?: string
   themeLabels?: string[]
@@ -402,6 +405,12 @@ export const adaptSavedPlanApiRecord = (record: SavedPlanApiRecord): SavedPlan |
     record.destination?.name,
   )
 
+  const destinationId = readString(
+    record.destinationId,
+    record.destination?.id,
+    record.destination?.destinationId,
+  )
+
   return {
     id,
     sourceRecommendationId: readString(record.sourceRecommendationId, record.source_recommendation_id),
@@ -417,6 +426,7 @@ export const adaptSavedPlanApiRecord = (record: SavedPlanApiRecord): SavedPlan |
     summary: readString(record.summary),
     days,
     stops,
+    destinationId: destinationId || undefined,
     isLiked: readIsLiked(record),
     createdAt: readString(record.createdAt, record.created_at),
     savedAt: readString(record.savedAt, record.saved_at),

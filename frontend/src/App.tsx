@@ -231,6 +231,9 @@ function App() {
   const activePlanDetailBasisLabel = isRouteCurrentGeneratedPlan
     ? planner.plannerBasisLabel
     : savedPlanForRoute?.cityPair ?? planner.plannerBasisLabel
+  const activePlanDetailDestinationId = isRouteCurrentGeneratedPlan
+    ? undefined
+    : savedPlanForRoute?.destinationId ?? undefined
   const isActivePlanDetailReady = isRouteCurrentGeneratedPlan || Boolean(savedPlanForRoute)
   const activeSavedPlanDetailLike = planner.getSavedPlanLike(activePlanDetailId)
   const isActivePlanDetailSaved = isRouteCurrentGeneratedPlan ? planner.isCurrentPlanSaved : Boolean(savedPlanForRoute)
@@ -589,6 +592,7 @@ function App() {
                 plannerBasisLabel={activePlanDetailBasisLabel}
                 cityImageUrl={planner.plannerCityContext?.imageUrl ?? undefined}
                 destinationName={planner.plannerCityContext?.cityName ?? planner.generatedPlanDestinationName ?? undefined}
+                destinationId={activePlanDetailDestinationId}
                 planId={activePlanDetailId}
                 planLike={activeSavedPlanDetailLike}
                 onSelectSavedPlanLike={planner.selectSavedPlanLike}

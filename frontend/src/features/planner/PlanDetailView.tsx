@@ -1,6 +1,223 @@
-import { useEffect, useState } from 'react'
-import type { PlanDraft, SavedPlanLike } from '../../shared/types/app'
+import { useEffect, useRef, useState } from 'react'
+import type { PlanDraft, PlanStop, SavedPlanLike } from '../../shared/types/app'
+import { requestGetSmallCityPlaces } from '../../shared/api/smallCityApi'
 import { SavedPlanLikeControls } from '../saved-plans/SavedPlanLikeControls'
+
+// ---------------------------------------------------------------------------
+// Image URL helpers (Task 13 – S3 / CloudFront integration)
+// ---------------------------------------------------------------------------
+
+const IMAGE_CDN_BASE = (import.meta.env.VITE_IMAGE_CDN_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '') ?? ''
+
+/**
+ * Korean Revised Romanization table (현대 국어 표기법 기준).
+ * Covers the onset (초성), vowel (중성), and coda (종성) elements
+ * needed to transliterate Korean attraction names to S3 filename keys.
+ */
+const ONSET = [
+  'g', 'kk', 'n', 'd', 'tt', 'r', 'm', 'b', 'pp', 's', 'ss', '',
+  'j', 'jj', 'ch', 'k', 't', 'p', 'h',
+]
+const VOWEL = [
+  'a', 'ae', 'ya', 'yae', 'eo', 'e', 'yeo', 'ye', 'o',
+  'wa', 'wae', 'oe', 'yo', 'u', 'wo', 'we', 'wi', 'yu',
+  'eu', 'ui', 'i',
+]
+const CODA = [
+  '', 'k', 'k', 'k', 'n', 'n', 'n', 't', 'l', 'k', 'm', 'p',
+  'p', 'k', 't', 't', 'ng', 'k', 't', 'p', 'h',
+]
+
+const HANGUL_START = 0xAC00
+
+/**
+ * Transliterate a Korean string to Revised Romanization (ASCII).
+ * Non-hangul characters are passed through as-is (lowercased).
+ */
+const romanizeKorean = (text: string): string => {
+  let result = ''
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0
+    if (code >= HANGUL_START && code <= 0xD7A3) {
+      const offset = code - HANGUL_START
+      const onsetIdx = Math.floor(offset / (21 * 28))
+      const vowelIdx = Math.floor((offset % (21 * 28)) / 28)
+      const codaIdx = offset % 28
+      result += ONSET[onsetIdx] + VOWEL[vowelIdx] + CODA[codaIdx]
+    } else {
+      result += ch.toLowerCase()
+    }
+  }
+  return result
+}
+
+/**
+ * Build the CloudFront URL for an attraction image.
+ * Pattern: images/KR/<cityEnglishName>/<cityEnglishName><RomanizedTitle>_1.jpg
+ *
+ * @param cityEnglishName  – e.g. "Gangneung"
+ * @param title            – Korean attraction name, e.g. "경포해수욕장"
+ */
+const buildAttractionImageUrl = (cityEnglishName: string, title: string): string => {
+  if (!IMAGE_CDN_BASE || !cityEnglishName || !title) return ''
+  const romanized = romanizeKorean(title)
+    .replace(/\s+/g, '')        // strip spaces
+    .replace(/[^a-z0-9]/g, '')  // keep alphanumerics only
+  const key = `images/KR/${cityEnglishName}/${cityEnglishName}${romanized}_1.jpg`
+  return `${IMAGE_CDN_BASE}/${key}`
+}
+
+// ---------------------------------------------------------------------------
+// Attraction image card component
+// ---------------------------------------------------------------------------
+
+const AttractionImageFallback = () => (
+  <div
+    aria-label="이미지 준비 중"
+    className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#FFF0E4]"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="40"
+      height="40"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#F3B489"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+    <span className="text-[11px] font-bold text-[#F3B489]">이미지 준비 중</span>
+  </div>
+)
+
+type AttractionImageProps = {
+  src: string
+  alt: string
+}
+
+const AttractionImage = ({ src, alt }: AttractionImageProps) => {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
+
+  useEffect(() => {
+    if (!src) {
+      setStatus('error')
+      return
+    }
+    setStatus('loading')
+  }, [src])
+
+  if (!src || status === 'error') {
+    return <AttractionImageFallback />
+  }
+
+  return (
+    <>
+      {status === 'loading' && (
+        <div className="flex h-full w-full animate-pulse items-center justify-center bg-[#FFF0E4]">
+          <span className="text-[11px] font-bold text-[#F3B489]">로딩 중…</span>
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        onLoad={() => setStatus('loaded')}
+        onError={() => setStatus('error')}
+        className={`h-full w-full object-cover transition-opacity duration-300 ${status === 'loaded' ? 'opacity-100' : 'opacity-0 absolute inset-0'}`}
+      />
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Hook: fetch places for a destination and build a name→imageUrl map
+// ---------------------------------------------------------------------------
+
+/**
+ * For a given destinationId, fetches all SmallCity places and builds a
+ * map of { normalizedName → { imageUrl, cityEnglishName } } so that
+ * stop titles can be matched to S3 image keys.
+ */
+const usePlaceImageMap = (destinationId?: string) => {
+  const [cityEnglishName, setCityEnglishName] = useState<string>('')
+  const [nameToImageUrl, setNameToImageUrl] = useState<Record<string, string>>({})
+  const prevId = useRef<string | undefined>(undefined)
+
+  useEffect(() => {
+    if (!destinationId || destinationId === prevId.current) return
+    prevId.current = destinationId
+
+    let cancelled = false
+
+    const fetchPlaces = async () => {
+      try {
+        const result = await requestGetSmallCityPlaces(destinationId)
+        if (cancelled) return
+
+        // Extract city English name from the first place record's cityId.
+        // City IDs follow the pattern "KR-<EnglishName>" e.g. "KR-Gangneung".
+        const allPlaces = Object.values(result.placesByCategory).flat()
+
+        // Derive English city name from cityId (e.g. "KR-Gangneung" → "Gangneung")
+        const rawCityId = allPlaces[0]?.cityId ?? destinationId
+        const derivedEnglishName = rawCityId.includes('-')
+          ? rawCityId.split('-').slice(1).join('-')
+          : rawCityId
+
+        setCityEnglishName(derivedEnglishName)
+
+        // Build name→imageUrl map using S3 CDN pattern
+        const map: Record<string, string> = {}
+        allPlaces.forEach((place) => {
+          // Use place.imageUrl when available (API-provided), else construct from CDN
+          const url =
+            place.imageUrl?.trim() ||
+            buildAttractionImageUrl(derivedEnglishName, place.name)
+          if (url) {
+            // Normalize: lowercase, no spaces, no punctuation
+            const key = place.name.trim().toLowerCase().replace(/\s+/g, '')
+            map[key] = url
+          }
+        })
+        setNameToImageUrl(map)
+      } catch {
+        // Silently ignore – images will show fallback
+      }
+    }
+
+    void fetchPlaces()
+    return () => { cancelled = true }
+  }, [destinationId])
+
+  return { cityEnglishName, nameToImageUrl }
+}
+
+/**
+ * Resolve the best image URL for a stop.
+ * Priority: stop.imageUrl → places map → CDN-constructed → ''
+ */
+const resolveStopImageUrl = (
+  stop: PlanStop,
+  nameToImageUrl: Record<string, string>,
+  cityEnglishName: string,
+): string => {
+  if (stop.imageUrl?.trim()) return stop.imageUrl.trim()
+
+  const key = stop.title.trim().toLowerCase().replace(/\s+/g, '')
+  if (nameToImageUrl[key]) return nameToImageUrl[key]
+
+  // Fallback: construct CDN URL directly from title romanization
+  return buildAttractionImageUrl(cityEnglishName, stop.title)
+}
+
+// ---------------------------------------------------------------------------
+// PlanDetailView component
+// ---------------------------------------------------------------------------
 
 type PlanDetailViewProps = {
   isPlannerReady: boolean
@@ -11,6 +228,8 @@ type PlanDetailViewProps = {
   plannerBasisLabel: string
   cityImageUrl?: string
   destinationName?: string
+  /** destinationId is used to fetch place images from SmallCity API / S3. */
+  destinationId?: string
   planId: string
   planLike: SavedPlanLike
   onSelectSavedPlanLike: (planId: string, like: Exclude<SavedPlanLike, null>) => void
@@ -35,6 +254,7 @@ export function PlanDetailView({
   plannerBasisLabel,
   cityImageUrl,
   destinationName,
+  destinationId,
   planId,
   planLike,
   onSelectSavedPlanLike,
@@ -61,6 +281,9 @@ export function PlanDetailView({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveDayIndex(0)
   }, [planId])
+
+  // Fetch place image map for the current destination
+  const { cityEnglishName, nameToImageUrl } = usePlaceImageMap(destinationId)
 
   if (isSavedPlanDetailLoading) {
       return (
@@ -255,43 +478,53 @@ export function PlanDetailView({
                   </div>
 
                   <div className="mt-4 space-y-4">
-                    {activeDay.stops.map((item, index) => (
-                      <article
-                        key={`${activeDay.day}-${item.time}-${item.title}`}
-                        className="grid grid-cols-[42px_minmax(0,1fr)] gap-4"
-                      >
-                        <div className="flex flex-col items-center">
-                          <span className="flex size-10 items-center justify-center rounded-full bg-[#F36B12] text-sm font-black text-[#33271E] shadow-[0_8px_18px_-14px_rgba(51,39,30,0.5)]">
-                            {index + 1}
-                          </span>
-                          {index < activeDay.stops.length - 1 ? (
-                            <span className="mt-2 h-full min-h-8 w-px bg-[#F3B489]/45" />
-                          ) : null}
-                        </div>
-                        <div className="min-w-0 rounded-[20px] border border-transparent bg-[#FFF0E4] p-5">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-black leading-4 text-[#33271E]">
-                              {item.time}
+                    {activeDay.stops.map((item, index) => {
+                      const imageUrl = resolveStopImageUrl(item, nameToImageUrl, cityEnglishName)
+                      return (
+                        <article
+                          key={`${activeDay.day}-${item.time}-${item.title}`}
+                          className="grid grid-cols-[42px_minmax(0,1fr)] gap-4"
+                        >
+                          <div className="flex flex-col items-center">
+                            <span className="flex size-10 items-center justify-center rounded-full bg-[#F36B12] text-sm font-black text-[#33271E] shadow-[0_8px_18px_-14px_rgba(51,39,30,0.5)]">
+                              {index + 1}
                             </span>
-                            <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-bold leading-4 text-[#33271E]">
-                              다음 장소까지 {item.move}
-                            </span>
+                            {index < activeDay.stops.length - 1 ? (
+                              <span className="mt-2 h-full min-h-8 w-px bg-[#F3B489]/45" />
+                            ) : null}
                           </div>
-                          <h4 className="mt-4 break-keep text-xl font-black leading-8 text-[#33271E] max-sm:text-lg max-sm:leading-7">
-                            {item.title}
-                          </h4>
-                          <p className="mt-2 break-keep text-sm font-semibold leading-7 text-[#33271E]">
-                            {item.body}
-                          </p>
-                          <div className="mt-4 rounded-[16px] border border-transparent bg-[#fffffa] px-4 py-3">
-                            <p className="text-[12px] font-black text-[#A92B10]">추천 이유</p>
-                            <p className="mt-1 break-keep text-sm font-semibold leading-6 text-[#33271E]">
-                              {item.reason}
-                            </p>
+                          <div className="min-w-0 overflow-hidden rounded-[20px] border border-transparent bg-[#FFF0E4]">
+                            {/* Attraction image */}
+                            <div className="relative h-40 w-full overflow-hidden max-sm:h-32">
+                              <AttractionImage src={imageUrl} alt={item.title} />
+                            </div>
+
+                            <div className="p-5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-black leading-4 text-[#33271E]">
+                                  {item.time}
+                                </span>
+                                <span className="rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-bold leading-4 text-[#33271E]">
+                                  다음 장소까지 {item.move}
+                                </span>
+                              </div>
+                              <h4 className="mt-4 break-keep text-xl font-black leading-8 text-[#33271E] max-sm:text-lg max-sm:leading-7">
+                                {item.title}
+                              </h4>
+                              <p className="mt-2 break-keep text-sm font-semibold leading-7 text-[#33271E]">
+                                {item.body}
+                              </p>
+                              <div className="mt-4 rounded-[16px] border border-transparent bg-[#fffffa] px-4 py-3">
+                                <p className="text-[12px] font-black text-[#A92B10]">추천 이유</p>
+                                <p className="mt-1 break-keep text-sm font-semibold leading-6 text-[#33271E]">
+                                  {item.reason}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </article>
-                    ))}
+                        </article>
+                      )
+                    })}
                   </div>
                 </section>
               ) : null}
