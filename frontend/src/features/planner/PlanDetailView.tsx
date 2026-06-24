@@ -63,7 +63,10 @@ const buildAttractionImageUrl = (cityEnglishName: string, title: string): string
   const romanized = romanizeKorean(title)
     .replace(/\s+/g, '')        // strip spaces
     .replace(/[^a-z0-9]/g, '')  // keep alphanumerics only
-  const key = `images/KR/${cityEnglishName}/${cityEnglishName}${romanized}_1.jpg`
+  // S3 naming convention: first letter capitalized, no city prefix
+  // e.g. images/KR/Uiseong/Bianhyanggyo_1.jpg
+  const romanizedCapitalized = romanized.charAt(0).toUpperCase() + romanized.slice(1)
+  const key = `images/KR/${cityEnglishName}/${romanizedCapitalized}_1.jpg`
   return `${IMAGE_CDN_BASE}/${key}`
 }
 
