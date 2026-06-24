@@ -442,7 +442,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByText('간편 로그인')).toHaveClass('text-[#F36B12]')
     fireEvent.click(screen.getByRole('button', { name: '문의하기' }))
     expect(screen.getByRole('dialog', { name: '문의하기' })).toBeInTheDocument()
-    expect(screen.getByText('현재 데모 버전에서는 별도 문의 접수 폼을 제공하지 않습니다.')).toBeInTheDocument()
+    expect(screen.getByText('문의가 필요한 경우 joramong711@gmail.com 으로 연락해 주세요.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '문의하기 닫기' }))
     expect(screen.getByRole('heading', { name: '소도시 여행의 새로운 기준, Lovv' })).toBeInTheDocument()
     expect(screen.getByRole('list', { name: 'Lovv 서비스 설명' })).toHaveStyle({

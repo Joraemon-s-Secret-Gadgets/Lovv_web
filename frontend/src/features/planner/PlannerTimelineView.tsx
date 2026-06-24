@@ -63,7 +63,7 @@ export function PlannerTimelineView({
     <section
       aria-label="AI 일정 생성 중"
       aria-busy="true"
-      className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-white/50 bg-[#fffffa]/30 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:sticky xl:top-[96px] xl:min-h-0 backdrop-blur-xl"
+      className="lovv-liquid-panel flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border-0 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:min-h-0"
     >
       <div className="shrink-0 border-b border-white/40 bg-[#FFF0E4]/45 px-6 py-6 backdrop-blur-md">
         <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">
@@ -170,7 +170,7 @@ export function PlannerTimelineView({
     return (
       <section
         aria-label="AI 일정 결과"
-        className="flex h-full min-h-[680px] flex-col justify-between overflow-hidden rounded-[22px] border border-white/50 bg-[#fffffa]/30 p-6 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:sticky xl:top-[96px] xl:min-h-0 backdrop-blur-xl"
+        className="lovv-liquid-panel flex h-full min-h-[680px] flex-col justify-between overflow-hidden rounded-[22px] border-0 p-6 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:min-h-0"
       >
         <div>
           <p className="text-sm font-semibold text-[#33271E]">맞춤 일정 결과</p>
@@ -205,7 +205,7 @@ export function PlannerTimelineView({
     <section
       ref={planResultPanelRef}
       aria-labelledby="generated-plan-title"
-      className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-white/50 bg-[#fffffa]/30 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:sticky xl:top-[96px] xl:min-h-0 backdrop-blur-xl"
+      className="lovv-liquid-panel flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border-0 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:min-h-0"
     >
       <div className="shrink-0 border-b border-white/40 bg-[#FFF0E4]/45 px-6 py-6 backdrop-blur-md">
         <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">

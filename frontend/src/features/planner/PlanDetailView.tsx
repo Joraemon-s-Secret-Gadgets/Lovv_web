@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { ChatMessage, PlanDay, PlanDraft, PlanStop, SavedPlanLike } from '../../shared/types/app'
+import type { SmallCityCountry } from '../map-city/smallCities'
 import { requestGetSmallCityPlaces } from '../../shared/api/smallCityApi'
+import { PlanDetailGoogleMap } from './PlanDetailGoogleMap'
 import { SavedPlanLikeControls } from '../saved-plans/SavedPlanLikeControls'
 import {
   createDayReplacementCandidate,
@@ -14,6 +16,7 @@ import {
   type MealSlotDescriptor,
   type SelectedMealPlace,
 } from './plannerMealModel'
+import { buildAttractionImageUrl as buildAttractionImageUrlFromModel } from './plannerImageModel'
 
 // ---------------------------------------------------------------------------
 // Image URL helpers (Task 13 – S3 / CloudFront integration)
@@ -22,74 +25,16 @@ import {
 const IMAGE_CDN_BASE = (import.meta.env.VITE_IMAGE_CDN_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '') ?? ''
 
 /**
- * Korean Revised Romanization table (현대 국어 표기법 기준).
- * Covers the onset (초성), vowel (중성), and coda (종성) elements
- * needed to transliterate Korean attraction names to S3 filename keys.
- */
-const ONSET = [
-  'g', 'kk', 'n', 'd', 'tt', 'r', 'm', 'b', 'pp', 's', 'ss', '',
-  'j', 'jj', 'ch', 'k', 't', 'p', 'h',
-]
-const VOWEL = [
-  'a', 'ae', 'ya', 'yae', 'eo', 'e', 'yeo', 'ye', 'o',
-  'wa', 'wae', 'oe', 'yo', 'u', 'wo', 'we', 'wi', 'yu',
-  'eu', 'ui', 'i',
-]
-const CODA = [
-  '', 'k', 'k', 'k', 'n', 'n', 'n', 't', 'l', 'k', 'm', 'p',
-  'p', 'k', 't', 't', 'ng', 'k', 't', 'p', 'h',
-]
-
-const HANGUL_START = 0xAC00
-
-/**
- * Transliterate a Korean string to Revised Romanization (ASCII).
- * Non-hangul characters are passed through as-is (lowercased).
- */
-const romanizeKorean = (text: string): string => {
-  let result = ''
-  for (const ch of text) {
-    const code = ch.codePointAt(0) ?? 0
-    if (code >= HANGUL_START && code <= 0xD7A3) {
-      const offset = code - HANGUL_START
-      const onsetIdx = Math.floor(offset / (21 * 28))
-      const vowelIdx = Math.floor((offset % (21 * 28)) / 28)
-      const codaIdx = offset % 28
-      result += ONSET[onsetIdx] + VOWEL[vowelIdx] + CODA[codaIdx]
-    } else {
-      result += ch.toLowerCase()
-    }
-  }
-  return result
-}
-
-/**
  * Build the CloudFront URL for an attraction image.
- * Pattern: images/KR/<cityEnglishName>/<cityEnglishName><RomanizedTitle>_1.jpg
+ * Current deployed image source is KR-only; pass country into the image model
+ * when JP attraction image keys are confirmed.
+ * Pattern: images/KR/<cityEnglishName>/<RomanizedTitle>_1.jpg
  *
  * @param cityEnglishName  – e.g. "Gangneung"
  * @param title            – Korean attraction name, e.g. "경포해수욕장"
  */
 const buildAttractionImageUrl = (cityEnglishName: string, title: string): string => {
-  if (!IMAGE_CDN_BASE || !cityEnglishName || !title) return ''
-
-  // S3 naming: each space-separated Korean word is independently romanized and
-  // capitalized (PascalCase), then concatenated.
-  // e.g. "봉화 북지리 마애여래좌상" → Bonghwa + Bukjiri + Maeyeoraejwasang
-  //       "범바위 전망대"           → Beombawi + Jeonmangdae
-  //       "백천계곡"               → Baekcheongyegok
-  const romanized = title
-    .split(/\s+/)
-    .map((word) => {
-      const r = romanizeKorean(word).replace(/[^a-z0-9]/g, '')
-      return r ? r.charAt(0).toUpperCase() + r.slice(1) : ''
-    })
-    .join('')
-
-  if (!romanized) return ''
-
-  const key = `images/KR/${cityEnglishName}/${romanized}_1.jpg`
-  return `${IMAGE_CDN_BASE}/${key}`
+  return buildAttractionImageUrlFromModel(IMAGE_CDN_BASE, cityEnglishName, title, 'KR')
 }
 
 // ---------------------------------------------------------------------------
@@ -160,12 +105,14 @@ const AttractionImage = ({ src, alt }: AttractionImageProps) => {
 
 /**
  * For a given destinationId, fetches all SmallCity places and builds a
- * map of { normalizedName → { imageUrl, cityEnglishName } } so that
- * stop titles can be matched to S3 image keys.
+ * map of { normalizedName → { imageUrl, coords } } so that
+ * stop titles can be matched to S3 details.
  */
-const usePlaceImageMap = (destinationId?: string) => {
+const usePlaceDataMap = (destinationId?: string) => {
   const [cityEnglishName, setCityEnglishName] = useState<string>('')
   const [nameToImageUrl, setNameToImageUrl] = useState<Record<string, string>>({})
+  const [nameToCoords, setNameToCoords] = useState<Record<string, { lat: number; lng: number }>>({})
+  const [countryCode, setCountryCode] = useState<SmallCityCountry>('KR')
   const prevId = useRef<string | undefined>(undefined)
 
   useEffect(() => {
@@ -179,6 +126,9 @@ const usePlaceImageMap = (destinationId?: string) => {
         const result = await requestGetSmallCityPlaces(destinationId)
         if (cancelled) return
 
+        const derivedCountry = destinationId.startsWith('JP') ? 'JP' : 'KR'
+        setCountryCode(derivedCountry)
+
         // Extract city English name from the first place record's cityId.
         // City IDs follow the pattern "KR-<EnglishName>" e.g. "KR-Gangneung".
         const allPlaces = Object.values(result.placesByCategory).flat()
@@ -191,20 +141,25 @@ const usePlaceImageMap = (destinationId?: string) => {
 
         setCityEnglishName(derivedEnglishName)
 
-        // Build name→imageUrl map using S3 CDN pattern
-        const map: Record<string, string> = {}
+        // Build name→imageUrl and coords maps
+        const imgMap: Record<string, string> = {}
+        const coordsMap: Record<string, { lat: number; lng: number }> = {}
+
         allPlaces.forEach((place) => {
           // Use place.imageUrl when available (API-provided), else construct from CDN
           const url =
             place.imageUrl?.trim() ||
             buildAttractionImageUrl(derivedEnglishName, place.name)
+          const key = place.name.trim().toLowerCase().replace(/\s+/g, '')
           if (url) {
-            // Normalize: lowercase, no spaces, no punctuation
-            const key = place.name.trim().toLowerCase().replace(/\s+/g, '')
-            map[key] = url
+            imgMap[key] = url
+          }
+          if (place.latitude != null && place.longitude != null) {
+            coordsMap[key] = { lat: place.latitude, lng: place.longitude }
           }
         })
-        setNameToImageUrl(map)
+        setNameToImageUrl(imgMap)
+        setNameToCoords(coordsMap)
       } catch {
         // Silently ignore – images will show fallback
       }
@@ -214,7 +169,7 @@ const usePlaceImageMap = (destinationId?: string) => {
     return () => { cancelled = true }
   }, [destinationId])
 
-  return { cityEnglishName, nameToImageUrl }
+  return { cityEnglishName, nameToImageUrl, nameToCoords, countryCode }
 }
 
 /**
@@ -325,6 +280,7 @@ export function PlanDetailView({
 
   // Day-by-day tabs (당일 / N일차) instead of one long scroll of every day.
   const [activeDayIndex, setActiveDayIndex] = useState(0)
+  const [activeStopIndex, setActiveStopIndex] = useState<number | null>(null)
   const [pendingEdit, setPendingEdit] = useState<PendingPlanEdit | null>(null)
   const [floatingChatOpen, setFloatingChatOpen] = useState(false)
   const [floatingChatInput, setFloatingChatInput] = useState('')
@@ -332,14 +288,21 @@ export function PlanDetailView({
   const [selectedMealPlaces, setSelectedMealPlaces] = useState<Record<string, SelectedMealPlace>>({})
   const [mealSearchPanel, setMealSearchPanel] = useState<MealSearchPanelState | null>(null)
 
+  // Reset active stop when day changes
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActiveStopIndex(null)
+  }, [activeDayIndex])
+
   // Reset to the first day whenever a different plan is opened.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveDayIndex(0)
+    setActiveStopIndex(null)
   }, [planId])
 
-  // Fetch place image map for the current destination
-  const { cityEnglishName, nameToImageUrl } = usePlaceImageMap(destinationId)
+  // Fetch place data map (images & coords) for the current destination
+  const { cityEnglishName, nameToImageUrl, nameToCoords, countryCode } = usePlaceDataMap(destinationId)
 
   if (isSavedPlanDetailLoading) {
       return (
@@ -613,7 +576,8 @@ export function PlanDetailView({
             </div>
           </div>
 
-          <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-6 px-8 py-8 max-lg:grid-cols-1 max-sm:px-5">
+          <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(360px,0.85fr)] gap-6 px-8 py-8 max-lg:grid-cols-1 max-sm:px-5">
+            {/* Left Column: Timeline Flow */}
             <div className="min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -771,8 +735,16 @@ export function PlanDetailView({
                       const imageUrl = resolveStopImageUrl(item, nameToImageUrl, cityEnglishName)
                       const mealSlot = createMealSlotDescriptors(activeDay).find((slot) => slot.afterStopIndex === index)
                       const selectedMealPlace = mealSlot ? selectedMealPlaces[mealSlot.id] : null
+                      const isStopActive = index === activeStopIndex
+
                       return (
-                        <div key={`${activeDay.day}-${item.time}-${item.title}`} className="space-y-3">
+                        <div
+                          key={`${activeDay.day}-${item.time}-${item.title}`}
+                          className={`space-y-3 p-2 rounded-[22px] transition-all duration-200 ${
+                            isStopActive ? 'ring-2 ring-[#F36B12]/40 bg-[#FFF7F0]/40 shadow-sm' : ''
+                          }`}
+                          onMouseEnter={() => setActiveStopIndex(index)}
+                        >
                           <article className="grid grid-cols-[42px_minmax(0,1fr)] gap-4">
                             <div className="flex flex-col items-center">
                               <span className="flex size-10 items-center justify-center rounded-full bg-[#F36B12] text-sm font-black text-[#33271E] shadow-[0_8px_18px_-14px_rgba(51,39,30,0.5)]">
@@ -841,7 +813,7 @@ export function PlanDetailView({
                                         <a
                                           href={selectedMealPlace.placeUrl}
                                           target="_blank"
-                                          rel="noreferrer"
+                                          rel="noopener noreferrer"
                                           className="mt-2 inline-flex text-[12px] font-black text-[#A92B10] underline-offset-4 hover:underline"
                                         >
                                           카카오맵 상세 보기
@@ -883,82 +855,97 @@ export function PlanDetailView({
               ) : null}
             </div>
 
-            <aside className="rounded-[20px] border border-transparent bg-[#FFF0E4] p-5">
-              <p className="text-sm font-black text-[#33271E]">일정 액션</p>
-              <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#33271E]/80">
-                일정을 살펴본 뒤 피드백을 남기거나 마이페이지에 저장해 다시 확인할 수 있습니다.
-              </p>
-              <div className="mt-5 rounded-[14px] border border-transparent bg-[#fffffa] p-4">
-                <p id="plan-detail-like-title" className="break-keep text-sm font-black text-[#33271E]">
-                  이 일정은 어땠나요?
-                </p>
-                <p className="mt-1 break-keep text-[12px] font-bold leading-5 text-[#6E5A50]">
-                  좋아요를 누르면 저장되고, 다시 누르면 해제됩니다.
-                </p>
-                <div className="mt-3">
-                  <SavedPlanLikeControls
-                    planId={planId}
-                    like={planLike}
-                    onSelectLike={onSelectSavedPlanLike}
-                    pending={savedPlanLikePending}
-                    errorMessage={savedPlanLikeError}
-                    labelledBy="plan-detail-like-title"
-                  />
-                </div>
+            {/* Right Column: Sticky Sidebar containing Interactive Map & Actions */}
+            <div className="space-y-6 lg:sticky lg:top-[96px] lg:h-[calc(100dvh-9rem)] lg:min-h-[640px] flex flex-col min-w-0 max-lg:h-auto max-lg:min-h-0">
+              {/* Interactive Route Map Panel */}
+              <div className="flex-1 min-h-[380px] overflow-hidden rounded-[24px] border border-white/50 bg-[#fffffa]/30 shadow-[0_16px_42px_-28px_rgba(51,39,30,0.2)] backdrop-blur-sm max-lg:h-[420px]">
+                <PlanDetailGoogleMap
+                  stops={activeDay?.stops ?? []}
+                  nameToCoords={nameToCoords}
+                  countryCode={countryCode}
+                  activeStopIndex={activeStopIndex}
+                  onSelectStopIndex={setActiveStopIndex}
+                />
               </div>
-              <div className="mt-5 grid gap-3">
-                <button
-                  type="button"
-                  onClick={saveGeneratedPlan}
-                  disabled={isCurrentPlanSaved || isPlanSaving}
-                  className={`inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
-                    isCurrentPlanSaved
-                      ? 'disabled:cursor-default disabled:bg-[#FF8A2A]'
-                      : isPlanSaving
-                      ? 'disabled:cursor-wait disabled:opacity-75'
-                      : ''
-                  }`}
-                >
-                  {isPlanSaving && (
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-[#33271E]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  )}
-                  {isCurrentPlanSaved ? '마이페이지에 저장됨' : isPlanSaving ? '저장 중...' : '마이페이지에 저장'}
-                </button>
-                {isCurrentPlanSaved ? (
+
+              {/* Itinerary Actions Panel */}
+              <aside className="rounded-[20px] border border-transparent bg-[#FFF0E4] p-5 shrink-0">
+                <p className="text-sm font-black text-[#33271E]">일정 액션</p>
+                <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#33271E]/80">
+                  일정을 살펴본 뒤 피드백을 남기거나 마이페이지에 저장해 다시 확인할 수 있습니다.
+                </p>
+                <div className="mt-5 rounded-[14px] border border-transparent bg-[#fffffa] p-4">
+                  <p id="plan-detail-like-title" className="break-keep text-sm font-black text-[#33271E]">
+                    이 일정은 어땠나요?
+                  </p>
+                  <p className="mt-1 break-keep text-[12px] font-bold leading-5 text-[#6E5A50]">
+                    좋아요를 누르면 저장되고, 다시 누르면 해제됩니다.
+                  </p>
+                  <div className="mt-3">
+                    <SavedPlanLikeControls
+                      planId={planId}
+                      like={planLike}
+                      onSelectLike={onSelectSavedPlanLike}
+                      pending={savedPlanLikePending}
+                      errorMessage={savedPlanLikeError}
+                      labelledBy="plan-detail-like-title"
+                    />
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3">
                   <button
                     type="button"
-                    aria-label="저장 일정 삭제"
-                    onClick={() => onDeleteSavedPlan(planId, { navigateToMyPage: true })}
-                    disabled={savedPlanDeletePending}
-                    className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-black text-[#A92B10] transition hover:border-[#A92B10] hover:bg-[#FFE0CA] disabled:cursor-wait disabled:opacity-65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                    onClick={saveGeneratedPlan}
+                    disabled={isCurrentPlanSaved || isPlanSaving}
+                    className={`inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                      isCurrentPlanSaved
+                        ? 'disabled:cursor-default disabled:bg-[#FF8A2A]'
+                        : isPlanSaving
+                        ? 'disabled:cursor-wait disabled:opacity-75'
+                        : ''
+                    }`}
                   >
-                    {savedPlanDeletePending ? '삭제 중' : '저장 일정 삭제'}
+                    {isPlanSaving && (
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-[#33271E]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    )}
+                    {isCurrentPlanSaved ? '마이페이지에 저장됨' : isPlanSaving ? '저장 중...' : '마이페이지에 저장'}
                   </button>
+                  {isCurrentPlanSaved ? (
+                    <button
+                      type="button"
+                      aria-label="저장 일정 삭제"
+                      onClick={() => onDeleteSavedPlan(planId, { navigateToMyPage: true })}
+                      disabled={savedPlanDeletePending}
+                      className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-black text-[#A92B10] transition hover:border-[#A92B10] hover:bg-[#FFE0CA] disabled:cursor-wait disabled:opacity-65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                    >
+                      {savedPlanDeletePending ? '삭제 중' : '저장 일정 삭제'}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={returnToChatWorkspace}
+                    className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                  >
+                    채팅으로 돌아가기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openMyPage}
+                    className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                  >
+                    마이페이지로 이동
+                  </button>
+                </div>
+                {savedPlanNotice ? (
+                  <p aria-live="polite" className="mt-4 break-keep text-sm font-black leading-6 text-[#33271E]">
+                    {savedPlanNotice}
+                  </p>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={returnToChatWorkspace}
-                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
-                >
-                  채팅으로 돌아가기
-                </button>
-                <button
-                  type="button"
-                  onClick={openMyPage}
-                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
-                >
-                  마이페이지로 이동
-                </button>
-              </div>
-              {savedPlanNotice ? (
-                <p aria-live="polite" className="mt-4 break-keep text-sm font-black leading-6 text-[#33271E]">
-                  {savedPlanNotice}
-                </p>
-              ) : null}
-            </aside>
+              </aside>
+            </div>
           </div>
         </div>
         {mealSearchPanel ? (
@@ -1022,7 +1009,7 @@ export function PlanDetailView({
               <a
                 href={createKakaoMapSearchUrl(mealSearchPanel.query)}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="mt-3 inline-flex text-[12px] font-black text-[#A92B10] underline-offset-4 hover:underline"
               >
                 카카오맵에서 직접 검색하기

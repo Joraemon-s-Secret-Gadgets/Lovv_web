@@ -1,0 +1,325 @@
+/**
+ * @file PlanDetailGoogleMap.tsx
+ * @description Interactive Google Map displaying itinerary course markers and sequential paths.
+ * @lastModified 2026-06-24
+ */
+
+import { useEffect, useRef, useState } from 'react'
+import type { PlanStop } from '../../shared/types/app'
+import { smallCityMapBounds, type SmallCityCountry } from '../map-city/smallCities'
+
+type PlanDetailGoogleMapProps = {
+  stops: PlanStop[]
+  nameToCoords: Record<string, { lat: number; lng: number }>
+  countryCode: SmallCityCountry
+  activeStopIndex: number | null
+  onSelectStopIndex?: (index: number) => void
+  googleMapsApiKey?: string
+  googleMapsMapId?: string
+}
+
+type GoogleMapInstance = {
+  fitBounds: (bounds: GoogleLatLngBoundsInstance, padding?: number) => void
+  setCenter: (position: GoogleLatLngLiteral) => void
+  setZoom: (zoom: number) => void
+}
+
+type GoogleMapMarkerInstance = {
+  setMap: (map: GoogleMapInstance | null) => void
+  addListener?: (eventName: 'click', handler: () => void) => void
+}
+
+type GooglePolylineInstance = {
+  setMap: (map: GoogleMapInstance | null) => void
+}
+
+type GoogleLatLngBoundsInstance = {
+  extend: (position: GoogleLatLngLiteral) => void
+}
+
+type GoogleLatLngLiteral = {
+  lat: number
+  lng: number
+}
+
+type GoogleMapsNamespace = {
+  Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance
+  Marker?: new (options: Record<string, unknown>) => GoogleMapMarkerInstance
+  Polyline?: new (options: Record<string, unknown>) => GooglePolylineInstance
+  LatLngBounds: new () => GoogleLatLngBoundsInstance
+  SymbolPath?: {
+    CIRCLE: number
+  }
+}
+
+const googleMapsScriptId = 'lovv-google-maps-js'
+const googleMapsCallbackName = '__lovvGoogleMapsReady'
+const defaultGoogleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() ?? ''
+const defaultGoogleMapsMapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() ?? ''
+let googleMapsRuntimePromise: Promise<GoogleMapsNamespace> | null = null
+
+const getLoadedGoogleMaps = () => window.google?.maps?.Map ? window.google.maps : null
+
+const getCountryCenter = (country: SmallCityCountry): GoogleLatLngLiteral => {
+  const bounds = smallCityMapBounds[country] || smallCityMapBounds.KR
+  return {
+    lat: (bounds.minLat + bounds.maxLat) / 2,
+    lng: (bounds.minLng + bounds.maxLng) / 2,
+  }
+}
+
+const loadGoogleMapsRuntime = (apiKey: string) => {
+  const loadedGoogleMaps = getLoadedGoogleMaps()
+  if (loadedGoogleMaps) {
+    return Promise.resolve(loadedGoogleMaps)
+  }
+
+  if (googleMapsRuntimePromise) {
+    return googleMapsRuntimePromise
+  }
+
+  googleMapsRuntimePromise = new Promise<GoogleMapsNamespace>((resolve, reject) => {
+    const existingScript = document.getElementById(googleMapsScriptId)
+    if (existingScript) {
+      existingScript.remove()
+    }
+
+    const clearRuntimeHooks = () => {
+      window.__lovvGoogleMapsReady = undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      googleMapsRuntimePromise = null
+      clearRuntimeHooks()
+      reject(new Error('Google Maps script timed out.'))
+    }, 12000)
+
+    window.__lovvGoogleMapsReady = () => {
+      const maps = getLoadedGoogleMaps()
+      window.clearTimeout(timeoutId)
+      clearRuntimeHooks()
+      if (maps) {
+        resolve(maps)
+      } else {
+        reject(new Error('Google Maps runtime unavailable after script load.'))
+      }
+    }
+
+    const script = document.createElement('script')
+    script.id = googleMapsScriptId
+    script.async = true
+    script.defer = true
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&callback=${googleMapsCallbackName}`
+    script.addEventListener('error', () => {
+      window.clearTimeout(timeoutId)
+      googleMapsRuntimePromise = null
+      clearRuntimeHooks()
+      reject(new Error('Google Maps script failed to load.'))
+    })
+    document.head.appendChild(script)
+  }).catch((error) => {
+    googleMapsRuntimePromise = null
+    throw error
+  })
+
+  return googleMapsRuntimePromise
+}
+
+export function PlanDetailGoogleMap({
+  stops,
+  nameToCoords,
+  countryCode,
+  activeStopIndex,
+  onSelectStopIndex,
+  googleMapsApiKey = defaultGoogleMapsApiKey,
+  googleMapsMapId = defaultGoogleMapsMapId,
+}: PlanDetailGoogleMapProps) {
+  const mapContainerRef = useRef<HTMLDivElement | null>(null)
+  const mapRef = useRef<GoogleMapInstance | null>(null)
+  const mapsRef = useRef<GoogleMapsNamespace | null>(null)
+  const markerInstancesRef = useRef<GoogleMapMarkerInstance[]>([])
+  const polylineInstanceRef = useRef<GooglePolylineInstance | null>(null)
+
+  const [runtimeStatus, setRuntimeStatus] = useState<'loading' | 'ready' | 'fallback'>(
+    googleMapsApiKey ? 'loading' : 'fallback',
+  )
+  const [mapInstanceVersion, setMapInstanceVersion] = useState(0)
+
+  // Map the stops to coordinates where possible
+  const validPoints = stops
+    .map((stop, index) => {
+      const key = stop.title.trim().toLowerCase().replace(/\s+/g, '')
+      const coords = nameToCoords[key]
+      return coords ? { index, stop, coords } : null
+    })
+    .filter((pt): pt is { index: number; stop: PlanStop; coords: GoogleLatLngLiteral } => pt !== null)
+
+  useEffect(() => {
+    if (!googleMapsApiKey || typeof window === 'undefined') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRuntimeStatus('fallback')
+      return undefined
+    }
+
+    let isMounted = true
+
+    loadGoogleMapsRuntime(googleMapsApiKey)
+      .then((maps) => {
+        if (!isMounted || !mapContainerRef.current) return
+
+        mapsRef.current = maps
+        mapRef.current = new maps.Map(mapContainerRef.current, {
+          center: getCountryCenter(countryCode),
+          clickableIcons: false,
+          disableDefaultUI: false,
+          zoomControl: true,
+          mapTypeControl: false,
+          scaleControl: true,
+          streetViewControl: false,
+          rotateControl: false,
+          fullscreenControl: true,
+          maxZoom: 16,
+          minZoom: 5,
+          zoom: 11,
+          ...(googleMapsMapId ? { mapId: googleMapsMapId } : {}),
+        })
+
+        setRuntimeStatus('ready')
+        setMapInstanceVersion((v) => v + 1)
+      })
+      .catch(() => {
+        if (isMounted) {
+          setRuntimeStatus('fallback')
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [googleMapsApiKey, googleMapsMapId, countryCode])
+
+  // Center/fit map bounds to fit all active markers
+  useEffect(() => {
+    const map = mapRef.current
+    const maps = mapsRef.current
+
+    if (!map || !maps || runtimeStatus !== 'ready') return
+
+    if (validPoints.length === 0) {
+      map.setCenter(getCountryCenter(countryCode))
+      map.setZoom(10)
+      return
+    }
+
+    const bounds = new maps.LatLngBounds()
+    validPoints.forEach((pt) => {
+      bounds.extend(pt.coords)
+    })
+
+    // Padding prevents markers from getting cut off at edge of sticky screen
+    map.fitBounds(bounds, 64)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countryCode, validPoints.length, runtimeStatus, mapInstanceVersion])
+
+  // Render markers and polyline paths
+  useEffect(() => {
+    const map = mapRef.current
+    const maps = mapsRef.current
+    const GoogleMarker = maps?.Marker
+    const GooglePolyline = maps?.Polyline
+
+    // 1. Clear existing markers
+    markerInstancesRef.current.forEach((marker) => marker.setMap(null))
+    markerInstancesRef.current = []
+
+    // 2. Clear existing polyline
+    if (polylineInstanceRef.current) {
+      polylineInstanceRef.current.setMap(null)
+      polylineInstanceRef.current = null
+    }
+
+    if (!map || !maps || !GoogleMarker) return
+
+    // 3. Render numbered markers
+    markerInstancesRef.current = validPoints.map((pt) => {
+      const isSelected = activeStopIndex === pt.index
+      const marker = new GoogleMarker({
+        position: pt.coords,
+        map,
+        clickable: true,
+        label: {
+          text: String(pt.index + 1),
+          color: isSelected ? '#33271E' : '#FFFFFF',
+          fontSize: '12px',
+          fontWeight: '900',
+        },
+        title: pt.stop.title,
+        icon: {
+          path: maps.SymbolPath?.CIRCLE ?? 0,
+          fillColor: isSelected ? '#F36B12' : '#A92B10',
+          fillOpacity: 1.0,
+          strokeColor: isSelected ? '#33271E' : '#FFFFFF',
+          strokeWeight: 2,
+          scale: isSelected ? 16 : 13,
+        },
+      })
+
+      if (onSelectStopIndex) {
+        marker.addListener?.('click', () => {
+          onSelectStopIndex(pt.index)
+        })
+      }
+
+      return marker
+    })
+
+    // 4. Render Dashed Polyline Path connecting stops in order
+    if (GooglePolyline && validPoints.length > 1) {
+      const pathCoordinates = validPoints.map((pt) => pt.coords)
+      
+      const lineSymbol = {
+        path: 'M 0,-1 0,1',
+        strokeOpacity: 1,
+        strokeColor: '#F36B12',
+        scale: 3,
+      }
+
+      polylineInstanceRef.current = new GooglePolyline({
+        path: pathCoordinates,
+        strokeOpacity: 0,
+        icons: [
+          {
+            icon: lineSymbol,
+            offset: '0',
+            repeat: '15px',
+          },
+        ],
+        map,
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validPoints.length, activeStopIndex, runtimeStatus, mapInstanceVersion])
+
+  return (
+    <div
+      data-testid="plan-detail-google-map"
+      className="relative h-full w-full overflow-hidden"
+      role="region"
+      aria-label="여행 코스 동선 지도"
+    >
+      <div ref={mapContainerRef} className="absolute inset-0" aria-hidden={runtimeStatus !== 'ready'} />
+      {runtimeStatus !== 'ready' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#FFF0E4]/60 p-6 text-center">
+          <span className="text-sm font-black text-[#F36B12]">
+            {runtimeStatus === 'loading' ? '지도를 불러오고 있어요…' : '지도를 표시할 수 없습니다.'}
+          </span>
+          <p className="mt-2 text-xs font-semibold text-[#6E5A50]">
+            {runtimeStatus === 'loading'
+              ? '구글 맵 API 설정을 확인하는 중입니다.'
+              : 'Google Maps API 키 또는 연결 상태를 확인해 주세요.'}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
