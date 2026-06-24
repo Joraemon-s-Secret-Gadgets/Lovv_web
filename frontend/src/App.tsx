@@ -232,7 +232,7 @@ function App() {
     ? planner.plannerBasisLabel
     : savedPlanForRoute?.cityPair ?? planner.plannerBasisLabel
   const activePlanDetailDestinationId = isRouteCurrentGeneratedPlan
-    ? undefined
+    ? (planner.plannerCityContext?.cityId ?? undefined)
     : savedPlanForRoute?.destinationId ?? undefined
   const isActivePlanDetailReady = isRouteCurrentGeneratedPlan || Boolean(savedPlanForRoute)
   const activeSavedPlanDetailLike = planner.getSavedPlanLike(activePlanDetailId)
