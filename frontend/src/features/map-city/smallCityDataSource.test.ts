@@ -38,7 +38,7 @@ describe('small-city data source boundary', () => {
     const state = createStaticSmallCityCatalogState()
 
     expect(state.status).toBe('success')
-    expect(state.cities).toHaveLength(46)
+    expect(state.cities).toHaveLength(80)
     expect(state.rejectedRecords).toHaveLength(0)
     expect(state.queryKey).toBe('page=1&page_size=120')
   })

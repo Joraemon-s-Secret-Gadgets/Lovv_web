@@ -35,6 +35,9 @@ type GoogleMapsNamespace = {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance
   Marker?: new (options: Record<string, unknown>) => GoogleMapMarkerInstance
   LatLngBounds: new () => GoogleLatLngBoundsInstance
+  SymbolPath?: {
+    CIRCLE: number
+  }
 }
 
 declare global {
@@ -255,6 +258,14 @@ export function SmallCityGoogleMap({
         map,
         position: { lat: cityMarker.latitude, lng: cityMarker.longitude },
         title: cityMarker.label,
+        icon: {
+          path: maps.SymbolPath?.CIRCLE ?? 0,
+          fillColor: isSelected ? '#F36B12' : '#E73323',
+          fillOpacity: 1.0,
+          strokeColor: isSelected ? '#A92B10' : '#ffffff',
+          strokeWeight: 2,
+          scale: 14,
+        },
       })
 
       marker.addListener?.('click', () => {

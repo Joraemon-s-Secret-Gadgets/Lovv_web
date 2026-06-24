@@ -1186,8 +1186,8 @@ describe('MVP main entry screen', () => {
 
     expect(window.location.pathname).toBe('/map')
     expect(smallCityCounts.KR).toBe(40)
-    expect(smallCityCounts.JP).toBe(6)
-    expect(smallCities).toHaveLength(46)
+    expect(smallCityCounts.JP).toBe(40)
+    expect(smallCities).toHaveLength(80)
     const koreanCityNames = smallCities
       .filter((city) => city.country === 'KR')
       .map((city) => city.nameKo)
@@ -1195,7 +1195,7 @@ describe('MVP main entry screen', () => {
     expect(
       smallCities
         .filter((city) => city.country === 'JP')
-        .every((city) => ['이바라키', '도치기', '군마', '사이타마', '치바', '가나가와'].includes(city.region)),
+        .every((city) => city.region.length > 0),
     ).toBe(true)
     const japaneseCityNames = smallCities
       .filter((city) => city.country === 'JP')
@@ -1235,9 +1235,9 @@ describe('MVP main entry screen', () => {
     fireEvent.click(within(cityMapSection).getByRole('button', { name: '일본' }))
 
     expect(within(cityMapSection).getByRole('button', { name: '일본' })).toHaveAttribute('aria-pressed', 'true')
-    expect(within(cityMapSection).getByText('일본 6곳 / 전체 6곳')).toBeInTheDocument()
-    expect(within(cityMapSection).getByTestId('city-map-google-map')).toHaveAttribute('data-marker-count', '6')
-    expect(within(screen.getByTestId('city-map-result-list')).getAllByRole('button')).toHaveLength(6)
+    expect(within(cityMapSection).getByText('일본 40곳 / 전체 40곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByTestId('city-map-google-map')).toHaveAttribute('data-marker-count', '40')
+    expect(within(screen.getByTestId('city-map-result-list')).getAllByRole('button')).toHaveLength(40)
 
     fireEvent.click(within(cityMapSection).getByRole('button', { name: '한국' }))
 
@@ -1249,10 +1249,10 @@ describe('MVP main entry screen', () => {
     fireEvent.click(within(cityMapSection).getByRole('button', { name: '일본' }))
 
     expect(within(cityMapSection).getByRole('button', { name: '일본' })).toHaveAttribute('aria-pressed', 'true')
-    expect(within(cityMapSection).getByText('일본 6곳 / 전체 6곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByText('일본 40곳 / 전체 40곳')).toBeInTheDocument()
     expect(within(cityMapSection).queryByText(/내부 후보 데이터/)).not.toBeInTheDocument()
     expect(within(cityMapSection).queryByText(/Backend-ready/)).not.toBeInTheDocument()
-    expect(within(screen.getByTestId('city-map-result-list')).queryByRole('button', { name: /오타루/ })).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('city-map-result-list')).getByRole('button', { name: /오타루/ })).toBeInTheDocument()
     expect(within(screen.getByTestId('city-map-result-list')).getAllByRole('button', { name: /가마쿠라/ })).toHaveLength(1)
     expect(
       within(screen.getByTestId('city-map-result-list')).queryByRole('button', { name: /가마쿠라 공예/ }),
@@ -1264,7 +1264,7 @@ describe('MVP main entry screen', () => {
       target: { value: '게곤폭포' },
     })
 
-    expect(within(cityMapSection).getByText('일본 0곳 / 전체 6곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByText('일본 0곳 / 전체 40곳')).toBeInTheDocument()
     expect(within(cityMapSection).getByTestId('city-map-google-map')).toHaveAttribute('data-marker-count', '0')
     expect(screen.queryByTestId('city-map-result-list')).not.toBeInTheDocument()
 
@@ -1272,7 +1272,7 @@ describe('MVP main entry screen', () => {
       target: { value: '닛코' },
     })
 
-    expect(within(cityMapSection).getByText('일본 1곳 / 전체 6곳')).toBeInTheDocument()
+    expect(within(cityMapSection).getByText('일본 1곳 / 전체 40곳')).toBeInTheDocument()
     const filteredGoogleMap = within(cityMapSection).getByTestId('city-map-google-map')
 
     expect(filteredGoogleMap).toHaveAttribute('data-marker-count', '1')
@@ -1285,7 +1285,7 @@ describe('MVP main entry screen', () => {
     expect(within(cityMapSection).getByTestId('city-map-detail-panel').className).toContain('overflow-hidden')
     expect(within(cityMapSection).getByTestId('city-map-detail-sticky-content').className).toContain('overflow-y-auto')
     expect(within(cityMapSection).getByTestId('city-map-detail-panel')).toHaveTextContent('게곤폭포')
-    expect(filteredGoogleMap).toHaveAttribute('data-selected-city-id', 'jp-002')
+    expect(filteredGoogleMap).toHaveAttribute('data-selected-city-id', 'jp-011')
     expect(within(cityMapSection).queryByTestId('city-map-list-detail-panel')).not.toBeInTheDocument()
     smallCityPlaceCategories.forEach((category) => {
       expect(within(cityMapSection).getAllByText(category).length).toBeGreaterThan(0)
@@ -1307,7 +1307,7 @@ describe('MVP main entry screen', () => {
       smallCities.filter((city) => city.country === 'JP'),
     )
 
-    expect(japaneseMarkers).toHaveLength(6)
+    expect(japaneseMarkers).toHaveLength(40)
     expect(japaneseMarkers.every((marker) => marker.label.length > 0)).toBe(true)
     expect(japaneseMarkers.some((marker) => /\s(해안|온천|구시가|축제|공예|숲길|시장|산책)$/.test(marker.label))).toBe(false)
     expect(japaneseMarkers[0]).not.toHaveProperty('themes')
