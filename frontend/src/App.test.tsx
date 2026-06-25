@@ -1193,7 +1193,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByRole('heading', { name: '바다색이 선명한 해안 휴식' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '이 테마를 추천하는 기준' })).toBeInTheDocument()
     expect(screen.getByText('부산 · 오키나와')).toBeInTheDocument()
-    expect(screen.getByText('해운대 · 광안리 · 에메랄드 바다')).toBeInTheDocument()
+    expect(screen.getByText('해운대 · 광안리')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'AI 일정 챗봇' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '이 테마로 일정 계획하기' }))
@@ -1894,7 +1894,7 @@ describe('MVP main entry screen', () => {
       'lovv-onboarding-theme-card',
     )
     expect(screen.getByTestId('onboarding-action-bar')).toHaveClass('lovv-liquid-panel')
-    expect(screen.getByText('온양온천 · 스파 휴양 · 지옥 순례')).toHaveClass(
+    expect(screen.getByText('온양온천 · 스파 휴양')).toHaveClass(
       'mt-auto',
       'w-full',
       'rounded-[12px]',
