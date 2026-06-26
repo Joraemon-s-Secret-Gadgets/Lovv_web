@@ -46,6 +46,7 @@ import type {
   Preference,
   PreferenceProfile,
   PreferenceProfileSource,
+  ThemeId,
 } from './shared/types/app'
 
 const providerLabels: Record<SocialAuthProvider, string> = {
@@ -163,6 +164,54 @@ function App() {
     setSavedPlanNotice: auth.setSavedPlanNotice,
   })
 
+  const handleAddThemePreference = async (themeId: ThemeId) => {
+    const currentThemeIds = auth.selectedPreferenceProfile.selectedThemeIds
+    let nextThemeIds = [...currentThemeIds]
+
+    if (!nextThemeIds.includes(themeId)) {
+      if (nextThemeIds.length >= 3) {
+        nextThemeIds = [...nextThemeIds.slice(1), themeId]
+      } else {
+        nextThemeIds = [...nextThemeIds, themeId]
+      }
+    }
+
+    const nextProfile = {
+      ...auth.selectedPreferenceProfile,
+      selectedThemeIds: nextThemeIds,
+      updatedAt: new Date().toISOString(),
+    }
+
+    try {
+      await preferences.updatePreferenceProfileDirectly(nextProfile)
+    } catch (e) {
+      console.error('Failed to add preference feedback', e)
+    }
+  }
+
+  const handleRemoveThemePreferences = async (themeIdsToRemove: ThemeId[]) => {
+    const currentThemeIds = auth.selectedPreferenceProfile.selectedThemeIds
+    let nextThemeIds = currentThemeIds.filter((id) => !themeIdsToRemove.includes(id))
+
+    if (nextThemeIds.length === 0) {
+      const themes: ThemeId[] = ['healing_rest', 'sea_coast', 'history_tradition', 'food_local', 'nature_trekking', 'art_sense']
+      const fallbackTheme = themes.find((id) => !themeIdsToRemove.includes(id)) ?? 'healing_rest'
+      nextThemeIds = [fallbackTheme]
+    }
+
+    const nextProfile = {
+      ...auth.selectedPreferenceProfile,
+      selectedThemeIds: nextThemeIds,
+      updatedAt: new Date().toISOString(),
+    }
+
+    try {
+      await preferences.updatePreferenceProfileDirectly(nextProfile)
+    } catch (e) {
+      console.error('Failed to save negative feedback', e)
+    }
+  }
+
   useEffect(() => {
     plannerRef.current = {
       currentPlanId: planner.currentPlanId,
@@ -220,6 +269,7 @@ function App() {
       summary: savedPlanForRoute.summary,
       days,
       stops: savedPlanForRoute.stops,
+      selectedRestaurants: savedPlanForRoute.selectedRestaurants ?? [],
     }
   }, [savedPlanForRoute])
 
@@ -235,7 +285,6 @@ function App() {
     ? (planner.plannerCityContext?.cityId ?? planner.generatedPlanDestinationId ?? undefined)
     : savedPlanForRoute?.destinationId ?? undefined
   const isActivePlanDetailReady = isRouteCurrentGeneratedPlan || Boolean(savedPlanForRoute)
-  const activeSavedPlanDetailLike = planner.getSavedPlanLike(activePlanDetailId)
   const isActivePlanDetailSaved = isRouteCurrentGeneratedPlan ? planner.isCurrentPlanSaved : Boolean(savedPlanForRoute)
 
 
@@ -289,6 +338,9 @@ function App() {
     })
 
     if (guardRedirectPath && guardRedirectPath !== location.pathname) {
+      if (!currentUser && routePlanId && guardRedirectPath === '/auth') {
+        setPendingAuthRedirectPath(location.pathname)
+      }
       navigate(guardRedirectPath, { replace: true })
       return
     }
@@ -305,6 +357,8 @@ function App() {
     location.search,
     navigate,
     pendingAuthRedirectPath,
+    routePlanId,
+    setPendingAuthRedirectPath,
     shouldHandleAuthCallback,
   ])
 
@@ -497,7 +551,7 @@ function App() {
   const shouldShowAuthLoadingView = isAuthCallbackLoading || isProtectedRouteAuthSessionLoading
 
   return (
-    <main className="lovv-app-shell lovv-warm-pattern lovv-ambient-background min-h-dvh bg-[#fff8ee] text-[#33271E]">
+    <main className={`lovv-app-shell lovv-warm-pattern lovv-ambient-background min-h-dvh bg-[#fff8ee] text-[#33271E] ${activeView === 'planDetail' ? 'lovv-plan-detail-app-shell' : ''}`}>
       <div className="lovv-app-content">
         {shouldShowAuthLoadingView ? (
           <AuthLoadingView />
@@ -592,10 +646,6 @@ function App() {
                 destinationName={planner.plannerCityContext?.cityName ?? planner.generatedPlanDestinationName ?? undefined}
                 destinationId={activePlanDetailDestinationId}
                 planId={activePlanDetailId}
-                planLike={activeSavedPlanDetailLike}
-                onSelectSavedPlanLike={planner.selectSavedPlanLike}
-                savedPlanLikePending={planner.isSavedPlanLikePending(activePlanDetailId)}
-                savedPlanLikeError={planner.getSavedPlanLikeError(activePlanDetailId)}
                 isSavedPlanDetailLoading={isBackendRoutePlanLoading}
                 saveGeneratedPlan={planner.saveGeneratedPlan}
                 isPlanSaving={planner.isSavingPlan}
@@ -607,6 +657,20 @@ function App() {
                 chatMessages={planner.chatMessages}
                 onReplacePlanStop={isRouteCurrentGeneratedPlan ? planner.replacePlanStop : undefined}
                 onReplacePlanDay={isRouteCurrentGeneratedPlan ? planner.replacePlanDay : undefined}
+                activeThemeIds={preferences.activeThemeIds}
+                onAddThemePreference={handleAddThemePreference}
+                onRemoveThemePreferences={handleRemoveThemePreferences}
+                selectedTravelMonth={planner.selectedTravelMonth}
+                currentUser={auth.currentUser}
+                ownerId={savedPlanForRoute?.ownerId ?? savedPlanForRouteFromQuery?.ownerId}
+                isPublic={savedPlanForRoute?.isPublic ?? savedPlanForRouteFromQuery?.isPublic}
+                isPlanCloning={planner.isPlanCloning}
+                cloneSavedPlan={planner.cloneSavedPlan}
+                isShareStatusUpdating={planner.isShareStatusUpdating[activePlanDetailId]}
+                toggleSavedPlanShareStatus={planner.toggleSavedPlanShareStatus}
+                setPendingAuthRedirectPath={auth.setPendingAuthRedirectPath}
+                addWishlistRestaurant={planner.addWishlistRestaurant}
+                removeWishlistRestaurant={planner.removeWishlistRestaurant}
               />
             </ErrorBoundary>
           ) : activeView === 'mypage' ? (
@@ -623,8 +687,10 @@ function App() {
               getSavedPlanLikeError={planner.getSavedPlanLikeError}
               isSavedPlanLikePending={planner.isSavedPlanLikePending}
               isSavedPlanDeletePending={planner.isSavedPlanDeletePending}
+              isSavedPlanSharePending={(planId) => Boolean(planner.isShareStatusUpdating[planId])}
               openSavedPlanDetail={openSavedPlanDetail}
               onDeleteSavedPlan={planner.deleteSavedPlan}
+              onShareSavedPlan={planner.toggleSavedPlanShareStatus}
               openPreferenceEdit={preferences.enterPreferenceEdit}
               signOut={auth.signOut}
               canLinkSocialAccounts={auth.isApiAuthMode}
@@ -672,6 +738,9 @@ function App() {
                 savedPlanNotice={auth.savedPlanNotice}
                 isPlannerLoading={planner.isPlannerLoading}
                 planDestinationName={planner.plannerCityContext?.cityName ?? planner.generatedPlanDestinationName ?? undefined}
+                activeThemeIds={preferences.activeThemeIds}
+                onAddThemePreference={handleAddThemePreference}
+                onRemoveThemePreferences={handleRemoveThemePreferences}
               />
             </ErrorBoundary>
           )}

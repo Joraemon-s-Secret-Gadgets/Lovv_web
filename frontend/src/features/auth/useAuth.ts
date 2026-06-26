@@ -68,6 +68,7 @@ import type {
   SocialAuthProvider,
   SavedPlan,
   PreferenceProfile,
+  SavedPlanLike,
 } from '../../shared/types/app'
 
 type PreparedAuthRedirectUrls = Partial<Record<SocialAuthProvider, string>>
@@ -224,15 +225,27 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
     (isApiAuthMode && Boolean(authCallbackProvider)) || shouldHandleCognitoAuthCallback
 
   const shouldLoadSavedPlans =
-    isBackendAuthMode && !isAuthSessionRestoring && !shouldHandleAuthCallback && Boolean(currentUser) && Boolean(authAccessToken)
+    isBackendAuthMode &&
+    !isAuthSessionRestoring &&
+    !shouldHandleAuthCallback &&
+    (Boolean(currentUser) || Boolean(routePlanId))
 
   const savedPlansQuery = useQuery({
     queryKey: ['savedPlans', authAccessToken, routePlanId],
     queryFn: async () => {
-      const result = await requestListSavedPlans({ accessToken: authAccessToken as string })
-      let nextSavedPlans = result.savedPlans
-      let nextSavedPlanLikes = result.likes
+      let nextSavedPlans: SavedPlan[] = []
+      let nextSavedPlanLikes: Record<string, Exclude<SavedPlanLike, null>> = {}
       let routePlanLoadFailed = false
+
+      if (currentUser && authAccessToken) {
+        try {
+          const result = await requestListSavedPlans({ accessToken: authAccessToken as string })
+          nextSavedPlans = result.savedPlans
+          nextSavedPlanLikes = result.likes
+        } catch (e) {
+          log.error('AUTH', 'Failed to load user saved plans list', e)
+        }
+      }
 
       const currentPlanId = plannerRef?.current?.currentPlanId ?? null
       const isPlannerReady = plannerRef?.current?.isPlannerReady ?? false
@@ -246,7 +259,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
       ) {
         try {
           const routeSavedPlan = await requestGetSavedPlan(routePlanId, {
-            accessToken: authAccessToken as string,
+            accessToken: authAccessToken ?? undefined,
           })
 
           nextSavedPlans = [routeSavedPlan, ...nextSavedPlans]
@@ -256,7 +269,8 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
               [routeSavedPlan.id]: 'like',
             }
           }
-        } catch {
+        } catch (e) {
+          log.error('AUTH', 'Failed to load route plan', e)
           routePlanLoadFailed = true
         }
       }

@@ -223,6 +223,21 @@ export function usePreferences({
     }
   }
 
+  const updatePreferenceProfileDirectly = async (nextProfile: PreferenceProfile) => {
+    try {
+      const preferenceProfile = isBackendAuthMode
+        ? await updatePreferenceMutation.mutateAsync(nextProfile)
+        : nextProfile
+
+      storePreferenceProfile(preferenceProfile)
+      setSelectedPreferenceProfile(preferenceProfile)
+      return preferenceProfile
+    } catch (e) {
+      console.error('Failed to save preference feedback', e)
+      throw e
+    }
+  }
+
   // Update country track filter (KR vs JP)
   const selectPreferenceCountryTrack = (countryTrack: CountryTrack) => {
     const activeProfile = isPreferenceEditView ? pendingPreferenceProfile : selectedPreferenceProfile
@@ -340,6 +355,7 @@ export function usePreferences({
     selectedThemeHashtags,
     enterPreferenceEdit,
     cancelPreferenceEdit,
+    updatePreferenceProfileDirectly,
   }
 }
 

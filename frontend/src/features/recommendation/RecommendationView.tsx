@@ -1,7 +1,10 @@
-import { Heart, Sparkles, TrendingUp, Users } from 'lucide-react'
+import { Heart, Sparkles, TrendingUp, Users, Compass } from 'lucide-react'
 import type { MonthlyRecommendation } from '../../shared/types/app'
 import { monthlyRecommendations } from '../home/homeContent'
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { requestListPublicItineraries } from '../../shared/api/savedPlansApi'
 
 type RecommendationViewProps = {
   onOpenMonthlyRecommendationDetail: (recommendation: MonthlyRecommendation) => void
@@ -44,6 +47,13 @@ const ageGroups = [
 export function RecommendationView({ onOpenMonthlyRecommendationDetail }: RecommendationViewProps) {
   const [activeAgeTab, setActiveAgeTab] = useState<'20s' | '30s' | '40sPlus'>('20s')
   const currentAgeGroup = ageGroups.find((g) => g.id === activeAgeTab) || ageGroups[0]
+  const navigate = useNavigate()
+
+  const { data: publicItinerariesData, isLoading, isError } = useQuery({
+    queryKey: ['publicItineraries'],
+    queryFn: () => requestListPublicItineraries(),
+  })
+  const publicPlans = publicItinerariesData?.savedPlans ?? []
 
   return (
     <div className="mx-auto min-h-screen max-w-[1440px] px-9 py-10 max-lg:px-8 max-sm:px-5 bg-gradient-to-b from-transparent to-[#FDFBF9]">
@@ -225,6 +235,82 @@ export function RecommendationView({ onOpenMonthlyRecommendationDetail }: Recomm
           </div>
         </section>
       </div>
+
+      {/* Public Share Itineraries Section */}
+      <section className="mt-16 border-t border-[#F4EBE3] pt-12 mb-10" aria-labelledby="public-plans-title">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-tr from-[#A92B10] to-[#F36B12] text-white">
+            <Compass className="size-5" />
+          </div>
+          <div>
+            <h2 id="public-plans-title" className="text-2xl font-black text-[#33271E]">
+              유저들이 공유한 인기 일정
+            </h2>
+            <p className="text-sm text-[#7A5A45]">다른 여행자들이 작성하고 공개한 실시간 알짜 여행 루트를 구경해 보세요!</p>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="flex min-h-[200px] items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="size-8 animate-spin rounded-full border-4 border-[#F3B489] border-t-[#F36B12]" />
+              <p className="text-sm font-semibold text-[#7A5A45]">공유된 일정을 불러오고 있어요...</p>
+            </div>
+          </div>
+        ) : isError ? (
+          <div className="flex min-h-[200px] items-center justify-center rounded-2xl border border-dashed border-[#F3B489] bg-[#fffffa]/40 p-8 text-center">
+            <p className="text-sm font-bold text-[#A92B10]">공유 일정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
+          </div>
+        ) : publicPlans.length === 0 ? (
+          <div className="flex min-h-[200px] items-center justify-center rounded-2xl border border-dashed border-[#F3B489] bg-[#fffffa]/40 p-8 text-center">
+            <div className="max-w-md">
+              <p className="text-base font-black text-[#33271E] mb-2">아직 공개된 일정이 없어요</p>
+              <p className="text-xs text-[#7A5A45]">내가 직접 짠 일정을 마이페이지에서 공개 처리하면 첫 주인공이 될 수 있습니다!</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {publicPlans.map((plan) => (
+              <button
+                key={plan.id}
+                type="button"
+                onClick={() => navigate(`/plans/${encodeURIComponent(plan.id)}`)}
+                className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-white/80 bg-white/50 p-6 text-left shadow-[0_8px_30px_rgb(0,0,0,0.03)] backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-[#F36B12]/30 hover:bg-white/90 hover:shadow-[0_12px_40px_rgba(51,39,30,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12]"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <span className="inline-block rounded-md bg-[#FFF2EA] px-2.5 py-0.5 text-[10px] font-black text-[#F36B12]">
+                      {plan.durationLabel}
+                    </span>
+                    <span className="text-[10px] font-bold text-[#7A5A45]">
+                      {plan.themeTag}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-black text-[#33271E] group-hover:text-[#F36B12] transition-colors truncate">
+                    {plan.title}
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold text-[#7A5A45] truncate">
+                    {plan.cityPair}
+                  </p>
+                  <p className="mt-3 text-xs font-medium leading-relaxed text-[#6E5A50] line-clamp-3 break-keep">
+                    {plan.summary}
+                  </p>
+                </div>
+
+                <div className="mt-6 flex items-center justify-between border-t border-[#F4EBE3] pt-4">
+                  <span className="text-[11px] font-bold text-[#7A5A45]/80">
+                    작성자: {plan.ownerId ? `${plan.ownerId.slice(0, 4)}***` : '여행자'}
+                  </span>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#F36B12]">
+                    <Heart className={`size-3.5 ${plan.isLiked ? 'fill-[#F36B12]' : ''}`} />
+                    <span>좋아요</span>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

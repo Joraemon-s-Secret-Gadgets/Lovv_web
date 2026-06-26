@@ -17,6 +17,7 @@ import {
   requestLikeSavedPlan,
   requestListSavedPlans,
   requestUnlikeSavedPlan,
+  requestUpdateSavedPlanShareStatus,
 } from './shared/api/savedPlansApi'
 import { requestUpdatePreference } from './shared/api/preferencesApi'
 import { requestCreateRecommendation } from './shared/api/recommendationsApi'
@@ -71,6 +72,7 @@ vi.mock('./shared/api/savedPlansApi', async (importOriginal) => {
     requestLikeSavedPlan: vi.fn(),
     requestListSavedPlans: vi.fn(),
     requestUnlikeSavedPlan: vi.fn(),
+    requestUpdateSavedPlanShareStatus: vi.fn(),
   }
 })
 
@@ -240,7 +242,7 @@ const completeGuidedPlanner = async ({
   fireEvent.click(screen.getByRole('button', { name: duration }))
 
   // Preference-based planning now asks for a travel month (1~12 buttons) after the duration,
-  // before free-text conditions. City-context flows generate a draft straight away and skip it.
+  // before free-text conditions. City-context flows call the recommendation API after duration.
   const travelMonthButton = screen.queryByRole('button', { name: '6월' })
   if (travelMonthButton) {
     fireEvent.click(travelMonthButton)
@@ -516,7 +518,9 @@ describe('MVP main entry screen', () => {
     })
 
     expect(screen.getByText('서버 저장 일정')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '좋아요 선택됨' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '공유하기' })).toBeInTheDocument()
+    expect(screen.queryByText('리뷰할 여정')).not.toBeInTheDocument()
+    expect(screen.queryByText('이 일정은 어땠나요?')).not.toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('lovv.savedPlans') ?? '[]')).toMatchObject([
       {
         id: 'server-plan-1',
@@ -569,6 +573,23 @@ describe('MVP main entry screen', () => {
     })
     expect(localStorage.getItem('lovv.savedPlans')).toBeNull()
     expect(localStorage.getItem('lovv.savedPlanLikes')).toBeNull()
+  })
+
+  it('requires login before opening a shared plan link', async () => {
+    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
+    vi.mocked(requestAuthSession).mockResolvedValue(unauthenticatedApiState)
+    vi.mocked(requestGetSavedPlan).mockResolvedValue({
+      ...serverSavedPlan,
+      ownerId: 'other-user',
+      isPublic: true,
+    })
+
+    renderApp('/plans/server-plan-1')
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/auth')
+    })
+    expect(await screen.findByRole('region', { name: '서울/오사카 말고, 간편 로그인' })).toBeInTheDocument()
   })
 
   it('keeps direct saved-plan detail routes open while loading backend detail fallback', async () => {
@@ -986,7 +1007,7 @@ describe('MVP main entry screen', () => {
     expect(sessionStorage.getItem('lovv.auth.oauth.google')).toBeNull()
     expect(localStorage.getItem(authStorageKey)).toBeNull()
     expect(await screen.findByText('외부 로그인 서버 응답이 지연되고 있습니다.')).toBeInTheDocument()
-    expect(screen.getByRole('alert')).toHaveTextContent('잠시 후 다시 시도해 주세요.')
+    expect(screen.getByText('잠시 후 다시 시도해 주세요.')).toBeInTheDocument()
   })
 
   it('renders the Lovv landing content from the MVP Figma frame', () => {
@@ -1433,12 +1454,47 @@ describe('MVP main entry screen', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText('축제 포함 여부와 여행 기간을 고른 뒤 이번 여행 조건을 입력하면 일정 초안이 여기에 표시됩니다.')).not.toBeInTheDocument()
 
+    vi.mocked(requestCreateRecommendation).mockResolvedValueOnce({
+      destination: {
+        destinationId: 'KR-Gyeongju',
+        name: '경주',
+        country: 'KR',
+        region: '경북',
+      },
+      itinerary: {
+        tripType: '2d1n',
+        title: '경주 1박 2일',
+        summary: '경주 API 일정 요약입니다.',
+        durationLabel: '1박 2일',
+        days: [
+          {
+            day: 1,
+            title: '1일차 경주 산책',
+            summary: '황리단길과 첨성대',
+            items: [
+              { itemId: 'g1', sortOrder: 1, timeOfDay: 'morning', title: '황리단길', body: '골목 산책', reason: '역사 테마', moveMinutes: 10 },
+            ],
+          },
+        ],
+      },
+    })
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
-    expect(screen.getByText(/경주 중심으로 알맞은 1박 2일 일정을 구성해 보겠습니다/)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(requestCreateRecommendation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryType: 'map_marker',
+          destinationId: expect.any(String),
+          tripType: '2d1n',
+        }),
+      )
+    })
+    await waitFor(() => {
+      expect(screen.getAllByText(/경주 API 일정 요약입니다/).length).toBeGreaterThan(0)
+    })
     expect(screen.getByRole('heading', { name: '경주' })).toBeInTheDocument()
     expect(screen.getByText(/경주 · 경북 1박 2일 초안/)).toBeInTheDocument()
-    expect(screen.getByText(/선택한 소도시의 장소 단서와 여행 기간을 중심으로 구성합니다/)).toBeInTheDocument()
+    expect(screen.queryByText(/경주 중심으로 알맞은 1박 2일 일정을 구성해 보겠습니다/)).not.toBeInTheDocument()
     expect(screen.queryByText('축제 제외 반영')).not.toBeInTheDocument()
     expect(screen.queryByText('축제 조건 없음 반영')).not.toBeInTheDocument()
     expect(screen.getByLabelText('조건 해석 결과')).toHaveTextContent('역사·전통')
@@ -1503,10 +1559,35 @@ describe('MVP main entry screen', () => {
 
     expect(screen.getByRole('log', { name: 'AI 일정 대화' })).toHaveTextContent('진주(한국 경남)를 기준으로 시작할게요.')
     expect(screen.queryByRole('button', { name: '축제 포함' })).not.toBeInTheDocument()
+    vi.mocked(requestCreateRecommendation).mockResolvedValueOnce({
+      destination: {
+        destinationId: 'KR-Jinju',
+        name: '진주',
+        country: 'KR',
+        region: '경남',
+      },
+      itinerary: {
+        tripType: '2d1n',
+        title: '진주 1박 2일',
+        summary: '진주 API 일정 요약입니다.',
+        durationLabel: '1박 2일',
+        days: [
+          {
+            day: 1,
+            title: '1일차 진주 산책',
+            summary: '진주성과 남강',
+            items: [
+              { itemId: 'j1', sortOrder: 1, timeOfDay: 'morning', title: '진주성', body: '성곽 산책', reason: '축제와 역사', moveMinutes: 12 },
+            ],
+          },
+        ],
+      },
+    })
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
     expect(screen.queryByText('여행 예정 월을 골라주세요')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '진주 · 경남 1박 2일 초안' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '진주 · 경남 1박 2일 초안' })).toBeInTheDocument()
+    expect(screen.getAllByText(/진주 API 일정 요약입니다/).length).toBeGreaterThan(0)
   })
 
   it('rotates the main hero theme every 10 seconds with theme-specific slogan styling', () => {
@@ -1698,8 +1779,9 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
 
     expect(window.location.pathname).toBe('/planner')
-    expect(screen.getByText('바다·해안 기준 테마로 시작합니다.')).toBeInTheDocument()
-    expect(screen.getByText('#바다')).toBeInTheDocument()
+    expect(screen.getByText('취향 반영')).toBeInTheDocument()
+    expect(screen.queryByText('바다·해안 기준 테마로 시작합니다.')).toBeNull()
+    expect(screen.queryByText('#바다')).toBeNull()
   })
 
   it('shows planner state header and updates schedule status after choices', async () => {
@@ -1715,30 +1797,30 @@ describe('MVP main entry screen', () => {
     expect(summary.querySelector('ol')).toHaveClass('grid-cols-3')
     expect(within(summary).getByText('취향 반영')).toBeInTheDocument()
     expect(within(summary).getAllByText('완료')[0]).toBeInTheDocument()
-    expect(within(summary).getByText('자연·트레킹 기준 테마로 시작합니다.')).toBeInTheDocument()
-    expect(within(summary).getByText('#자연')).toBeInTheDocument()
+    expect(within(summary).queryByText('자연·트레킹 기준 테마로 시작합니다.')).toBeNull()
+    expect(within(summary).queryByText('#자연')).toBeNull()
     expect(within(summary).getByText('후보 탐색')).toBeInTheDocument()
     expect(within(summary).getByText('진행 중')).toBeInTheDocument()
-    expect(within(summary).getByText('자연·트레킹')).toBeInTheDocument()
+    expect(within(summary).queryByText('자연·트레킹')).toBeNull()
     expect(within(summary).getByText('일정 구성')).toBeInTheDocument()
-    expect(within(summary).getByText('여행 기간을 선택해 주세요.')).toBeInTheDocument()
+    expect(within(summary).queryByText('여행 기간을 선택해 주세요.')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
 
-    // Travel month is asked before free-text conditions.
-    expect(within(summary).getByText('여행 예정 월을 선택해 주세요.')).toBeInTheDocument()
+    // Travel month selection buttons are shown
+    expect(screen.getByRole('button', { name: '6월' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '6월' }))
 
-    expect(within(summary).getByText('동행, 관심사, 걷는 정도를 자연어로 입력하면 초안이 완성됩니다.')).toBeInTheDocument()
-    expect(within(summary).getByText('조건 입력 대기')).toBeInTheDocument()
+    expect(within(summary).queryByText('동행, 관심사, 걷는 정도를 자연어로 입력하면 초안이 완성됩니다.')).toBeNull()
+    expect(within(summary).queryByText('조건 입력 대기')).toBeNull()
 
     fireEvent.change(screen.getByRole('textbox', { name: '여행 조건 입력' }), {
       target: { value: '숲길 위주로 덜 걷고 싶어요' },
     })
     fireEvent.click(screen.getByRole('button', { name: '메시지 보내기' }))
 
-    await screen.findByText('초안 준비')
-    expect(within(summary).getByText(/1박 2일 · 6월 · 자연·트레킹/)).toBeInTheDocument()
+    await screen.findByRole('button', { name: '좋아요' })
+    expect(within(summary).queryByText(/1박 2일 · 6월 · 자연·트레킹/)).toBeNull()
   })
 
   it('opens floating quick actions for chat and top navigation', () => {
@@ -2103,7 +2185,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByText('전시랑 편집숍 위주로 덜 걷고 싶어요')).toBeInTheDocument()
     await screen.findByText('추천 서버 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요.')
     expect(screen.getByRole('heading', { name: '예술·감성 2박 3일 초안' })).toBeInTheDocument()
-    expect(screen.getAllByText('덜 걷는 일정').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText('덜 걷는 일정')).toBeNull()
     expect(screen.getByText(/전시와 편집숍 사이 이동을 줄이는 쪽/)).toBeInTheDocument()
   })
 
@@ -2290,6 +2372,8 @@ describe('MVP main entry screen', () => {
       duration: '2박 3일',
       query: '온천 숙소에 오래 머물고 덜 걷고 싶어요',
     })
+    // Click "좋아요" on the chat workspace first
+    fireEvent.click(screen.getByRole('button', { name: '좋아요' }))
     fireEvent.click(screen.getByRole('button', { name: '세부 일정 보기' }))
 
     expect(window.location.pathname).toMatch(/^\/plans\/.+/)
@@ -2316,10 +2400,12 @@ describe('MVP main entry screen', () => {
     expect(within(detailView).getByText('3일차 추천 일정')).toBeInTheDocument()
     fireEvent.click(within(detailView).getByRole('tab', { name: '1일차' }))
 
-    fireEvent.click(within(detailView).getByRole('button', { name: '좋아요' }))
+    // PlanDetailView does not have "좋아요" button anymore
+    expect(within(detailView).queryByRole('button', { name: '좋아요' })).toBeNull()
+    expect(within(detailView).queryByRole('button', { name: '좋아요 선택됨' })).toBeNull()
+
     fireEvent.click(within(detailView).getByRole('button', { name: '마이페이지에 저장' }))
 
-    expect(within(detailView).getByRole('button', { name: '좋아요 선택됨' })).toBeInTheDocument()
     expect(within(detailView).getByRole('button', { name: '마이페이지에 저장됨' })).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('lovv.savedPlanLikes') ?? '{}')).toEqual(
       expect.objectContaining({
@@ -2369,7 +2455,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByRole('heading', { name: 'AI 일정 챗봇' })).toBeInTheDocument()
   })
 
-  it('toggles saved itinerary likes across My Page and detail', async () => {
+  it('shows saved itinerary share action in My Page and keeps detail likes hidden', async () => {
     seedUser()
     seedPreference('아산/온양 · 벳푸')
     renderApp('/planner')
@@ -2393,35 +2479,20 @@ describe('MVP main entry screen', () => {
     expect(savedPlanCard).not.toBeNull()
     expect(within(savedPlanCard!).queryByText(/현재 좋아요/)).not.toBeInTheDocument()
     expect(within(savedPlanCard!).queryByText('없음')).not.toBeInTheDocument()
-    expect(within(savedPlanCard!).getByRole('button', { name: '좋아요' })).toHaveAttribute('aria-pressed', 'false')
+    expect(within(savedPlanCard!).getByRole('button', { name: '공유하기' })).toBeInTheDocument()
+    expect(within(savedPlanCard!).queryByRole('button', { name: '좋아요' })).not.toBeInTheDocument()
     expect(within(savedPlanCard!).queryByRole('button', { name: '싫어요' })).not.toBeInTheDocument()
 
-    fireEvent.click(within(savedPlanCard!).getByRole('button', { name: '좋아요' }))
-
-    expect(within(savedPlanCard!).getByRole('button', { name: '좋아요 선택됨' })).toHaveAttribute('aria-pressed', 'true')
-    expect(JSON.parse(localStorage.getItem('lovv.savedPlanLikes') ?? '{}')).toMatchObject({
-      [savedPlanId]: 'like',
-    })
-
-    fireEvent.click(within(savedPlanCard!).getByRole('button', { name: '좋아요 선택됨' }))
-
-    expect(within(savedPlanCard!).queryByText(/현재 좋아요/)).not.toBeInTheDocument()
-    expect(within(savedPlanCard!).queryByText('없음')).not.toBeInTheDocument()
-    expect(within(savedPlanCard!).getByRole('button', { name: '좋아요' })).toHaveAttribute('aria-pressed', 'false')
     expect(JSON.parse(localStorage.getItem('lovv.savedPlanLikes') ?? '{}')).not.toHaveProperty(savedPlanId)
 
-    fireEvent.click(within(savedPlanCard!).getByRole('button', { name: '좋아요' }))
     fireEvent.click(within(savedPlanCard!).getByRole('button', { name: '상세 보기' }))
 
     expect(window.location.pathname).toBe(`/plans/${encodeURIComponent(savedPlanId)}`)
     const detailView = screen.getByRole('region', { name: '세부 일정 상세' })
 
-    expect(within(detailView).getByRole('button', { name: '좋아요 선택됨' })).toBeInTheDocument()
-    expect(within(detailView).queryByRole('button', { name: '싫어요' })).not.toBeInTheDocument()
-    fireEvent.click(within(detailView).getByRole('button', { name: '좋아요 선택됨' }))
-
-    expect(within(detailView).getByRole('button', { name: '좋아요' })).toHaveAttribute('aria-pressed', 'false')
-    expect(JSON.parse(localStorage.getItem('lovv.savedPlanLikes') ?? '{}')).not.toHaveProperty(savedPlanId)
+    expect(within(detailView).queryByRole('button', { name: '좋아요' })).toBeNull()
+    expect(within(detailView).queryByRole('button', { name: '좋아요 선택됨' })).toBeNull()
+    expect(within(detailView).queryByRole('button', { name: '싫어요' })).toBeNull()
   })
 
   it('keeps a saved itinerary when My Page deletion is not confirmed', async () => {
@@ -2475,7 +2546,7 @@ describe('MVP main entry screen', () => {
     const savedPlanCard = within(savedPlanList).getByText('온천·휴양 1박 2일 초안').closest('li')
 
     expect(savedPlanCard).not.toBeNull()
-    fireEvent.click(within(savedPlanCard!).getByRole('button', { name: '좋아요' }))
+    localStorage.setItem('lovv.savedPlanLikes', JSON.stringify({ [savedPlanId]: 'like' }))
 
     expect(JSON.parse(localStorage.getItem('lovv.savedPlanLikes') ?? '{}')).toMatchObject({
       [savedPlanId]: 'like',
@@ -2582,7 +2653,7 @@ describe('MVP main entry screen', () => {
     expect(JSON.parse(localStorage.getItem('lovv.savedPlans') ?? '[]')).toHaveLength(0)
   })
 
-  it('calls backend saved itinerary like and unlike APIs in API mode', async () => {
+  it('shows My Page share action without calling backend saved itinerary like APIs in API mode', async () => {
     vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
     vi.mocked(requestAuthSession).mockResolvedValue(restoredGoogleAuthState)
     vi.mocked(requestListSavedPlans).mockResolvedValue({
@@ -2598,30 +2669,80 @@ describe('MVP main entry screen', () => {
       expect(screen.getByText('서버 저장 일정')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: '좋아요' }))
-
-    await waitFor(() => {
-      expect(requestLikeSavedPlan).toHaveBeenCalledWith('server-plan-1', {
-        accessToken: 'restored-access-token',
-      })
-    })
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: '좋아요 선택됨' })).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: '좋아요 선택됨' }))
-
-    await waitFor(() => {
-      expect(requestUnlikeSavedPlan).toHaveBeenCalledWith('server-plan-1', {
-        accessToken: 'restored-access-token',
-      })
-    })
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: '좋아요' })).toHaveAttribute('aria-pressed', 'false')
-    })
+    expect(screen.getByRole('button', { name: '공유하기' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '좋아요' })).not.toBeInTheDocument()
+    expect(requestLikeSavedPlan).not.toHaveBeenCalled()
+    expect(requestUnlikeSavedPlan).not.toHaveBeenCalled()
   })
 
-  it('keeps saved itinerary like state unchanged when the API-mode like request fails', async () => {
+  it('publishes a private saved itinerary before sharing from My Page', async () => {
+    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      clipboard: { writeText },
+      share: undefined,
+    })
+    vi.mocked(requestAuthSession).mockResolvedValue(restoredGoogleAuthState)
+    vi.mocked(requestListSavedPlans).mockResolvedValue({
+      savedPlans: [{ ...serverSavedPlan, isPublic: false }],
+      likes: {},
+    })
+    vi.mocked(requestUpdateSavedPlanShareStatus).mockResolvedValue({
+      ...serverSavedPlan,
+      isPublic: true,
+    })
+
+    renderApp('/mypage')
+
+    await waitFor(() => {
+      expect(screen.getByText('서버 저장 일정')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '공유하기' }))
+
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('공개 일정으로 전환해야 합니다'))
+    await waitFor(() => {
+      expect(requestUpdateSavedPlanShareStatus).toHaveBeenCalledWith('server-plan-1', true, {
+        accessToken: 'restored-access-token',
+      })
+    })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/plans/server-plan-1`)
+    })
+    expect(screen.getByText('공유 링크를 준비했어요.')).toBeInTheDocument()
+  })
+
+  it('keeps a private saved itinerary unshared when publish confirmation is cancelled', async () => {
+    vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
+    vi.stubGlobal('confirm', vi.fn(() => false))
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      clipboard: { writeText },
+      share: undefined,
+    })
+    vi.mocked(requestAuthSession).mockResolvedValue(restoredGoogleAuthState)
+    vi.mocked(requestListSavedPlans).mockResolvedValue({
+      savedPlans: [{ ...serverSavedPlan, isPublic: false }],
+      likes: {},
+    })
+
+    renderApp('/mypage')
+
+    await waitFor(() => {
+      expect(screen.getByText('서버 저장 일정')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '공유하기' }))
+
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('공개 일정으로 전환해야 합니다'))
+    expect(requestUpdateSavedPlanShareStatus).not.toHaveBeenCalled()
+    expect(writeText).not.toHaveBeenCalled()
+  })
+
+  it('keeps saved itinerary share action independent from API-mode like failures', async () => {
     vi.stubEnv('VITE_LOVV_AUTH_MODE', 'api')
     vi.mocked(requestAuthSession).mockResolvedValue(restoredGoogleAuthState)
     vi.mocked(requestListSavedPlans).mockResolvedValue({
@@ -2636,18 +2757,9 @@ describe('MVP main entry screen', () => {
       expect(screen.getByText('서버 저장 일정')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: '좋아요' }))
-
-    await waitFor(() => {
-      expect(requestLikeSavedPlan).toHaveBeenCalledWith('server-plan-1', {
-        accessToken: 'restored-access-token',
-      })
-    })
-    await waitFor(() => {
-      expect(screen.getByText('좋아요를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.')).toBeInTheDocument()
-    })
-
-    expect(screen.getByRole('button', { name: '좋아요' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: '공유하기' })).toBeInTheDocument()
+    expect(screen.queryByText('좋아요를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.')).not.toBeInTheDocument()
+    expect(requestLikeSavedPlan).not.toHaveBeenCalled()
     expect(JSON.parse(localStorage.getItem('lovv.savedPlanLikes') ?? '{}')).toEqual({})
   })
 

@@ -127,6 +127,18 @@ export const getGuardRedirectPath = ({
     return isAuthenticated ? getDefaultRoutePath(true, hasCompletedPreference) : null
   }
 
+  if (canonicalView === 'planDetail') {
+    if (!isAuthenticated) {
+      return canonicalRoutePaths.auth
+    }
+
+    if (!hasRoutePlan) {
+      return canonicalRoutePaths.planner
+    }
+
+    return null
+  }
+
   if (!isAuthenticated) {
     return canonicalRoutePaths.auth
   }
@@ -141,10 +153,6 @@ export const getGuardRedirectPath = ({
 
   if (!hasCompletedPreference) {
     return canonicalRoutePaths.onboarding
-  }
-
-  if (canonicalView === 'planDetail' && !hasRoutePlan) {
-    return canonicalRoutePaths.planner
   }
 
   return null
