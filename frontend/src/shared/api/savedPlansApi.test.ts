@@ -95,7 +95,7 @@ describe('saved plans API adapter', () => {
   it('keeps endpoint names aligned with the current saved_plans API boundary', () => {
     expect(savedPlansApiEndpoints.list).toBe('/api/v1/me/itineraries')
     expect(savedPlansApiEndpoints.create).toBe('/api/v1/me/itineraries')
-    expect(savedPlansApiEndpoints.detail('plan/a')).toBe('/api/v1/me/itineraries/plan%2Fa')
+    expect(savedPlansApiEndpoints.detail('plan/a')).toBe('/api/v1/itineraries/plan%2Fa')
     expect(savedPlansApiEndpoints.delete('plan/a')).toBe('/api/v1/me/itineraries/plan%2Fa')
     expect(savedPlansApiEndpoints.like('plan/a')).toBe('/api/v1/me/itineraries/plan%2Fa/reactions/like')
     expect(savedPlansApiEndpoints.unlike('plan/a')).toBe('/api/v1/me/itineraries/plan%2Fa/reactions/like')
@@ -305,6 +305,9 @@ describe('saved plans API adapter', () => {
                   title: '황리단길',
                   body: '골목을 걷습니다.',
                   reason: '전통 테마와 맞습니다.',
+                  source: 'wishlist',
+                  lockLevel: 'user_added',
+                  wishlistRestaurantId: 'meal-1',
                 },
               ],
             },
@@ -326,9 +329,20 @@ describe('saved plans API adapter', () => {
       title: '서버 상세 일정',
       cityPair: '경주',
       isLiked: false,
+      days: [
+        {
+          stops: [
+            {
+              source: 'wishlist',
+              lockLevel: 'user_added',
+              wishlistRestaurantId: 'meal-1',
+            },
+          ],
+        },
+      ],
     })
 
-    expect(fetchImpl).toHaveBeenCalledWith('/api/v1/me/itineraries/server-plan-1', {
+    expect(fetchImpl).toHaveBeenCalledWith('/api/v1/itineraries/server-plan-1', {
       method: 'GET',
       headers: {
         Authorization: 'Bearer access-token',

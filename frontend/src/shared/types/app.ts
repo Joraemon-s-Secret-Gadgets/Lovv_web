@@ -88,8 +88,15 @@ export type PlanStop = {
   title: string
   body: string
   reason: string
+  source?: 'agent' | 'wishlist' | 'manual'
+  lockLevel?: 'none' | 'user_added' | 'pinned'
+  wishlistRestaurantId?: string
   contentId?: string
   imageUrl?: string
+  latitude?: number | null
+  longitude?: number | null
+  moveDurationSeconds?: number | null
+  moveDistanceMeters?: number | null
 }
 
 export type RoutePathCoordinate = [number, number]
@@ -109,6 +116,18 @@ export type PlanRoute = {
   }>
 }
 
+export type SelectedMealPlace = {
+  id: string
+  placeName: string
+  roadAddressName?: string
+  addressName?: string
+  phone?: string
+  placeUrl?: string
+  source: 'kakao'
+  lat?: number
+  lng?: number
+}
+
 export type PlanDay = {
   day: number
   title: string
@@ -125,6 +144,7 @@ export type PlanDraft = {
   summary: string
   days: PlanDay[]
   stops: PlanStop[]
+  selectedRestaurants?: SelectedMealPlace[]
   userNotice?: string[]
 }
 
@@ -154,8 +174,11 @@ export type SavedPlan = {
   summary: string
   days?: PlanDay[]
   stops: PlanStop[]
+  selectedRestaurants?: SelectedMealPlace[]
   destinationId?: string
   isLiked?: boolean
+  isPublic?: boolean
+  copiedFromItineraryId?: string
 
   createdAt: string
   savedAt: string

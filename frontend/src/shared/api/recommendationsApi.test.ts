@@ -142,6 +142,29 @@ describe('mapRecommendationToDraft — PlanDraft 구조', () => {
     expect(mapRecommendationToDraft(res).days[0].route).toEqual(route)
   })
 
+  it('지도와 저장 상세에 필요한 stop 좌표와 ORS 이동값을 보존', () => {
+    const res = makeResponse([
+      makeDay(1, [
+        makeItem({
+          title: '안목해변',
+          latitude: 37.771,
+          longitude: 128.947,
+          imageUrl: 'https://example.com/anmok.jpg',
+          moveDurationSeconds: 780,
+          moveDistanceMeters: 4200,
+        } as unknown as Partial<RecommendationApiResponse['itinerary']['days'][0]['items'][0]>),
+      ]),
+    ])
+
+    const stop = mapRecommendationToDraft(res).days[0].stops[0] as Record<string, unknown>
+
+    expect(stop.latitude).toBe(37.771)
+    expect(stop.longitude).toBe(128.947)
+    expect(stop.imageUrl).toBe('https://example.com/anmok.jpg')
+    expect(stop.moveDurationSeconds).toBe(780)
+    expect(stop.moveDistanceMeters).toBe(4200)
+  })
+
   it('moveMinutes → "N분" 형식', () => {
     const res = makeResponse([makeDay(1, [makeItem({ moveMinutes: 20 })])])
     expect(mapRecommendationToDraft(res).days[0].stops[0].move).toBe('20분')

@@ -58,8 +58,12 @@ export type RecommendationApiResponse = {
         body: string
         reason: string
         moveMinutes: number
+        moveDurationSeconds?: number | null
+        moveDistanceMeters?: number | null
         latitude?: number | null
         longitude?: number | null
+        imageUrl?: string | null
+        image_url?: string | null
       }>
     }>
   }
@@ -117,6 +121,11 @@ export const mapRecommendationToDraft = (apiResponse: RecommendationApiResponse)
         body: item.body || '',
         reason: item.reason || '',
         contentId: item.contentId ?? undefined,
+        imageUrl: item.imageUrl?.trim() || item.image_url?.trim() || undefined,
+        latitude: item.latitude ?? undefined,
+        longitude: item.longitude ?? undefined,
+        moveDurationSeconds: item.moveDurationSeconds ?? undefined,
+        moveDistanceMeters: item.moveDistanceMeters ?? undefined,
       }
     })
 
