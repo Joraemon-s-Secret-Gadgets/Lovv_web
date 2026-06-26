@@ -169,7 +169,6 @@ export const smallCityMapBounds: Record<SmallCityCountry, MapBounds> = {
   },
 }
 
-const visibleJapaneseMapRegions = new Set(['이바라키', '도치기', '군마', '사이타마', '치바', '가나가와'])
 
 const koreanCitySeeds: CitySeed[] = [
   {
@@ -670,9 +669,7 @@ const createCity = (
 
 export const koreanSmallCities = koreanCitySeeds.map((seed, index) => createCity(seed, 'KR', index))
 
-export const japaneseSmallCities = japaneseBaseSeeds
-  .filter((seed) => visibleJapaneseMapRegions.has(seed.region))
-  .map((seed, index) => createCity(seed, 'JP', index))
+export const japaneseSmallCities = japaneseBaseSeeds.map((seed, index) => createCity(seed, 'JP', index))
 
 export const smallCities = [...koreanSmallCities, ...japaneseSmallCities]
 

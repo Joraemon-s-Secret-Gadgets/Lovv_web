@@ -107,13 +107,16 @@ export function usePreferences({
   // Generate previews list for selected themes
   const selectedPreviewImages = useMemo(() => {
     const prefs = activeThemePreferences.length > 0 ? activeThemePreferences : [fallbackPreferenceSelection]
+    const japaneseCities = ['벳푸', '오키나와', '교토', '오사카', '닛코', '가나자와']
     return prefs.flatMap((preference: Preference, preferenceIndex: number) =>
-      preference.coverImages.map((coverImage: { city: string; image: string }, coverImageIndex: number) => ({
-        ...coverImage,
-        key: `${preference.themeId}-${coverImageIndex}-${coverImage.city}`,
-        tag: preference.tag,
-        themeIndex: preferenceIndex,
-      })),
+      preference.coverImages
+        .filter((coverImage) => !japaneseCities.includes(coverImage.city))
+        .map((coverImage: { city: string; image: string }, coverImageIndex: number) => ({
+          ...coverImage,
+          key: `${preference.themeId}-${coverImageIndex}-${coverImage.city}`,
+          tag: preference.tag,
+          themeIndex: preferenceIndex,
+        })),
     )
   }, [activeThemePreferences, fallbackPreferenceSelection])
 
@@ -217,6 +220,21 @@ export function usePreferences({
       setThemeSelectionNotice('취향 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.')
     } finally {
       setIsPreferenceSaving(false)
+    }
+  }
+
+  const updatePreferenceProfileDirectly = async (nextProfile: PreferenceProfile) => {
+    try {
+      const preferenceProfile = isBackendAuthMode
+        ? await updatePreferenceMutation.mutateAsync(nextProfile)
+        : nextProfile
+
+      storePreferenceProfile(preferenceProfile)
+      setSelectedPreferenceProfile(preferenceProfile)
+      return preferenceProfile
+    } catch (e) {
+      console.error('Failed to save preference feedback', e)
+      throw e
     }
   }
 
@@ -337,6 +355,7 @@ export function usePreferences({
     selectedThemeHashtags,
     enterPreferenceEdit,
     cancelPreferenceEdit,
+    updatePreferenceProfileDirectly,
   }
 }
 

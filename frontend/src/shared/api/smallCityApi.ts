@@ -9,6 +9,8 @@ import {
   type SmallCity,
   type SmallCityCountry,
   type SmallCityTheme,
+  smallCities,
+  createSmallCityDetail,
 } from '../../features/map-city/smallCities'
 import { log } from '../logger'
 
@@ -763,7 +765,10 @@ export class SmallCityApiRequestError extends Error {
   }
 }
 
-const defaultSmallCityApiBaseUrl = import.meta.env.VITE_LOVV_API_BASE_URL?.trim() ?? ''
+const defaultSmallCityApiBaseUrl =
+  import.meta.env.VITE_LOVV_API_BASE_URL?.trim() ??
+  import.meta.env.VITE_API_BASE_URL?.trim() ??
+  ''
 
 const isSmallCityApiRecordObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -853,19 +858,239 @@ export const requestListSmallCities = async (
 ) => {
   const queryString = createSmallCityApiQuery(params)
   const endpoint = queryString ? `${smallCityApiEndpoints.list}?${queryString}` : smallCityApiEndpoints.list
-  const response = await requestSmallCityApiJson<SmallCityApiListResponse>(
-    endpoint,
-    {
-      method: 'GET',
-      headers: createSmallCityApiHeaders(options),
-    },
-    options,
-  )
+  try {
+    const response = await requestSmallCityApiJson<SmallCityApiListResponse>(
+      endpoint,
+      {
+        method: 'GET',
+        headers: createSmallCityApiHeaders(options),
+      },
+      options,
+    )
 
-  return adaptSmallCityApiResponse({
-    data: Array.isArray(response.data) ? response.data : [],
-    page: isSmallCityApiRecordObject(response.page)
-      ? (response.page as SmallCityApiPage)
-      : { page: 1, pageSize: defaultSmallCityApiPageSize, total: 0, hasNext: false },
-  })
+    return adaptSmallCityApiResponse({
+      data: Array.isArray(response.data) ? response.data : [],
+      page: isSmallCityApiRecordObject(response.page)
+        ? (response.page as SmallCityApiPage)
+        : { page: 1, pageSize: defaultSmallCityApiPageSize, total: 0, hasNext: false },
+    })
+  } catch (error) {
+    log.error('CITY', `Failed to fetch small cities list from live api: ${error instanceof Error ? error.message : error}. Falling back to static catalog.`)
+    
+    let filteredCities = smallCities
+    if (params.country) {
+      filteredCities = smallCities.filter((city) => city.country === params.country)
+    }
+
+    const mockData = filteredCities.map((city) => ({
+      id: city.id,
+      country: city.country,
+      country_label: countryLabels[city.country],
+      region: city.region,
+      name_ko: city.nameKo,
+      name_local: city.nameLocal ?? null,
+      latitude: city.latitude,
+      longitude: city.longitude,
+      themes: city.themes,
+      summary: city.summary,
+      detail: city.detail,
+      highlights: city.highlights,
+      route_seed: city.routeSeed,
+      image_url: city.image ?? null,
+      festivalCount: city.festivalCount ?? 0,
+      festivals: (city.festivals ?? []).map((festival) => ({
+        placeId: festival.id,
+        cityId: city.id,
+        type: 'festival',
+        title: festival.name,
+        summary: festival.summary,
+        latitude: city.latitude,
+        longitude: city.longitude,
+        theme: '축제',
+        themeTags: festival.themeTags ?? ['축제'],
+        startDate: festival.startDate ?? null,
+        endDate: festival.endDate ?? null,
+        visitMonths: festival.visitMonths ?? null,
+      })),
+      internal_meta: {
+        source: 'fallback-static-catalog',
+      },
+    }))
+
+    return adaptSmallCityApiResponse({
+      data: mockData,
+      page: {
+        page: 1,
+        pageSize: Math.max(defaultSmallCityApiPageSize, mockData.length),
+        total: mockData.length,
+        hasNext: false,
+      },
+    })
+  }
+}
+
+export const requestGetSmallCityDetail = async (
+  cityId: string,
+  options: SmallCityApiRequestOptions = {},
+) => {
+  const endpoint = smallCityApiEndpoints.detail(cityId)
+  try {
+    const response = await requestSmallCityApiJson<SmallCityApiDetailResponse>(
+      endpoint,
+      {
+        method: 'GET',
+        headers: createSmallCityApiHeaders(options),
+      },
+      options,
+    )
+
+    return adaptSmallCityDetailApiResponse(response)
+  } catch (error) {
+    log.error('CITY', `Failed to fetch small city detail for ${cityId}: ${error instanceof Error ? error.message : error}. Falling back to static detail.`)
+    
+    const city = smallCities.find((c) => c.id === cityId)
+    if (!city) {
+      throw error
+    }
+
+    const detail = createSmallCityDetail(city)
+    const placeGroups: SmallCityApiPlaceGroups = {}
+    Object.entries(detail.placesByCategory).forEach(([category, places]) => {
+      placeGroups[category as SmallCityPlaceCategory] = places.map((place) => ({
+        id: place.id,
+        placeId: place.id,
+        city_id: place.cityId,
+        cityId: place.cityId,
+        category: place.category,
+        categoryName: place.categoryName ?? place.category,
+        name: place.name,
+        summary: place.summary,
+        address: place.addressName ?? null,
+        address_name: place.addressName ?? null,
+        roadAddress: place.roadAddressName ?? place.addressName ?? null,
+        road_address_name: place.roadAddressName ?? place.addressName ?? null,
+        phone: place.phone ?? null,
+        latitude: place.latitude ?? null,
+        longitude: place.longitude ?? null,
+        theme: place.theme ?? null,
+        themeTags: place.themeTags ?? null,
+        startDate: place.startDate ?? null,
+        endDate: place.endDate ?? null,
+        visitMonths: place.visitMonths ?? null,
+        kakao_place_id: null,
+        placeUrl: place.placeUrl ?? null,
+        place_url: place.placeUrl ?? null,
+      }))
+    })
+
+    const mockDetailResponse: SmallCityApiDetailResponse = {
+      data: {
+        id: city.id,
+        country: city.country,
+        country_label: countryLabels[city.country],
+        region: city.region,
+        name_ko: city.nameKo,
+        name_local: city.nameLocal ?? null,
+        latitude: city.latitude,
+        longitude: city.longitude,
+        themes: city.themes,
+        summary: city.summary,
+        detail: city.detail,
+        highlights: city.highlights,
+        route_seed: city.routeSeed,
+        image_url: city.image ?? null,
+        festivalCount: city.festivalCount ?? 0,
+        festivals: (city.festivals ?? []).map((festival) => ({
+          placeId: festival.id,
+          cityId: city.id,
+          type: 'festival',
+          title: festival.name,
+          summary: festival.summary,
+          latitude: city.latitude,
+          longitude: city.longitude,
+          theme: '축제',
+          themeTags: festival.themeTags ?? ['축제'],
+          startDate: festival.startDate ?? null,
+          endDate: festival.endDate ?? null,
+          visitMonths: festival.visitMonths ?? null,
+        })),
+        internal_meta: {
+          source: 'fallback-static-detail',
+        },
+      },
+      summary: {
+        festivalCount: detail.festivalCount,
+      },
+      places: placeGroups,
+    }
+
+    return adaptSmallCityDetailApiResponse(mockDetailResponse)
+  }
+}
+
+export const requestGetSmallCityPlaces = async (
+  cityId: string,
+  options: SmallCityApiRequestOptions = {},
+) => {
+  const endpoint = smallCityApiEndpoints.places(cityId)
+  try {
+    const response = await requestSmallCityApiJson<SmallCityApiPlacesResponse>(
+      endpoint,
+      {
+        method: 'GET',
+        headers: createSmallCityApiHeaders(options),
+      },
+      options,
+    )
+
+    return adaptSmallCityPlacesApiResponse(response, cityId)
+  } catch (error) {
+    log.error('CITY', `Failed to fetch small city places for ${cityId}: ${error instanceof Error ? error.message : error}. Falling back to static places.`)
+    
+    const city = smallCities.find((c) => c.id === cityId)
+    if (!city) {
+      throw error
+    }
+
+    const detail = createSmallCityDetail(city)
+    const placeGroups: SmallCityApiPlaceGroups = {}
+    Object.entries(detail.placesByCategory).forEach(([category, places]) => {
+      placeGroups[category as SmallCityPlaceCategory] = places.map((place) => ({
+        id: place.id,
+        placeId: place.id,
+        city_id: place.cityId,
+        cityId: place.cityId,
+        category: place.category,
+        categoryName: place.categoryName ?? place.category,
+        name: place.name,
+        summary: place.summary,
+        address: place.addressName ?? null,
+        address_name: place.addressName ?? null,
+        roadAddress: place.roadAddressName ?? place.addressName ?? null,
+        road_address_name: place.roadAddressName ?? place.addressName ?? null,
+        phone: place.phone ?? null,
+        latitude: place.latitude ?? null,
+        longitude: place.longitude ?? null,
+        theme: place.theme ?? null,
+        themeTags: place.themeTags ?? null,
+        startDate: place.startDate ?? null,
+        endDate: place.endDate ?? null,
+        visitMonths: place.visitMonths ?? null,
+        kakao_place_id: null,
+        placeUrl: place.placeUrl ?? null,
+        place_url: place.placeUrl ?? null,
+      }))
+    })
+
+    const mockPlacesResponse: SmallCityApiPlacesResponse = {
+      cityId: city.id,
+      cityName: city.nameKo,
+      summary: {
+        festivalCount: detail.festivalCount,
+      },
+      places: placeGroups,
+    }
+
+    return adaptSmallCityPlacesApiResponse(mockPlacesResponse, cityId)
+  }
 }

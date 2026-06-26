@@ -1,16 +1,18 @@
 /**
  * @file Footer.tsx
  * @description Footer component containing copyright information and links to legal notice dialogs (Terms, Privacy, Contact).
- * @lastModified 2026-06-23
+ * @lastModified 2026-06-25
  */
 
 import { useUiToggleStore } from '../store/uiToggleStore'
 import { FileText, ShieldCheck, Mail, Heart } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Shared Footer navigation component.
  */
 export function Footer() {
+  const { t } = useTranslation()
   const onOpenLegalNotice = useUiToggleStore((state) => state.openLegalNotice)
 
   return (
@@ -23,7 +25,7 @@ export function Footer() {
             <Heart className="size-3.5 fill-[#A92B10] text-[#A92B10]" />
           </div>
           <p className="mt-2.5 break-keep text-[11px] font-semibold leading-5 text-[#33271E]/60">
-            © 2026 Lovv. All rights reserved. 소도시 여행의 낭만을 전달합니다.
+            {t('common.copyright')} {t('common.tagline')}
           </p>
         </div>
 
@@ -34,7 +36,7 @@ export function Footer() {
             className="inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33271E]"
           >
             <FileText className="size-3.5 text-[#33271E]/50" />
-            이용약관
+            {t('common.terms')}
           </button>
           <button
             type="button"
@@ -42,7 +44,7 @@ export function Footer() {
             className="inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33271E]"
           >
             <ShieldCheck className="size-3.5 text-[#33271E]/50" />
-            개인정보처리방침
+            {t('common.privacy')}
           </button>
           <button
             type="button"
@@ -50,7 +52,7 @@ export function Footer() {
             className="inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33271E]"
           >
             <Mail className="size-3.5 text-[#33271E]/50" />
-            문의하기
+            {t('common.contact')}
           </button>
         </nav>
       </div>
@@ -59,3 +61,4 @@ export function Footer() {
 }
 
 // EOF: Footer.tsx
+

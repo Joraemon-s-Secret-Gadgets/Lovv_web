@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mapRecommendationToDraft } from './recommendationsApi'
 import type { RecommendationApiResponse } from './recommendationsApi'
+import type { PlanRoute } from '../types/app'
 
 const makeItem = (overrides: Partial<RecommendationApiResponse['itinerary']['days'][0]['items'][0]> = {}) => ({
   itemId: 'item-1',
@@ -118,6 +119,50 @@ describe('mapRecommendationToDraft — PlanDraft 구조', () => {
     const draft = mapRecommendationToDraft(res)
     expect(draft.stops).toEqual(draft.days.flatMap(d => d.stops))
     expect(draft.stops).toHaveLength(3)
+  })
+
+  it('OpenRouteService route geometry를 day에 보존', () => {
+    const route: PlanRoute = {
+      provider: 'openrouteservice',
+      profile: 'driving-car',
+      geometry: {
+        type: 'LineString',
+        coordinates: [[128.947, 37.771], [128.908, 37.805]],
+      },
+      distanceMeters: 4200,
+      durationSeconds: 780,
+      segments: [{ distanceMeters: 4200, durationSeconds: 780 }],
+    }
+    const res = makeResponse([
+      makeDay(1, [makeItem({ title: '안목해변' }), makeItem({ title: '경포해변' })], {
+        route,
+      }),
+    ])
+
+    expect(mapRecommendationToDraft(res).days[0].route).toEqual(route)
+  })
+
+  it('지도와 저장 상세에 필요한 stop 좌표와 ORS 이동값을 보존', () => {
+    const res = makeResponse([
+      makeDay(1, [
+        makeItem({
+          title: '안목해변',
+          latitude: 37.771,
+          longitude: 128.947,
+          imageUrl: 'https://example.com/anmok.jpg',
+          moveDurationSeconds: 780,
+          moveDistanceMeters: 4200,
+        } as unknown as Partial<RecommendationApiResponse['itinerary']['days'][0]['items'][0]>),
+      ]),
+    ])
+
+    const stop = mapRecommendationToDraft(res).days[0].stops[0] as Record<string, unknown>
+
+    expect(stop.latitude).toBe(37.771)
+    expect(stop.longitude).toBe(128.947)
+    expect(stop.imageUrl).toBe('https://example.com/anmok.jpg')
+    expect(stop.moveDurationSeconds).toBe(780)
+    expect(stop.moveDistanceMeters).toBe(4200)
   })
 
   it('moveMinutes → "N분" 형식', () => {

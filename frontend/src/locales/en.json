@@ -1,0 +1,113 @@
+{
+  "common": {
+    "search_cities": "Explore Cities",
+    "plan_itinerary": "AI Planner",
+    "recommendation": "Recommendations",
+    "mypage": "My Page",
+    "logout": "Log Out",
+    "copyright": "© 2026 Lovv. All rights reserved.",
+    "terms_notice": "Terms & Privacy Policy",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "contact": "Contact Us",
+    "tagline": "Delivering the romance of small town travel."
+  },
+  "onboarding": {
+    "hero_sub": "Lovv City Mood Journal",
+    "hero_title_new": "Choose the Mood of Your Trip",
+    "hero_title_edit": "Rechoose the Mood of Your Trip",
+    "hero_desc_new": "Lovv will transform your familiar big-city preferences into cozy South Korean small towns.",
+    "hero_desc_edit": "New preferences will be saved and applied to your next AI itinerary.",
+    "choose_title": "Choose your cover story",
+    "choose_subtitle": "Choose Your Travel Style by City Vibes",
+    "action_notice": "Please select 1 or more themes",
+    "save_and_start": "Start Lovv with this Vibe",
+    "save_edit": "Save this Vibe",
+    "cancel_edit": "Cancel and Return to My Page",
+    "saving": "Saving preferences...",
+    "limit_reached_notice": "You can select up to 3 themes.",
+    "selected_themes_notice": "{{count}}/3 themes selected.",
+    "selected_theme_label": "Selected Theme",
+    "current_display": "Showing: {{city}}",
+    "route_note_title": "First route note",
+    "route_note_sub": "Vibe Itinerary of the Day",
+    "limitations_notice": "The current MVP saves only Google mock sessions and travel preference hints, not full chat logs.",
+    "limitations_notice_edit": "Previous preferences will remain active until saved.",
+    "list_open_label": "Expand list for {{city}} +{{count}}",
+    "view_larger_label": "View larger image of {{city}}",
+    "thumbnail_label": "{{city}} Thumbnail",
+    "featured_label": "{{city}} Featured Image"
+  },
+  "themes": {
+    "healing_rest": {
+      "label": "Hot Springs & Spa",
+      "shortLabel": "Spa",
+      "description": "Prioritize relaxing scenes like cozy accommodations, hot springs, and spas."
+    },
+    "sea_coast": {
+      "label": "Sea & Coast",
+      "shortLabel": "Sea",
+      "description": "Prefer small towns with emerald waters, beach strolls, and peaceful resorts."
+    },
+    "history_tradition": {
+      "label": "History & Tradition",
+      "shortLabel": "Tradition",
+      "description": "Select routes highlighting temples, old alleys, and local traditions."
+    },
+    "food_local": {
+      "label": "Food & Local",
+      "shortLabel": "Food",
+      "description": "Tailor your trip around markets, local tables, and historic eateries."
+    },
+    "nature_trekking": {
+      "label": "Nature & Trekking",
+      "shortLabel": "Nature",
+      "description": "Focus on walking rhythms like forests, mountains, waterfalls, and viewpoints."
+    },
+    "art_sense": {
+      "label": "Art & Vibe",
+      "shortLabel": "Art",
+      "description": "Enjoy scenes worth documenting like crafts, gardens, cafes, and exhibitions."
+    }
+  },
+  "preferences": {
+    "healing_rest": {
+      "routeHint": "Onyang Hot Springs · Spa Resort",
+      "editorialNote": "Focus on hot water like Onyang Hot Springs, cozy lodging, and slow recovery."
+    },
+    "sea_coast": {
+      "routeHint": "Haeundae · Gwangalli",
+      "editorialNote": "Prioritize trips where the beach and sea breeze come first, valuing ocean walks."
+    },
+    "history_tradition": {
+      "routeHint": "Bulguksa · Cheomseongdae",
+      "editorialNote": "Slowly follow the trace of historic sites, old alleys, and tradition like Gyeongju."
+    },
+    "food_local": {
+      "routeHint": "Hanok Village · Jeonju Bibimbap",
+      "editorialNote": "Travel along markets and alley tables, focusing on signature local foods."
+    },
+    "nature_trekking": {
+      "routeHint": "Hallasan · Olle Trail",
+      "editorialNote": "Prioritize walking rhythms, mountain scenery, waterfalls, and forests like Hallasan."
+    },
+    "art_sense": {
+      "routeHint": "Anmok Beach · Jeongdongjin",
+      "editorialNote": "A journey to slowly view and capture the atmosphere of cafes, beaches, and gardens."
+    }
+  },
+  "feedback": {
+    "title": "What did you like about this itinerary?",
+    "chip_healing": "Liked the quietness",
+    "chip_nature": "Preferred nature-focus",
+    "chip_tradition": "Smooth route/transport",
+    "chip_food": "Rich itinerary stops",
+    "chip_negative": "Not interested in this trip",
+    "guide_note": "Tap ➔ add preference · Tap again ➔ remove · \"Not interested\" ➔ lowers theme exposure, saved to account",
+    "like_label": "Like (Toggle save)",
+    "like_active_label": "Unlike",
+    "notice_positive": "Feedback applied! Vibe added to your preferences.",
+    "notice_toggled_off": "Removed from preferences.",
+    "notice_negative": "Negative feedback recorded! Theme exposure will be lowered."
+  }
+}

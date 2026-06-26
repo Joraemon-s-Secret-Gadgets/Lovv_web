@@ -1,0 +1,113 @@
+{
+  "common": {
+    "search_cities": "여행지 찾아보기",
+    "plan_itinerary": "AI 일정 짜기",
+    "recommendation": "추천",
+    "mypage": "마이페이지",
+    "logout": "로그아웃",
+    "copyright": "© 2026 Lovv. All rights reserved.",
+    "terms_notice": "서비스 이용약관 및 개인정보 처리방침",
+    "terms": "이용약관",
+    "privacy": "개인정보처리방침",
+    "contact": "문의하기",
+    "tagline": "소도시 여행의 낭만을 전달합니다."
+  },
+  "onboarding": {
+    "hero_sub": "Lovv City Mood Journal",
+    "hero_title_new": "여행의 분위기를 골라주세요",
+    "hero_title_edit": "여행의 분위기를 다시 골라주세요",
+    "hero_desc_new": "익숙한 대도시 감각을 Lovv가 한국 소도시 후보로 바꿔둘게요.",
+    "hero_desc_edit": "새 취향은 저장한 뒤 다음 AI 일정부터 반영됩니다.",
+    "choose_title": "Choose your cover story",
+    "choose_subtitle": "도시의 분위기로 고르는 여행 취향",
+    "action_notice": "원하는 테마를 1개 이상 선택해 주세요",
+    "save_and_start": "이 취향으로 Lovv 시작하기",
+    "save_edit": "이 취향으로 저장하기",
+    "cancel_edit": "취소하고 마이페이지로 돌아가기",
+    "saving": "취향 저장 중",
+    "limit_reached_notice": "기준 테마는 최대 3개까지 선택할 수 있어요.",
+    "selected_themes_notice": "{{count}}/3개 기준 테마가 선택됐어요.",
+    "selected_theme_label": "Selected Theme",
+    "current_display": "현재 표시: {{city}}",
+    "route_note_title": "First route note",
+    "route_note_sub": "오늘의 취향 여정",
+    "limitations_notice": "현재 MVP는 Google mock 세션과 여행 취향 힌트만 저장하고, 전체 채팅 로그는 저장하지 않습니다.",
+    "limitations_notice_edit": "저장하기 전까지 기존 취향은 유지됩니다.",
+    "list_open_label": "{{city}} +{{count}} 이미지 목록 펼치기",
+    "view_larger_label": "{{city}} 이미지로 크게 보기",
+    "thumbnail_label": "{{city}} 썸네일 이미지",
+    "featured_label": "{{city}} 대표 이미지"
+  },
+  "themes": {
+    "healing_rest": {
+      "label": "온천·휴양",
+      "shortLabel": "온천",
+      "description": "숙소 체류, 온천, 스파처럼 회복감이 있는 장면을 먼저 봅니다."
+    },
+    "sea_coast": {
+      "label": "바다·해안",
+      "shortLabel": "바다",
+      "description": "바다색, 해변 산책, 리조트 여백이 있는 소도시를 우선합니다."
+    },
+    "history_tradition": {
+      "label": "역사·전통",
+      "shortLabel": "전통",
+      "description": "사찰, 오래된 거리, 지역의 전통이 살아 있는 동선을 고릅니다."
+    },
+    "food_local": {
+      "label": "미식·노포",
+      "shortLabel": "미식",
+      "description": "시장, 로컬 식탁, 오래된 가게를 따라가는 여행에 맞춥니다."
+    },
+    "nature_trekking": {
+      "label": "자연·트레킹",
+      "shortLabel": "자연",
+      "description": "숲, 산, 폭포, 전망처럼 걷는 리듬이 있는 장면을 봅니다."
+    },
+    "art_sense": {
+      "label": "예술·감성",
+      "shortLabel": "예술",
+      "description": "공예, 정원, 카페, 전시처럼 기록하고 싶은 장면을 우선합니다."
+    }
+  },
+  "preferences": {
+    "healing_rest": {
+      "routeHint": "온양온천 · 스파 휴양",
+      "editorialNote": "온양온천처럼 뜨거운 물, 숙소 체류, 느린 회복감을 중심에 둬요."
+    },
+    "sea_coast": {
+      "routeHint": "해운대 · 광안리",
+      "editorialNote": "해변과 바다색이 먼저 떠오르는 여행, 리조트와 해안 산책의 여백을 중시해요."
+    },
+    "history_tradition": {
+      "routeHint": "불국사 · 첨성대",
+      "editorialNote": "경주처럼 오래된 장소, 골목, 전통의 결을 천천히 따라가요."
+    },
+    "food_local": {
+      "routeHint": "한옥마을 · 전주비빔밥",
+      "editorialNote": "대표 음식과 오래된 가게를 중심으로, 시장과 골목의 식탁을 따라 움직여요."
+    },
+    "nature_trekking": {
+      "routeHint": "한라산 · 올레길",
+      "editorialNote": "한라산처럼 걷는 리듬, 산악 풍경, 폭포와 숲의 장면을 먼저 봅니다."
+    },
+    "art_sense": {
+      "routeHint": "안목해변 · 정동진",
+      "editorialNote": "카페와 해변, 공예와 정원의 분위기를 천천히 보고 기록하는 여행이에요."
+    }
+  },
+  "feedback": {
+    "title": "이 일정, 어떤 점이 좋았나요?",
+    "chip_healing": "한적해서 좋았어요",
+    "chip_nature": "사진이 잘 나와요",
+    "chip_tradition": "동선이 편해요",
+    "chip_food": "일정이 알차요",
+    "chip_negative": "이 일정은 별로에요",
+    "guide_note": "받은 피드백은, 다음 일정에 반영해드려요",
+    "like_label": "좋아요 (저장 토글)",
+    "like_active_label": "좋아요 취소",
+    "notice_positive": "피드백이 반영되어 내 선호 분위기에 추가되었습니다!",
+    "notice_toggled_off": "선호에서 해제되었습니다.",
+    "notice_negative": "부정 피드백이 반영되어 해당 테마의 노출 빈도가 낮아집니다."
+  }
+}

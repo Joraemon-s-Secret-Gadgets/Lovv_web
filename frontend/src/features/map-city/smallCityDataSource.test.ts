@@ -9,6 +9,7 @@ import {
   loadStaticSmallCityDetail,
   loadStaticSmallCityCatalog,
   staticSmallCityCatalogSource,
+  createSmallCityDetailStateFromQueryResult,
 } from './smallCityDataSource'
 import { createSmallCityDetail, smallCities, smallCityPlaceCategories } from './smallCities'
 
@@ -38,7 +39,7 @@ describe('small-city data source boundary', () => {
     const state = createStaticSmallCityCatalogState()
 
     expect(state.status).toBe('success')
-    expect(state.cities).toHaveLength(46)
+    expect(state.cities).toHaveLength(80)
     expect(state.rejectedRecords).toHaveLength(0)
     expect(state.queryKey).toBe('page=1&page_size=120')
   })
@@ -143,6 +144,26 @@ describe('small-city data source boundary', () => {
       status: 'error',
       cities: [],
       errorMessage: '연결을 확인해 주세요.',
+    })
+
+    const detailPendingState = createSmallCityDetailStateFromQueryResult({ status: 'pending' }, 'kr-001')
+    const detailErrorState = createSmallCityDetailStateFromQueryResult({ status: 'error', error: new Error('API down') }, 'kr-001')
+    const detailEmptyState = createSmallCityDetailStateFromQueryResult({ status: 'success', data: { detail: null, rejectedRecords: [] } }, 'kr-001')
+
+    expect(detailPendingState).toMatchObject({
+      status: 'loading',
+      cityId: 'kr-001',
+      detail: null,
+    })
+    expect(detailErrorState).toMatchObject({
+      status: 'error',
+      cityId: 'kr-001',
+      errorMessage: 'API down',
+    })
+    expect(detailEmptyState).toMatchObject({
+      status: 'empty',
+      cityId: 'kr-001',
+      detail: null,
     })
   })
 

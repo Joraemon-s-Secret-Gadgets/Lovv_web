@@ -16,11 +16,12 @@ import {
 import {
   createSmallCityCatalogStateFromQueryResult,
   createSmallCityDetailEmptyState,
-  createStaticSmallCityDetailState,
+  createSmallCityDetailStateFromQueryResult,
 } from './smallCityDataSource'
 import {
   defaultSmallCityApiPageSize,
   requestListSmallCities,
+  requestGetSmallCityDetail,
   createSmallCityApiQuery,
 } from '../../shared/api/smallCityApi'
 
@@ -79,14 +80,24 @@ export function useCityMap() {
     return filteredSmallCities.find((city) => city.id === selectedSmallCityId) ?? null
   }, [filteredSmallCities, selectedSmallCityId])
 
+  // Selected city detail query (fetches dynamic place groups and details from backend)
+  const smallCityDetailQuery = useQuery({
+    queryKey: ['smallCityDetail', selectedSmallCityId],
+    queryFn: () => requestGetSmallCityDetail(selectedSmallCityId),
+    enabled: Boolean(selectedSmallCityId),
+  })
+
   // Compute selected city detailed state (attractions, stats, and related elements)
   const selectedSmallCityDetailState = useMemo(() => {
-    if (!selectedSmallCity) {
+    if (!selectedSmallCityId) {
       return createSmallCityDetailEmptyState(selectedSmallCityId)
     }
 
-    return createStaticSmallCityDetailState(selectedSmallCity.id, smallCityCatalogState.cities)
-  }, [selectedSmallCity, selectedSmallCityId, smallCityCatalogState.cities])
+    return createSmallCityDetailStateFromQueryResult(
+      smallCityDetailQuery,
+      selectedSmallCityId,
+    )
+  }, [smallCityDetailQuery, selectedSmallCityId])
 
   // Map markers selection callback
   const selectSmallCityMapMarker = (marker: SmallCityMapMarker) => {
@@ -138,6 +149,7 @@ export function useCityMap() {
     setSelectedSmallCityId,
     smallCityCatalogQuery,
     smallCityCatalogState,
+    smallCityDetailQuery,
     activeCountrySmallCities,
     filteredSmallCities,
     visibleSmallCityMapMarkers,

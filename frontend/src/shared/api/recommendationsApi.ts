@@ -3,7 +3,7 @@
  * @description Frontend adapter for calling the recommendation API and mapping the response.
  */
 
-import type { ThemeId, PlanDraft, PlanDay, PlanStop } from '../types/app'
+import type { ThemeId, PlanDraft, PlanDay, PlanRoute, PlanStop } from '../types/app'
 
 export const recommendationsApiEndpoints = {
   create: '/api/v1/recommendations',
@@ -48,6 +48,7 @@ export type RecommendationApiResponse = {
       day: number
       title: string
       summary: string
+      route?: PlanRoute
       items: Array<{
         itemId: string
         contentId?: string
@@ -57,8 +58,12 @@ export type RecommendationApiResponse = {
         body: string
         reason: string
         moveMinutes: number
+        moveDurationSeconds?: number | null
+        moveDistanceMeters?: number | null
         latitude?: number | null
         longitude?: number | null
+        imageUrl?: string | null
+        image_url?: string | null
       }>
     }>
   }
@@ -116,6 +121,11 @@ export const mapRecommendationToDraft = (apiResponse: RecommendationApiResponse)
         body: item.body || '',
         reason: item.reason || '',
         contentId: item.contentId ?? undefined,
+        imageUrl: item.imageUrl?.trim() || item.image_url?.trim() || undefined,
+        latitude: item.latitude ?? undefined,
+        longitude: item.longitude ?? undefined,
+        moveDurationSeconds: item.moveDurationSeconds ?? undefined,
+        moveDistanceMeters: item.moveDistanceMeters ?? undefined,
       }
     })
 
@@ -147,6 +157,7 @@ export const mapRecommendationToDraft = (apiResponse: RecommendationApiResponse)
       title: fallbackTitle,
       summary: fallbackSummary,
       stops,
+      route: d.route,
     }
   })
 

@@ -68,6 +68,7 @@ import type {
   SocialAuthProvider,
   SavedPlan,
   PreferenceProfile,
+  SavedPlanLike,
 } from '../../shared/types/app'
 
 type PreparedAuthRedirectUrls = Partial<Record<SocialAuthProvider, string>>
@@ -86,6 +87,35 @@ const resolveSocialAuthProvider = (
   }
 
   return fallbackProvider
+}
+
+const isValidRedirectUrl = (url: string): boolean => {
+  if (!url) return false
+  if (url.startsWith('/') && !url.startsWith('//')) {
+    return true
+  }
+  try {
+    const parsed = new URL(url)
+    const allowedDomains = [
+      'amazoncognito.com',
+      'google.com',
+      'kakao.com',
+      window.location.hostname
+    ]
+    return allowedDomains.some(domain =>
+      parsed.hostname === domain || parsed.hostname.endsWith('.' + domain)
+    )
+  } catch {
+    return false
+  }
+}
+
+const safeAssignLocation = (url: string) => {
+  if (isValidRedirectUrl(url)) {
+    window.location.assign(url)
+  } else {
+    log.error('AUTH', 'Blocked unsafe open redirection attempt', { url })
+  }
 }
 
 const authCallbackRecoveryDelayMs = 5000
@@ -195,15 +225,27 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
     (isApiAuthMode && Boolean(authCallbackProvider)) || shouldHandleCognitoAuthCallback
 
   const shouldLoadSavedPlans =
-    isBackendAuthMode && !isAuthSessionRestoring && !shouldHandleAuthCallback && Boolean(currentUser) && Boolean(authAccessToken)
+    isBackendAuthMode &&
+    !isAuthSessionRestoring &&
+    !shouldHandleAuthCallback &&
+    (Boolean(currentUser) || Boolean(routePlanId))
 
   const savedPlansQuery = useQuery({
     queryKey: ['savedPlans', authAccessToken, routePlanId],
     queryFn: async () => {
-      const result = await requestListSavedPlans({ accessToken: authAccessToken as string })
-      let nextSavedPlans = result.savedPlans
-      let nextSavedPlanLikes = result.likes
+      let nextSavedPlans: SavedPlan[] = []
+      let nextSavedPlanLikes: Record<string, Exclude<SavedPlanLike, null>> = {}
       let routePlanLoadFailed = false
+
+      if (currentUser && authAccessToken) {
+        try {
+          const result = await requestListSavedPlans({ accessToken: authAccessToken as string })
+          nextSavedPlans = result.savedPlans
+          nextSavedPlanLikes = result.likes
+        } catch (e) {
+          log.error('AUTH', 'Failed to load user saved plans list', e)
+        }
+      }
 
       const currentPlanId = plannerRef?.current?.currentPlanId ?? null
       const isPlannerReady = plannerRef?.current?.isPlannerReady ?? false
@@ -217,7 +259,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
       ) {
         try {
           const routeSavedPlan = await requestGetSavedPlan(routePlanId, {
-            accessToken: authAccessToken as string,
+            accessToken: authAccessToken ?? undefined,
           })
 
           nextSavedPlans = [routeSavedPlan, ...nextSavedPlans]
@@ -227,7 +269,8 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
               [routeSavedPlan.id]: 'like',
             }
           }
-        } catch {
+        } catch (e) {
+          log.error('AUTH', 'Failed to load route plan', e)
           routePlanLoadFailed = true
         }
       }
@@ -289,6 +332,8 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
           setPlannerPreferenceProfile(localProfile)
           sessionStorage.setItem('lovv.planner_active_profile', JSON.stringify(localProfile))
         }
+      } else {
+        sessionStorage.removeItem('lovv.planner_active_profile')
       }
       setIsAuthSessionRestoring(false)
     } else if (authSessionQuery.status === 'error') {
@@ -502,7 +547,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
         mode: 'link',
       })
 
-      window.location.assign(authorizationUrl)
+      safeAssignLocation(authorizationUrl)
     } catch {
       setLinkingProvider(null)
       setAccountLinkNotice('계정 연결을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.')
@@ -900,7 +945,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
 
     setAuthFlowNotice(null)
     setSignInPendingProvider(provider)
-    window.location.assign(preparedAuthorizationUrl)
+    safeAssignLocation(preparedAuthorizationUrl)
 
     return true
   }
@@ -918,7 +963,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
         storage: window.sessionStorage,
       })
 
-      window.location.assign(authorizationRequest.authorizationUrl)
+      safeAssignLocation(authorizationRequest.authorizationUrl)
     } catch (error) {
       setSignInPendingProvider(null)
       setAuthFlowNotice(getAuthExceptionNotice(error))
@@ -938,7 +983,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
         storage: window.sessionStorage,
       })
 
-      window.location.assign(authorizationRequest.authorizationUrl)
+      safeAssignLocation(authorizationRequest.authorizationUrl)
     } catch (error) {
       setSignInPendingProvider(null)
       setAuthFlowNotice(getAuthExceptionNotice(error))
@@ -972,7 +1017,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
 
     if (isCognitoAuthMode) {
       try {
-        window.location.assign(createCognitoLogoutUrl({ origin: window.location.origin }))
+        safeAssignLocation(createCognitoLogoutUrl({ origin: window.location.origin }))
         return
       } catch (error) {
         setAuthFlowNotice(getAuthExceptionNotice(error))

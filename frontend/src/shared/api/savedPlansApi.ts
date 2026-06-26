@@ -1,13 +1,16 @@
 import { log } from '../logger'
-import type { PlanDay, PlanStop, SavedPlan, SavedPlanLike } from '../types/app'
+import type { PlanDay, PlanStop, SavedPlan, SavedPlanLike, SelectedMealPlace } from '../types/app'
 
 export const savedPlansApiEndpoints = {
   list: '/api/v1/me/itineraries',
   create: '/api/v1/me/itineraries',
-  detail: (itineraryId: string) => `/api/v1/me/itineraries/${encodeURIComponent(itineraryId)}`,
+  detail: (itineraryId: string) => `/api/v1/itineraries/${encodeURIComponent(itineraryId)}`,
   delete: (itineraryId: string) => `/api/v1/me/itineraries/${encodeURIComponent(itineraryId)}`,
   like: (itineraryId: string) => `/api/v1/me/itineraries/${encodeURIComponent(itineraryId)}/reactions/like`,
   unlike: (itineraryId: string) => `/api/v1/me/itineraries/${encodeURIComponent(itineraryId)}/reactions/like`,
+  share: (itineraryId: string) => `/api/v1/me/itineraries/${encodeURIComponent(itineraryId)}/share`,
+  clone: (itineraryId: string) => `/api/v1/me/itineraries/${encodeURIComponent(itineraryId)}/clone`,
+  publicList: '/api/v1/itineraries/public',
 } as const
 
 export type SavedPlanApiRecord = {
@@ -23,11 +26,14 @@ export type SavedPlanApiRecord = {
   cityPair?: string
   city_pair?: string
   destination?: {
+    id?: string
+    destinationId?: string
     name?: string
     nameKo?: string
     destinationName?: string
     cityName?: string
   }
+  destinationId?: string
   themeTag?: string
   theme_tag?: string
   themeLabels?: string[]
@@ -44,11 +50,17 @@ export type SavedPlanApiRecord = {
   summary?: string
   itinerary?: {
     days?: PlanDay[]
+    selectedRestaurants?: SelectedMealPlace[]
   }
   days?: PlanDay[]
   stops?: PlanStop[]
+  selectedRestaurants?: SelectedMealPlace[]
   isLiked?: boolean
   is_liked?: boolean | 0 | 1
+  isPublic?: boolean
+  is_public?: boolean | 0 | 1
+  copiedFromItineraryId?: string
+  copied_from_itinerary_id?: string
   createdAt?: string
   created_at?: string
   savedAt?: string
@@ -109,6 +121,7 @@ export type SavedPlanApiCreatePayload = {
   requestSummary?: string
   itinerary: {
     days: PlanDay[]
+    selectedRestaurants?: SelectedMealPlace[]
   }
   alternativeItinerary?: unknown
 }
@@ -381,6 +394,73 @@ export const requestUnlikeSavedPlan = async (
   return true
 }
 
+export const requestUpdateSavedPlanShareStatus = async (
+  itineraryId: string,
+  isPublic: boolean,
+  options: SavedPlansApiRequestOptions = {},
+) => {
+  const response = await requestSavedPlansApiJson<SavedPlanApiRecord>(
+    savedPlansApiEndpoints.share(itineraryId),
+    {
+      method: 'PATCH',
+      headers: createSavedPlansHeaders(options, true),
+      body: JSON.stringify({ isPublic }),
+    },
+    options,
+  )
+  const savedPlan = adaptSavedPlanApiRecord(response)
+
+  if (!savedPlan) {
+    throw new SavedPlansApiRequestError(
+      200,
+      'INVALID_SAVED_PLAN_SHARE_RESPONSE',
+      'Saved plan share response is missing required fields',
+    )
+  }
+
+  return savedPlan
+}
+
+export const requestCloneSavedPlan = async (
+  itineraryId: string,
+  options: SavedPlansApiRequestOptions = {},
+) => {
+  const response = await requestSavedPlansApiJson<SavedPlanApiRecord>(
+    savedPlansApiEndpoints.clone(itineraryId),
+    {
+      method: 'POST',
+      headers: createSavedPlansHeaders(options),
+    },
+    options,
+  )
+  const savedPlan = adaptSavedPlanApiRecord(response)
+
+  if (!savedPlan) {
+    throw new SavedPlansApiRequestError(
+      200,
+      'INVALID_SAVED_PLAN_CLONE_RESPONSE',
+      'Saved plan clone response is missing required fields',
+    )
+  }
+
+  return savedPlan
+}
+
+export const requestListPublicItineraries = async (
+  options: SavedPlansApiRequestOptions = {},
+) => {
+  const response = await requestSavedPlansApiJson<SavedPlanApiListResponse>(
+    savedPlansApiEndpoints.publicList,
+    {
+      method: 'GET',
+      headers: createSavedPlansHeaders(options),
+    },
+    options,
+  )
+
+  return adaptSavedPlanApiListResponse(response)
+}
+
 export const adaptSavedPlanApiRecord = (record: SavedPlanApiRecord): SavedPlan | null => {
   const id = readString(record.id, record.itineraryId, record.itinerary_id)
   const title = readString(record.title)
@@ -402,6 +482,12 @@ export const adaptSavedPlanApiRecord = (record: SavedPlanApiRecord): SavedPlan |
     record.destination?.name,
   )
 
+  const destinationId = readString(
+    record.destinationId,
+    record.destination?.id,
+    record.destination?.destinationId,
+  )
+
   return {
     id,
     sourceRecommendationId: readString(record.sourceRecommendationId, record.source_recommendation_id),
@@ -417,7 +503,15 @@ export const adaptSavedPlanApiRecord = (record: SavedPlanApiRecord): SavedPlan |
     summary: readString(record.summary),
     days,
     stops,
+    selectedRestaurants: Array.isArray(record.selectedRestaurants)
+      ? record.selectedRestaurants
+      : Array.isArray(record.itinerary?.selectedRestaurants)
+      ? record.itinerary.selectedRestaurants
+      : [],
+    destinationId: destinationId || undefined,
     isLiked: readIsLiked(record),
+    isPublic: typeof record.isPublic === 'boolean' ? record.isPublic : (typeof record.is_public === 'boolean' ? record.is_public : record.is_public === 1),
+    copiedFromItineraryId: readString(record.copiedFromItineraryId, record.copied_from_itinerary_id),
     createdAt: readString(record.createdAt, record.created_at),
     savedAt: readString(record.savedAt, record.saved_at),
   }

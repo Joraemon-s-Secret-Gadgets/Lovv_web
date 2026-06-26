@@ -31,7 +31,7 @@ describe('LegalNoticeDialog', () => {
 
     expect(screen.getByRole('dialog', { name: '문의하기' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '접수 채널' })).toBeInTheDocument()
-    expect(screen.getByText('현재 데모 버전에서는 별도 문의 접수 폼을 제공하지 않습니다.')).toBeInTheDocument()
+    expect(screen.getByText('문의가 필요한 경우 joramong711@gmail.com 으로 연락해 주세요.')).toBeInTheDocument()
   })
 
   it('closes from the close button, confirm button, backdrop, and Escape key', () => {

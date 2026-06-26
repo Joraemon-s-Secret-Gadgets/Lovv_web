@@ -10,6 +10,8 @@ import type { LovvUser } from '../types/app'
 import { useUiToggleStore } from '../store/uiToggleStore'
 import { User, LogOut } from 'lucide-react'
 import type { View } from '../types/app'
+import { useTranslation } from 'react-i18next'
+import { LanguageSelector } from './LanguageSelector'
 
 type AppHeaderProps = {
   goHome: (event?: MouseEvent<HTMLElement>) => void
@@ -37,6 +39,7 @@ export function AppHeader({
   openPlanner,
   openRecommendation,
 }: AppHeaderProps) {
+  const { t } = useTranslation()
   // Session menu state from central store
   const isSessionMenuOpen = useUiToggleStore((state) => state.isSessionMenuOpen)
   const toggleSessionMenu = useUiToggleStore((state) => state.toggleSessionMenu)
@@ -67,7 +70,7 @@ export function AppHeader({
                 : 'text-[#33271E] hover:text-[#F36B12]'
             }`}
           >
-            여행지 찾아보기
+            {t('common.search_cities')}
             {activeView === 'map' && (
               <span className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-[#F36B12]" />
             )}
@@ -81,7 +84,7 @@ export function AppHeader({
                 : 'text-[#33271E] hover:text-[#F36B12]'
             }`}
           >
-            AI 일정 짜기
+            {t('common.plan_itinerary')}
             {(activeView === 'planner' || activeView === 'chat' || activeView === 'planDetail') && (
               <span className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-[#F36B12]" />
             )}
@@ -95,15 +98,16 @@ export function AppHeader({
                 : 'text-[#33271E] hover:text-[#F36B12]'
             }`}
           >
-            추천
+            {t('common.recommendation')}
             {activeView === 'recommendation' && (
               <span className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-[#F36B12]" />
             )}
           </button>
         </nav>
 
-        {/* Right: Session Menu */}
-        <div className="flex items-center justify-end">
+        {/* Right: Session Menu & Language Selector */}
+        <div className="flex items-center justify-end gap-3.5">
+          <LanguageSelector />
           <div className="relative shrink-0">
             {/* Avatar single button representation for accessibility and consistency */}
             <button
@@ -136,7 +140,7 @@ export function AppHeader({
                 className="inline-flex min-h-10 w-full items-center justify-start gap-2.5 rounded-[14px] px-3.5 text-sm font-bold text-[#33271E] transition-colors hover:bg-[#FFF0E4]/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#33271E]"
               >
                 <User className="size-4 shrink-0 text-[#A92B10]" />
-                마이페이지
+                {t('common.mypage')}
               </button>
               <button
                 type="button"
@@ -145,7 +149,7 @@ export function AppHeader({
                 className="inline-flex min-h-10 w-full items-center justify-start gap-2.5 rounded-[14px] px-3.5 text-sm font-bold text-[#A92B10] transition-colors hover:bg-[#FFE0CA]/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#33271E]"
               >
                 <LogOut className="size-4 shrink-0 text-[#A92B10]" />
-                로그아웃
+                {t('common.logout')}
               </button>
             </div>
           </div>

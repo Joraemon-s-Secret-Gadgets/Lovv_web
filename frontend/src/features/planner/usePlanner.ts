@@ -37,13 +37,22 @@ import {
   requestDeleteSavedPlan,
   requestLikeSavedPlan,
   requestUnlikeSavedPlan,
+  requestCloneSavedPlan,
+  requestUpdateSavedPlanShareStatus,
   type SavedPlanApiCreatePayload,
 } from '../../shared/api/savedPlansApi'
 import {
   requestCreateRecommendation,
   mapRecommendationToDraft,
+  type RecommendationRequestPayload,
   type RecommendationApiResponse,
 } from '../../shared/api/recommendationsApi'
+import {
+  applyPlanDayReplacement,
+  applyPlanStopReplacement,
+  applyWishlistSummaryToPlanDraft,
+  removeWishlistRestaurantStops,
+} from './plannerEditModel'
 import {
   writeStoredSavedPlanLikes,
   writeStoredSavedPlans,
@@ -53,13 +62,16 @@ import { log } from '../../shared/logger'
 import type {
   PreferenceProfile,
   ChatMessage,
+  PlanDay,
   PlanDraft,
+  PlanStop,
   SavedPlan,
   SavedPlanLike,
   FestivalThemeChoice,
   MockConditionExtraction,
   LovvUser,
   Preference,
+  SelectedMealPlace,
 } from '../../shared/types/app'
 import type { PlannerCityContext } from '../map-city/smallCities'
 
@@ -124,20 +136,25 @@ export function usePlanner({
   )
   const [planDraft, setPlanDraft] = useState<PlanDraft>(() => createPlanDraft(selectedPreference))
   const [generatedPlanDestinationName, setGeneratedPlanDestinationName] = useState<string | null>(null)
+  const [generatedPlanDestinationId, setGeneratedPlanDestinationId] = useState<string | null>(null)
   const [isPlannerLoading, setIsPlannerLoading] = useState(false)
   const [isSavingPlan, setIsSavingPlan] = useState(false)
+  const [isPlanCloning, setIsPlanCloning] = useState(false)
+  const [isShareStatusUpdating, setIsShareStatusUpdating] = useState<Record<string, boolean>>({})
 
-  // Keep plannerPreferenceProfile in sync when the global profile changes (e.g. after session restore).
-  // Only sync when the planner is idle (no city context and no stops generated yet).
   useEffect(() => {
     if (isAuthSessionRestoring) return
     if (!plannerCityContext && planDraft.stops.length === 0) {
       if (selectedPreferenceProfile) {
         setPlannerPreferenceProfile(selectedPreferenceProfile)
+        const nextPlannerLabel = getPreferenceProfileLabel(selectedPreferenceProfile)
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setChatMessages(createInitialChatMessages(nextPlannerLabel, null, false))
+        setPlanDraft(createPlanDraft(selectedPreference, '', 'exclude', null))
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPreferenceProfile, isAuthSessionRestoring])
+  }, [selectedPreferenceProfile, isAuthSessionRestoring, selectedPreference])
 
   // Save active planner preference profile to sessionStorage to persist across page reloads
   useEffect(() => {
@@ -247,6 +264,7 @@ export function usePlanner({
     setPlanDraft(createPlanDraft(preference, nextPlannerContextText, nextFestivalThemeChoice, cityContext))
     setSavedPlanNotice(null)
     setGeneratedPlanDestinationName(null)
+    setGeneratedPlanDestinationId(null)
   }, [
     plannerCityContext,
     selectedPreferenceProfile,
@@ -258,40 +276,50 @@ export function usePlanner({
   const createGeneratedPlanSavePayload = (
     plan: SavedPlan,
     sourceRecommendationId: string,
-  ): SavedPlanApiCreatePayload => ({
-    sourceRecommendationId,
-    idempotencyKey: sourceRecommendationId,
-    title: plan.title,
-    summary: plan.summary,
-    destination: {
-      destinationId: plannerCityContext?.agentCoreId ?? plannerCityContext?.cityId ?? sourceRecommendationId,
-      name: plannerCityContext?.cityName ?? plannerBasisLabel,
-      country: plannerCityContext?.country ?? 'KR',
-      region: plannerCityContext?.region ?? plannerBasisLabel,
-    },
-    tripType: plan.durationLabel.replace(/\s+/g, '-'),
-    durationLabel: plan.durationLabel,
-    themes: plannerCityContext ? plannerCityContext.themes : plannerPreferenceProfile.selectedThemeIds,
-    festivalChoice: festivalThemeChoice,
-    intensityLabel: plan.intensityLabel,
-    preferenceSnapshot: {
-      selectedThemeIds: plannerPreferenceProfile.selectedThemeIds,
-      source: plannerPreferenceProfile.source,
-      updatedAt: plannerPreferenceProfile.updatedAt,
-    },
-    conditionsSnapshot: {
-      festivalThemeChoice,
-      selectedTravelMonth,
-      activeRequiredThemes: plannerConditionExtraction?.activeRequiredThemes ?? [],
-      softPreferences: plannerConditionExtraction?.softPreferences ?? [],
-      unsupportedConditions: plannerConditionExtraction?.unsupportedConditions ?? [],
-      cityId: plannerCityContext?.cityId ?? null,
-    },
-    requestSummary: plan.conditionSummary,
-    itinerary: {
-      days: plan.days ?? [],
-    },
-  })
+  ): SavedPlanApiCreatePayload => {
+    const destinationId =
+      plannerCityContext?.agentCoreId ??
+      plannerCityContext?.cityId ??
+      generatedPlanDestinationId ??
+      sourceRecommendationId
+    const destinationName = plannerCityContext?.cityName ?? generatedPlanDestinationName ?? plannerBasisLabel
+
+    return {
+      sourceRecommendationId,
+      idempotencyKey: sourceRecommendationId,
+      title: plan.title,
+      summary: plan.summary,
+      destination: {
+        destinationId,
+        name: destinationName,
+        country: plannerCityContext?.country ?? 'KR',
+        region: plannerCityContext?.region ?? plannerBasisLabel,
+      },
+      tripType: plan.durationLabel.replace(/\s+/g, '-'),
+      durationLabel: plan.durationLabel,
+      themes: plannerCityContext ? plannerCityContext.themes : plannerPreferenceProfile.selectedThemeIds,
+      festivalChoice: festivalThemeChoice,
+      intensityLabel: plan.intensityLabel,
+      preferenceSnapshot: {
+        selectedThemeIds: plannerPreferenceProfile.selectedThemeIds,
+        source: plannerPreferenceProfile.source,
+        updatedAt: plannerPreferenceProfile.updatedAt,
+      },
+      conditionsSnapshot: {
+        festivalThemeChoice,
+        selectedTravelMonth,
+        activeRequiredThemes: plannerConditionExtraction?.activeRequiredThemes ?? [],
+        softPreferences: plannerConditionExtraction?.softPreferences ?? [],
+        unsupportedConditions: plannerConditionExtraction?.unsupportedConditions ?? [],
+        cityId: plannerCityContext?.cityId ?? generatedPlanDestinationId ?? null,
+      },
+      requestSummary: plan.conditionSummary,
+      itinerary: {
+        days: plan.days ?? [],
+        selectedRestaurants: plan.selectedRestaurants ?? [],
+      },
+    }
+  }
 
   const createSavedPlanMutation = useMutation({
     mutationFn: (payload: ReturnType<typeof createGeneratedPlanSavePayload>) =>
@@ -316,7 +344,7 @@ export function usePlanner({
       sourceRecommendationId,
       ownerId: currentUser?.id ?? 'mock-user',
       title: currentPlanTitle,
-      cityPair: plannerBasisLabel,
+      cityPair: generatedPlanDestinationName ?? plannerBasisLabel,
       themeTag: themeLabels.join('·'),
       themeLabels,
       conditionSummary: plannerConditionSummary,
@@ -326,6 +354,7 @@ export function usePlanner({
       summary: planDraft.summary,
       days: planDraft.days,
       stops: planDraft.stops,
+      selectedRestaurants: planDraft.selectedRestaurants ?? [],
       createdAt: savedAt,
       savedAt,
     }
@@ -386,6 +415,46 @@ export function usePlanner({
     }
     setSavedPlanNotice('마이페이지에서 다시 확인할 수 있어요.')
     setIsSavingPlan(false)
+  }
+
+  const cloneSavedPlan = async (planId: string) => {
+    setSavedPlanNotice(null)
+    setIsPlanCloning(true)
+
+    try {
+      const clonedPlan = await requestCloneSavedPlan(planId, { accessToken: authAccessToken })
+      setSavedPlans((currentPlans) => {
+        const nextPlans = [clonedPlan, ...currentPlans.filter((p) => p.id !== clonedPlan.id)]
+        writeStoredSavedPlans(nextPlans)
+        return nextPlans
+      })
+      setSavedPlanNotice('일정을 내 마이페이지에 담았어요!')
+    } catch (e) {
+      log.error('PLAN', 'Failed to clone plan', e)
+      setSavedPlanNotice('일정을 내 페이지에 담지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setIsPlanCloning(false)
+    }
+  }
+
+  const toggleSavedPlanShareStatus = async (planId: string, isPublic: boolean) => {
+    setIsShareStatusUpdating((prev) => ({ ...prev, [planId]: true }))
+    try {
+      const updatedPlan = await requestUpdateSavedPlanShareStatus(planId, isPublic, { accessToken: authAccessToken })
+      setSavedPlans((currentPlans) => {
+        const nextPlans = currentPlans.map((p) => (p.id === planId ? updatedPlan : p))
+        writeStoredSavedPlans(nextPlans)
+        return nextPlans
+      })
+      setSavedPlanNotice(isPublic ? '일정이 전체 공개로 전환되었어요.' : '일정이 비공개로 전환되었어요.')
+      return true
+    } catch (e) {
+      log.error('PLAN', 'Failed to update share status', e)
+      setSavedPlanNotice('공유 설정 업데이트에 실패했어요.')
+      return false
+    } finally {
+      setIsShareStatusUpdating((prev) => ({ ...prev, [planId]: false }))
+    }
   }
 
   const removeSavedPlanFromLocalState = (planId: string) => {
@@ -599,8 +668,78 @@ export function usePlanner({
     selectSavedPlanLike(currentPlanId, 'like')
   }
 
+  const replacePlanStop = useCallback((dayNumber: number, stopIndex: number, replacement: PlanStop) => {
+    setPlanDraft((currentDraft) => {
+      const nextDays = applyPlanStopReplacement(currentDraft.days, dayNumber, stopIndex, replacement)
+
+      return applyWishlistSummaryToPlanDraft({
+        ...currentDraft,
+        days: nextDays,
+        stops: nextDays.flatMap((day) => day.stops),
+      })
+    })
+    setSavedPlanNotice('선택한 일정 카드만 대체 후보로 바꿨어요. 저장하면 변경 내용이 반영됩니다.')
+  }, [setSavedPlanNotice])
+
+  const replacePlanDay = useCallback((dayNumber: number, replacement: PlanDay) => {
+    setPlanDraft((currentDraft) => {
+      const nextDays = applyPlanDayReplacement(currentDraft.days, dayNumber, replacement)
+
+      return applyWishlistSummaryToPlanDraft({
+        ...currentDraft,
+        days: nextDays,
+        stops: nextDays.flatMap((day) => day.stops),
+      })
+    })
+    setSavedPlanNotice('선택한 일차만 대체 일정으로 바꿨어요. 저장하면 변경 내용이 반영됩니다.')
+  }, [setSavedPlanNotice])
+
+  const addWishlistRestaurant = useCallback((restaurant: SelectedMealPlace) => {
+    setPlanDraft((currentDraft) => {
+      const currentList = currentDraft.selectedRestaurants ?? []
+      if (currentList.some((r) => r.id === restaurant.id)) {
+        return currentDraft
+      }
+      return {
+        ...currentDraft,
+        selectedRestaurants: [...currentList, restaurant],
+      }
+    })
+    setSavedPlanNotice('선택한 맛집을 맛집 위시리스트에 담았어요. 저장하면 반영됩니다.')
+  }, [setSavedPlanNotice])
+
+  const removeWishlistRestaurant = useCallback((restaurantId: string) => {
+    setPlanDraft((currentDraft) => {
+      const currentList = currentDraft.selectedRestaurants ?? []
+      const targetRestaurant = currentList.find((restaurant) => restaurant.id === restaurantId)
+      const nextDays = targetRestaurant
+        ? removeWishlistRestaurantStops(currentDraft.days, targetRestaurant)
+        : currentDraft.days
+
+      return applyWishlistSummaryToPlanDraft({
+        ...currentDraft,
+        selectedRestaurants: currentList.filter((r) => r.id !== restaurantId),
+        days: nextDays,
+        stops: nextDays.flatMap((day) => day.stops),
+      })
+    })
+    setSavedPlanNotice('맛집 위시리스트와 일정 코스에서 제외했어요.')
+  }, [setSavedPlanNotice])
+
   const getNextSavedPlanLike = (currentLike: SavedPlanLike, selectedLike: SavedPlanLike): SavedPlanLike => {
     return currentLike === selectedLike ? null : selectedLike
+  }
+
+  const getRecommendationTripType = (durationLabel: string | null): RecommendationRequestPayload['tripType'] => {
+    const tripTypeMap: Record<string, RecommendationRequestPayload['tripType']> = {
+      '당일치기': 'daytrip',
+      '1박 2일': '2d1n',
+      '2박 3일': '3d2n',
+      '3박 4일': '4d3n',
+      '4박 5일': '5d4n',
+    }
+
+    return tripTypeMap[durationLabel || ''] || '2d1n'
   }
 
   const createRecommendationMutation = useMutation({
@@ -668,6 +807,91 @@ export function usePlanner({
         : nextExtraction
           ? createAssistantReply(plannerBasisLabel, nextDraft, nextExtraction, plannerCityContext)
         : `${nextSelectedDurationLabel}로 잡아둘게요. 여행하는 달을 알려주세요.`
+
+      if (plannerCityContext && !shouldAskTravelMonth) {
+        const assistantLoadingMessageId = 'loading-assistant'
+        const defaultTravelMonth = selectedTravelMonth ?? new Date().getMonth() + 1
+
+        setChatMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: createMessageId('user', currentMessages.length),
+            role: 'user',
+            content: trimmedMessage,
+          },
+          {
+            id: assistantLoadingMessageId,
+            role: 'assistant',
+            content: `${plannerCityContext.cityName} ${nextSelectedDurationLabel} 일정을 생성하고 있어요.`,
+          },
+        ])
+        setSelectedDurationLabel(nextSelectedDurationLabel)
+        setSelectedTravelMonth(defaultTravelMonth)
+        setPlannerConditionExtraction(null)
+        setSavedPlanNotice(null)
+        setChatInput('')
+        setIsPlannerLoading(true)
+
+        try {
+          const response = (await createRecommendationMutation.mutateAsync({
+            entryType: 'map_marker',
+            country: plannerCityContext.country || 'KR',
+            tripType: getRecommendationTripType(nextSelectedDurationLabel),
+            themes: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
+            includeFestivals: false,
+            destinationId: plannerCityContext.agentCoreId ?? plannerCityContext.cityId,
+            naturalLanguageQuery: `${nextSelectedDurationLabel} ${plannerContextText}`.trim(),
+            travelYear: new Date().getFullYear(),
+            travelMonth: defaultTravelMonth,
+          })) as RecommendationApiResponse
+
+          const realDraft = mapRecommendationToDraft(response)
+          const filteredNotices = (realDraft.userNotice || []).filter(
+            (notice: string) => notice !== response.itinerary?.summary
+          )
+          const userNoticeText =
+            filteredNotices.length > 0
+              ? '\n\n' + filteredNotices.join('\n')
+              : ''
+
+          setChatMessages((currentMessages) => [
+            ...currentMessages.filter((m) => m.id !== assistantLoadingMessageId),
+            {
+              id: createMessageId('assistant', currentMessages.length),
+              role: 'assistant',
+              content: `${response.itinerary?.summary || '일정이 성공적으로 생성되었습니다.'} 우측에 생성된 일정을 둘러보세요.${userNoticeText}`,
+            },
+          ])
+          setPlannerConditionExtraction(nextExtraction)
+          setPlanDraft(realDraft)
+          setSavedPlanNotice(null)
+          const destName = response.destination?.name
+          if (destName && !String(destName).toLowerCase().includes('mock')) {
+            setGeneratedPlanDestinationName(destName)
+          } else {
+            setGeneratedPlanDestinationName(plannerCityContext.cityName)
+          }
+          const destId = response.destination?.cityId || response.destination?.destinationId
+          setGeneratedPlanDestinationId(destId || plannerCityContext.cityId)
+        } catch (err) {
+          log.error('PLAN', 'Recommendation API failed for selected city duration', err)
+
+          setChatMessages((currentMessages) => [
+            ...currentMessages.filter((m) => m.id !== assistantLoadingMessageId),
+            {
+              id: createMessageId('assistant', currentMessages.length),
+              role: 'assistant',
+              content: '추천 서버 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요.',
+            },
+          ])
+          setPlannerConditionExtraction(null)
+          setSavedPlanNotice(null)
+        } finally {
+          setIsPlannerLoading(false)
+        }
+
+        return
+      }
 
       setChatMessages((currentMessages) => [
         ...currentMessages,
@@ -758,19 +982,10 @@ export function usePlanner({
     setIsPlannerLoading(true)
 
     try {
-      const tripTypeMap: Record<string, 'daytrip' | '2d1n' | '3d2n' | '4d3n' | '5d4n'> = {
-        '당일치기': 'daytrip',
-        '1박 2일': '2d1n',
-        '2박 3일': '3d2n',
-        '3박 4일': '4d3n',
-        '4박 5일': '5d4n',
-      }
-      
-      const mappedTripType = tripTypeMap[selectedDurationLabel || ''] || '2d1n'
       const response = (await createRecommendationMutation.mutateAsync({
         entryType: 'chat',
         country: plannerCityContext?.country || 'KR',
-        tripType: mappedTripType,
+        tripType: getRecommendationTripType(selectedDurationLabel),
         themes: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
         includeFestivals: false,
         destinationId: plannerCityContext?.agentCoreId ?? plannerCityContext?.cityId,
@@ -807,6 +1022,10 @@ export function usePlanner({
       if (destName && !String(destName).toLowerCase().includes('mock')) {
         setGeneratedPlanDestinationName(destName)
       }
+      const destId = response.destination?.cityId || response.destination?.destinationId
+      if (destId) {
+        setGeneratedPlanDestinationId(destId)
+      }
     } catch (err) {
       log.error('PLAN', 'Recommendation API failed, falling back to mock logic', err)
 
@@ -833,6 +1052,7 @@ export function usePlanner({
       setSavedPlanNotice(null)
       if (plannerCityContext) {
         setGeneratedPlanDestinationName(plannerCityContext.cityName)
+        setGeneratedPlanDestinationId(plannerCityContext.cityId)
       }
     } finally {
       setIsPlannerLoading(false)
@@ -924,6 +1144,8 @@ export function usePlanner({
     setPlanDraft,
     generatedPlanDestinationName,
     setGeneratedPlanDestinationName,
+    generatedPlanDestinationId,
+    setGeneratedPlanDestinationId,
     isPlannerLoading,
     setIsPlannerLoading,
     isSavingPlan,
@@ -964,6 +1186,10 @@ export function usePlanner({
     deleteSavedPlan,
     selectSavedPlanLike,
     toggleGeneratedPlanLike,
+    replacePlanStop,
+    replacePlanDay,
+    addWishlistRestaurant,
+    removeWishlistRestaurant,
     submitChatMessage,
     submitChatForm,
     plannerStateSteps,
@@ -971,6 +1197,10 @@ export function usePlanner({
     isSavedPlanLikePending,
     isSavedPlanDeletePending,
     getSavedPlanLikeError,
+    isPlanCloning,
+    cloneSavedPlan,
+    isShareStatusUpdating,
+    toggleSavedPlanShareStatus,
   }
 }
 

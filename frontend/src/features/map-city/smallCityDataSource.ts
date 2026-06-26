@@ -353,6 +353,7 @@ export const createSmallCityCatalogStateFromAdapterResult = (
 export const createSmallCityDetailStateFromAdapterResult = (
   adapterResult: SmallCityApiDetailAdapterResult,
   cityId: string,
+  source: SmallCityCatalogSource = staticSmallCityCatalogSource,
 ): SmallCityDetailState => {
   if (!adapterResult.detail) {
     return createSmallCityDetailEmptyState(cityId, adapterResult.rejectedRecords)
@@ -360,7 +361,65 @@ export const createSmallCityDetailStateFromAdapterResult = (
 
   return {
     status: 'success',
-    source: staticSmallCityCatalogSource,
+    source,
+    cityId,
+    detail: adapterResult.detail,
+    rejectedRecords: adapterResult.rejectedRecords,
+    errorMessage: null,
+  }
+}
+
+export type SmallCityDetailQueryResult = {
+  status: 'pending' | 'error' | 'success'
+  data?: SmallCityApiDetailAdapterResult
+  error?: unknown
+}
+
+const readSmallCityDetailErrorMessage = (error: unknown) =>
+  error instanceof Error && error.message ? error.message : '장소 정보를 불러오지 못했습니다.'
+
+export const createSmallCityDetailStateFromQueryResult = (
+  queryResult: SmallCityDetailQueryResult,
+  cityId: string,
+): SmallCityDetailState => {
+  if (queryResult.status === 'pending') {
+    return {
+      status: 'loading',
+      source: liveSmallCityCatalogSource,
+      cityId,
+      detail: null,
+      rejectedRecords: [],
+      errorMessage: null,
+    }
+  }
+
+  if (queryResult.status === 'error') {
+    return {
+      status: 'error',
+      source: liveSmallCityCatalogSource,
+      cityId,
+      detail: null,
+      rejectedRecords: [],
+      errorMessage: readSmallCityDetailErrorMessage(queryResult.error),
+    }
+  }
+
+  const adapterResult = queryResult.data
+
+  if (!adapterResult || !adapterResult.detail) {
+    return {
+      status: 'empty',
+      source: liveSmallCityCatalogSource,
+      cityId,
+      detail: null,
+      rejectedRecords: adapterResult?.rejectedRecords ?? [],
+      errorMessage: null,
+    }
+  }
+
+  return {
+    status: 'success',
+    source: liveSmallCityCatalogSource,
     cityId,
     detail: adapterResult.detail,
     rejectedRecords: adapterResult.rejectedRecords,

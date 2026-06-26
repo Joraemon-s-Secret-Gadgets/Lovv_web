@@ -64,7 +64,7 @@ export const legalNoticeContent: Record<LegalNoticeType, LegalNoticeContent> = {
       {
         heading: '보관과 보호',
         body: [
-          '인증 세션은 서버와 브라우저의 보안 정책에 맞춰 관리되며, OAuth client secret, id token, access token 같은 민감한 값은 화면에 표시하지 않습니다.',
+          '인증 세션은 서버와 브라우저의 보안 정책에 맞춰 관리됩니다.',
           '운영 환경에서는 HTTPS, HttpOnly cookie, 권한 검증, 접근 제한 등 보안 설정을 기준으로 사용자 정보를 보호합니다.',
         ],
       },
@@ -101,8 +101,7 @@ export const legalNoticeContent: Record<LegalNoticeType, LegalNoticeContent> = {
       {
         heading: '접수 채널',
         body: [
-          '현재 데모 버전에서는 별도 문의 접수 폼을 제공하지 않습니다.',
-          '정식 배포 전 공식 문의 이메일 또는 고객지원 채널을 연결할 예정입니다.',
+          '문의가 필요한 경우 joramong711@gmail.com 으로 연락해 주세요.',
         ],
       },
     ],

@@ -1,0 +1,113 @@
+{
+  "common": {
+    "search_cities": "目的地を探す",
+    "plan_itinerary": "AI日程作成",
+    "recommendation": "おすすめ",
+    "mypage": "マイページ",
+    "logout": "ログアウト",
+    "copyright": "© 2026 Lovv. All rights reserved.",
+    "terms_notice": "利用規約とプライバシーポリシー",
+    "terms": "利用規約",
+    "privacy": "個人情報処理方針",
+    "contact": "お問い合わせ",
+    "tagline": "小都市旅行のロマンをお届けします。"
+  },
+  "onboarding": {
+    "hero_sub": "Lovv City Mood Journal",
+    "hero_title_new": "旅行の雰囲気を選んでください",
+    "hero_title_edit": "旅行の雰囲気をもう一度選んでください",
+    "hero_desc_new": "おなじみの都市の感覚を、Lovvが韓国の小都市の候補に変えておきます。",
+    "hero_desc_edit": "新しい好みは保存された後、次のAI日程から反映されます。",
+    "choose_title": "Choose your cover story",
+    "choose_subtitle": "都市の雰囲気で選ぶ旅行の好み",
+    "action_notice": "お好みのテーマを1つ以上選択してください",
+    "save_and_start": "この好みでLovvを始める",
+    "save_edit": "この好みで保存する",
+    "cancel_edit": "キャンセルしてマイページに戻る",
+    "saving": "好みを保存中...",
+    "limit_reached_notice": "基準テーマは最大3つまで選択できます。",
+    "selected_themes_notice": "{{count}}/3個の基準テーマが選択されました。",
+    "selected_theme_label": "Selected Theme",
+    "current_display": "現在表示: {{city}}",
+    "route_note_title": "First route note",
+    "route_note_sub": "本日の好み旅",
+    "limitations_notice": "現在のMVPはGoogleの模擬セッションと旅行の好みのヒントのみを保存し、全体のチャットログは保存しません。",
+    "limitations_notice_edit": "保存するまでは以前の好みが維持されます。",
+    "list_open_label": "{{city}} +{{count}} 画像リストを展開",
+    "view_larger_label": "{{city}} 画像を拡大表示",
+    "thumbnail_label": "{{city}} サムネイル画像",
+    "featured_label": "{{city}} 代表画像"
+  },
+  "themes": {
+    "healing_rest": {
+      "label": "温泉・休養",
+      "shortLabel": "温泉",
+      "description": "宿での滞在、温泉、スパのように、疲労回復につながる場面を優先します。"
+    },
+    "sea_coast": {
+      "label": "海・海岸",
+      "shortLabel": "海",
+      "description": "海の青さ、浜辺の散歩、リゾートの余白がある小都市を優先します。"
+    },
+    "history_tradition": {
+      "label": "歴史・伝統",
+      "shortLabel": "伝統",
+      "description": "寺院、古い町並み、地域の伝統が息づくルートを選びます。"
+    },
+    "food_local": {
+      "label": "美食・老舗",
+      "shortLabel": "美食",
+      "description": "市場、地元の食卓、老舗店を巡る旅に合わせます。"
+    },
+    "nature_trekking": {
+      "label": "自然・トレッキング",
+      "shortLabel": "自然",
+      "description": "森、山、滝、展望台など、歩くリズムがある場面を選びます。"
+    },
+    "art_sense": {
+      "label": "芸術・感性",
+      "shortLabel": "芸術",
+      "description": "工芸、庭園、カフェ、展示など、記録に残したい場面を優先します。"
+    }
+  },
+  "preferences": {
+    "healing_rest": {
+      "routeHint": "温陽温泉 · スパリゾート",
+      "editorialNote": "温陽温泉のように温かいお湯、宿での滞在、穏やかな回復に焦点を当てます。"
+    },
+    "sea_coast": {
+      "routeHint": "海雲台 · 広安里",
+      "editorialNote": "ビーチと潮風が真っ先に思い浮かぶ旅、海岸散歩の余白を重視します。"
+    },
+    "history_tradition": {
+      "routeHint": "仏国寺 · 瞻星台",
+      "editorialNote": "慶州のように古い歴史的な場所、路地、伝統の質感をゆっくりと辿ります。"
+    },
+    "food_local": {
+      "routeHint": "韓屋村 · 全州ビビンバ",
+      "editorialNote": "代表的な料理と老舗店を中心に、市場や路地の食卓を巡ります。"
+    },
+    "nature_trekking": {
+      "routeHint": "漢拏山 · オルレ道",
+      "editorialNote": "漢拏山のように歩くリズム、山の景色、滝や森の風景を優先します。"
+    },
+    "art_sense": {
+      "routeHint": "安목ビーチ · 正東津",
+      "editorialNote": "カフェや海辺、工芸や庭園の雰囲気をゆっくりと眺め、記録する旅です。"
+    }
+  },
+  "feedback": {
+    "title": "この日程、どのような点が良かったですか？",
+    "chip_healing": "静かでよかったです",
+    "chip_nature": "自然中心でよかったです",
+    "chip_tradition": "動線が便利です",
+    "chip_food": "日程が充実しています",
+    "chip_negative": "この日程には興味ありません",
+    "guide_note": "タップ ➔ 好み追加 · もう一度タップ ➔ 解除 · 「興味ありません」 ➔ テーマ露出 ↓, アカウントに保存",
+    "like_label": "いいね (保存ト글)",
+    "like_active_label": "いいね取り消し",
+    "notice_positive": "フィードバックが反映され、好みの雰囲気に追加されました！",
+    "notice_toggled_off": "好みから解除されました。",
+    "notice_negative": "否定的なフィードバックが反映され、該当テーマの露出頻度が下がります。"
+  }
+}

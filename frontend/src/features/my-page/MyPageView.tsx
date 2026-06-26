@@ -8,7 +8,6 @@ import type {
   SocialAuthProvider,
 } from '../../shared/types/app'
 import type { ProfileUpdateRequest } from '../../shared/api/authApi'
-import { SavedPlanLikeControls } from '../saved-plans/SavedPlanLikeControls'
 
 
 const socialProviderLabels: Record<SocialAuthProvider, string> = {
@@ -43,8 +42,10 @@ type MyPageViewProps = {
   getSavedPlanLikeError: (planId: string) => string | null
   isSavedPlanLikePending: (planId: string) => boolean
   isSavedPlanDeletePending: (planId: string) => boolean
+  isSavedPlanSharePending?: (planId: string) => boolean
   openSavedPlanDetail: (planId: string) => void
   onDeleteSavedPlan: (planId: string) => void
+  onShareSavedPlan?: (planId: string, isPublic: boolean) => Promise<boolean>
   openPreferenceEdit: () => void
   signOut: () => void
   canLinkSocialAccounts: boolean
@@ -66,12 +67,11 @@ export function MyPageView({
   currentUser,
   savedPlans,
   getSavedPlanLike,
-  onSelectSavedPlanLike,
-  getSavedPlanLikeError,
-  isSavedPlanLikePending,
   isSavedPlanDeletePending,
+  isSavedPlanSharePending,
   openSavedPlanDetail,
   onDeleteSavedPlan,
+  onShareSavedPlan,
   openPreferenceEdit,
   signOut,
   canLinkSocialAccounts,
@@ -90,6 +90,7 @@ export function MyPageView({
   const [birthDateInput, setBirthDateInput] = useState(currentUser?.birthDate ?? '')
   const [genderInput, setGenderInput] = useState<string | null>(currentUser?.gender ?? null)
   const [profileSavedNotice, setProfileSavedNotice] = useState<string | null>(null)
+  const [shareNotice, setShareNotice] = useState<string | null>(null)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -120,6 +121,48 @@ export function MyPageView({
   const likedSavedPlanCount = savedPlans.filter((plan) => getSavedPlanLike(plan.id) === 'like').length
   const isProviderLinked = (provider: SocialAuthProvider) =>
     currentUser?.provider === provider || socialAccounts.some((account) => account.provider === provider)
+  const getSavedPlanShareUrl = (planId: string) => `${window.location.origin}/plans/${encodeURIComponent(planId)}`
+
+  const shareSavedPlan = async (plan: SavedPlan) => {
+    const shareUrl = getSavedPlanShareUrl(plan.id)
+
+    try {
+      if (!plan.isPublic) {
+        const shouldPublish = window.confirm(
+          '공유하려면 이 일정을 공개 일정으로 전환해야 합니다. 공개하면 링크를 가진 로그인 사용자가 읽기 전용으로 볼 수 있어요. 공유할까요?',
+        )
+
+        if (!shouldPublish) {
+          return
+        }
+
+        if (!onShareSavedPlan) {
+          setShareNotice('공유 설정을 변경할 수 없습니다. 잠시 후 다시 시도해 주세요.')
+          return
+        }
+
+        const isPublished = await onShareSavedPlan(plan.id, true)
+
+        if (!isPublished) {
+          setShareNotice('공개 전환에 실패해 공유를 중단했어요.')
+          return
+        }
+      }
+
+      if (navigator.share) {
+        await navigator.share({
+          title: plan.title,
+          text: `${plan.title} - Lovv 저장 일정`,
+          url: shareUrl,
+        })
+      } else {
+        await navigator.clipboard.writeText(shareUrl)
+      }
+      setShareNotice('공유 링크를 준비했어요.')
+    } catch {
+      setShareNotice('공유 링크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.')
+    }
+  }
 
   return (
     <section
@@ -240,20 +283,22 @@ export function MyPageView({
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-black text-[#33271E]">저장한 일정</p>
-                            <h2 className="mt-3 break-keep text-[28px] font-black leading-9 text-[#33271E] max-sm:text-2xl max-sm:leading-8">
-                              리뷰할 여정
-                            </h2>
                           </div>
                           <span className="rounded-[8px] border border-white/70 bg-[#fffffa]/90 px-3 py-1 text-[12px] font-black text-[#33271E] shadow-sm">
                             {savedPlans.length}개
                           </span>
                         </div>
+                        {shareNotice ? (
+                          <p aria-live="polite" className="mt-4 break-keep text-[12px] font-black leading-5 text-[#A92B10]">
+                            {shareNotice}
+                          </p>
+                        ) : null}
 
                         {savedPlans.length > 0 ? (
                           <ol className="mt-5 grid gap-3" aria-label="저장 일정 목록">
                             {savedPlans.map((plan) => {
-                              const likeTitleId = `saved-plan-like-${plan.id}`
                               const isDeletePending = isSavedPlanDeletePending(plan.id)
+                              const isSharePending = isSavedPlanSharePending?.(plan.id) ?? false
 
                               return (
                                 <li
@@ -291,23 +336,16 @@ export function MyPageView({
                                       </button>
                                     </div>
                                   </div>
-                                  <p
-                                    id={likeTitleId}
-                                    className="mt-4 break-keep text-[12px] font-black text-[#33271E]"
+                                  <button
+                                    type="button"
+                                    disabled={isSharePending}
+                                    onClick={() => {
+                                      void shareSavedPlan(plan)
+                                    }}
+                                    className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-[10px] border border-[#F3B489] bg-[#fffffa] px-4 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] disabled:cursor-wait disabled:opacity-65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                                   >
-                                    이 일정은 어땠나요?
-                                  </p>
-                                  <div className="mt-2">
-                                    <SavedPlanLikeControls
-                                      planId={plan.id}
-                                      like={getSavedPlanLike(plan.id)}
-                                      onSelectLike={onSelectSavedPlanLike}
-                                      pending={isSavedPlanLikePending(plan.id)}
-                                      errorMessage={getSavedPlanLikeError(plan.id)}
-                                      compact
-                                      labelledBy={likeTitleId}
-                                    />
-                                  </div>
+                                    {isSharePending ? '공개 전환 중' : '공유하기'}
+                                  </button>
                                 </li>
                               )
                             })}
@@ -318,7 +356,7 @@ export function MyPageView({
                               저장한 일정이 아직 없습니다.
                             </p>
                             <p className="mt-2 break-keep text-[12px] font-bold leading-5 text-[#6E5A50]">
-                              AI 일정 챗봇에서 마음에 드는 일정을 저장하면 이곳에서 좋아요 피드백을 남길 수 있어요.
+                              AI 일정 챗봇에서 마음에 드는 일정을 저장하면 이곳에서 다시 보고 공유할 수 있어요.
                             </p>
                           </div>
                         )}
