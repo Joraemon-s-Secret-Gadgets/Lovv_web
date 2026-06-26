@@ -1,4 +1,4 @@
-import type { PlanDay, PlanStop } from '../../shared/types/app'
+import type { PlanDay, PlanDraft, PlanStop, SelectedMealPlace } from '../../shared/types/app'
 
 export type PlannerEditIntent =
   | {
@@ -15,8 +15,79 @@ export type PlannerEditIntent =
     }
 
 const TIME_LABELS: PlanStop['time'][] = ['아침', '점심', '저녁']
+const USER_WISHLIST_DAY_SUMMARY_PATTERN =
+  /\s*사용자가 추가한 맛집 [^.]+ 동선을 조정했습니다\./g
+const USER_WISHLIST_PLAN_SUMMARY_PATTERN =
+  /\s*사용자가 직접 추가한 맛집 \d+곳을 포함한 일정입니다\./g
 
 const normalizeCommandText = (text: string) => text.trim().replace(/\s+/g, ' ')
+const stripGeneratedWishlistSummary = (summary: string) =>
+  summary
+    .replace(USER_WISHLIST_DAY_SUMMARY_PATTERN, '')
+    .replace(USER_WISHLIST_PLAN_SUMMARY_PATTERN, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
+const getUniqueStopTitles = (stops: PlanStop[]) =>
+  Array.from(new Set(stops.map((stop) => stop.title.trim()).filter(Boolean)))
+
+const formatWishlistStopNames = (stops: PlanStop[]) => {
+  const titles = getUniqueStopTitles(stops)
+
+  if (titles.length === 0) {
+    return '선택 장소'
+  }
+
+  if (titles.length <= 2) {
+    return titles.join(', ')
+  }
+
+  return `${titles.slice(0, 2).join(', ')} 외 ${titles.length - 2}곳`
+}
+
+const appendSentence = (baseText: string, sentence: string) =>
+  [baseText, sentence].filter(Boolean).join(' ').trim()
+
+export const isUserAddedWishlistStop = (stop: PlanStop) =>
+  Boolean(stop.wishlistRestaurantId || stop.source === 'wishlist')
+
+export const applyWishlistSummaryToDays = (days: PlanDay[]): PlanDay[] =>
+  days.map((day) => {
+    const wishlistStops = day.stops.filter(isUserAddedWishlistStop)
+    const baseSummary = stripGeneratedWishlistSummary(day.summary)
+
+    if (wishlistStops.length === 0) {
+      return {
+        ...day,
+        summary: baseSummary,
+      }
+    }
+
+    return {
+      ...day,
+      summary: appendSentence(
+        baseSummary,
+        `사용자가 추가한 맛집 ${formatWishlistStopNames(wishlistStops)}을 포함해 ${day.title} 동선을 조정했습니다.`,
+      ),
+    }
+  })
+
+export const applyWishlistSummaryToPlanDraft = (draft: PlanDraft): PlanDraft => {
+  const days = applyWishlistSummaryToDays(draft.days)
+  const stops = days.flatMap((day) => day.stops)
+  const wishlistStopCount = stops.filter(isUserAddedWishlistStop).length
+  const baseSummary = stripGeneratedWishlistSummary(draft.summary)
+
+  return {
+    ...draft,
+    summary:
+      wishlistStopCount > 0
+        ? appendSentence(baseSummary, `사용자가 직접 추가한 맛집 ${wishlistStopCount}곳을 포함한 일정입니다.`)
+        : baseSummary,
+    days,
+    stops,
+  }
+}
 
 export const parsePlannerEditCommand = (
   rawText: string,
@@ -121,3 +192,30 @@ export const applyPlanDayReplacement = (
   dayNumber: number,
   replacement: PlanDay,
 ): PlanDay[] => days.map((day) => (day.day === dayNumber ? replacement : day))
+
+export const isStopFromWishlistRestaurant = (
+  stop: PlanStop,
+  restaurant: SelectedMealPlace,
+) => {
+  if (stop.wishlistRestaurantId === restaurant.id) {
+    return true
+  }
+
+  const restaurantAddress = restaurant.roadAddressName ?? restaurant.addressName ?? ''
+  const hasMatchingTitle = stop.title.trim() === restaurant.placeName.trim()
+  const hasMatchingAddress = restaurantAddress.length > 0 && stop.body.trim() === restaurantAddress.trim()
+  const looksLikeWishlistDrop =
+    stop.reason.includes('위시리스트') ||
+    (restaurant.phone ? stop.reason.includes(restaurant.phone) : false)
+
+  return hasMatchingTitle && hasMatchingAddress && looksLikeWishlistDrop
+}
+
+export const removeWishlistRestaurantStops = (
+  days: PlanDay[],
+  restaurant: SelectedMealPlace,
+): PlanDay[] =>
+  days.map((day) => ({
+    ...day,
+    stops: day.stops.filter((stop) => !isStopFromWishlistRestaurant(stop, restaurant)),
+  }))

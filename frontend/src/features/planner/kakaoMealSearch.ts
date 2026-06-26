@@ -1,4 +1,5 @@
-import { adaptKakaoMealPlace, type KakaoMealPlaceRaw, type SelectedMealPlace } from './plannerMealModel'
+import { adaptKakaoMealPlace, type KakaoMealPlaceRaw } from './plannerMealModel'
+import type { SelectedMealPlace } from '../../shared/types/app'
 
 type KakaoPlacesSearchStatus = 'OK' | 'ZERO_RESULT' | 'ERROR'
 

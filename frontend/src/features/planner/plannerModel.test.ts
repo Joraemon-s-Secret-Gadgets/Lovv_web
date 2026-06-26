@@ -11,6 +11,8 @@ import {
   durationGuidePrompts,
   getFallbackPreference,
 } from './plannerModel'
+import { applyWishlistSummaryToPlanDraft, removeWishlistRestaurantStops } from './plannerEditModel'
+import type { PlanDay, PlanDraft, SelectedMealPlace } from '../../shared/types/app'
 
 // ── getExplicitDurationLabel ──────────────────────────────────────────────────
 describe('getExplicitDurationLabel', () => {
@@ -254,5 +256,202 @@ describe('createPlanDraft', () => {
   it('기본값 → intensityLabel 동선이 느슨한 일정', () => {
     const draft = createPlanDraft(preference, '2박 3일')
     expect(draft.intensityLabel).toBe('동선이 느슨한 일정')
+  })
+})
+
+describe('removeWishlistRestaurantStops', () => {
+  const restaurant: SelectedMealPlace = {
+    id: 'meal-1',
+    placeName: '동네식당',
+    roadAddressName: '강원 강릉시 중앙로 1',
+    phone: '010-0000-0000',
+    placeUrl: 'https://place.map.kakao.com/1',
+    source: 'kakao',
+    lat: 37.75,
+    lng: 128.89,
+  }
+
+  const days: PlanDay[] = [
+    {
+      day: 1,
+      title: '1일차',
+      summary: '테스트 일정',
+      stops: [
+        {
+          time: '아침',
+          title: '기존 관광지',
+          body: '기존 설명',
+          reason: '추천 이유',
+          move: '도보 5분',
+        },
+        {
+          time: '점심',
+          title: restaurant.placeName,
+          body: restaurant.roadAddressName ?? '',
+          reason: '나의 위시리스트에서 드래그하여 추가한 맛집입니다.',
+          move: '도보 5분',
+          source: 'wishlist',
+          lockLevel: 'user_added',
+          wishlistRestaurantId: restaurant.id,
+        },
+      ],
+    },
+  ]
+
+  it('위시리스트에서 제거한 맛집으로 만든 일정 stop도 함께 제거한다', () => {
+    const nextDays = removeWishlistRestaurantStops(days, restaurant)
+
+    expect(nextDays[0].stops).toHaveLength(1)
+    expect(nextDays[0].stops[0].title).toBe('기존 관광지')
+  })
+
+  it('위시리스트 stop은 AI 수정 정책에서 보존할 수 있도록 provenance를 가진다', () => {
+    const wishlistStop = days[0].stops[1]
+
+    expect(wishlistStop.source).toBe('wishlist')
+    expect(wishlistStop.lockLevel).toBe('user_added')
+    expect(wishlistStop.wishlistRestaurantId).toBe(restaurant.id)
+  })
+
+  it('식별자가 없는 이전 드롭 stop도 제목과 주소 기반으로 제거한다', () => {
+    const legacyDays: PlanDay[] = [
+      {
+        ...days[0],
+        stops: [
+          days[0].stops[0],
+          {
+            time: '점심',
+            title: restaurant.placeName,
+            body: restaurant.roadAddressName ?? '',
+            reason: `전화번호: ${restaurant.phone}`,
+            move: '도보 5분',
+          },
+        ],
+      },
+    ]
+
+    const nextDays = removeWishlistRestaurantStops(legacyDays, restaurant)
+
+    expect(nextDays[0].stops).toHaveLength(1)
+    expect(nextDays[0].stops[0].title).toBe('기존 관광지')
+  })
+})
+
+describe('applyWishlistSummaryToPlanDraft', () => {
+  const createDraft = (days: PlanDay[], summary = '강릉 바다를 중심으로 여유롭게 이동하는 일정입니다.'): PlanDraft => ({
+    durationLabel: '당일치기',
+    dayCount: days.length,
+    intensityLabel: '동선이 느슨한 일정',
+    festivalThemeLabel: '축제 제외',
+    summary,
+    days,
+    stops: days.flatMap((day) => day.stops),
+    selectedRestaurants: [],
+  })
+
+  const dayWithWishlistStop: PlanDay = {
+    day: 1,
+    title: '1일차 추천 일정',
+    summary: '해안 산책과 로컬 식사를 잇는 코스입니다.',
+    stops: [
+      {
+        time: '아침',
+        title: '안목해변',
+        body: '바다를 보며 걷는 코스',
+        reason: '해안 감성을 느낄 수 있어요.',
+        move: '도보 5분',
+      },
+      {
+        time: '점심',
+        title: '동네식당',
+        body: '강원 강릉시 중앙로 1',
+        reason: '나의 위시리스트에서 드래그하여 추가한 맛집입니다.',
+        move: '도보 5분',
+        source: 'wishlist',
+        lockLevel: 'user_added',
+        wishlistRestaurantId: 'meal-1',
+      },
+    ],
+  }
+
+  it('위시리스트에서 추가한 stop을 일차 설명과 전체 일정 설명에 반영한다', () => {
+    const nextDraft = applyWishlistSummaryToPlanDraft(createDraft([dayWithWishlistStop]))
+
+    expect(nextDraft.days[0].summary).toContain(
+      '사용자가 추가한 맛집 동네식당을 포함해 1일차 추천 일정 동선을 조정했습니다.',
+    )
+    expect(nextDraft.summary).toContain('사용자가 직접 추가한 맛집 1곳을 포함한 일정입니다.')
+    expect(nextDraft.stops).toEqual(nextDraft.days.flatMap((day) => day.stops))
+  })
+
+  it('반복 적용해도 생성된 설명 문구를 중복하지 않는다', () => {
+    const firstDraft = applyWishlistSummaryToPlanDraft(createDraft([dayWithWishlistStop]))
+    const secondDraft = applyWishlistSummaryToPlanDraft(firstDraft)
+
+    expect(secondDraft.days[0].summary.match(/사용자가 추가한 맛집/g)).toHaveLength(1)
+    expect(secondDraft.summary.match(/사용자가 직접 추가한 맛집/g)).toHaveLength(1)
+  })
+
+  it('위시리스트 stop이 사라지면 생성된 설명 문구만 제거한다', () => {
+    const draftWithSummary = applyWishlistSummaryToPlanDraft(createDraft([dayWithWishlistStop]))
+    const dayWithoutWishlistStop: PlanDay = {
+      ...draftWithSummary.days[0],
+      stops: draftWithSummary.days[0].stops.filter((stop) => !stop.wishlistRestaurantId),
+    }
+
+    const nextDraft = applyWishlistSummaryToPlanDraft({
+      ...draftWithSummary,
+      days: [dayWithoutWishlistStop],
+      stops: dayWithoutWishlistStop.stops,
+    })
+
+    expect(nextDraft.days[0].summary).toBe('해안 산책과 로컬 식사를 잇는 코스입니다.')
+    expect(nextDraft.summary).toBe('강릉 바다를 중심으로 여유롭게 이동하는 일정입니다.')
+  })
+
+  it('여러 위시리스트 stop은 이름 목록과 총 개수를 갱신한다', () => {
+    const day: PlanDay = {
+      ...dayWithWishlistStop,
+      stops: [
+        ...dayWithWishlistStop.stops,
+        {
+          time: '저녁',
+          title: '바다횟집',
+          body: '강원 강릉시 해안로 2',
+          reason: '나의 위시리스트에서 드래그하여 추가한 맛집입니다.',
+          move: '차량 8분',
+          source: 'wishlist',
+          lockLevel: 'user_added',
+          wishlistRestaurantId: 'meal-2',
+        },
+      ],
+    }
+
+    const nextDraft = applyWishlistSummaryToPlanDraft(createDraft([day]))
+
+    expect(nextDraft.days[0].summary).toContain('동네식당, 바다횟집을 포함해')
+    expect(nextDraft.summary).toContain('사용자가 직접 추가한 맛집 2곳을 포함한 일정입니다.')
+  })
+
+  it('위시리스트 provenance가 없는 pinned stop은 사용자 추가 맛집 설명으로 세지 않는다', () => {
+    const pinnedAgentDay: PlanDay = {
+      ...dayWithWishlistStop,
+      stops: [
+        {
+          time: '아침',
+          title: '보존 관광지',
+          body: 'AI가 만든 핵심 코스',
+          reason: '사용자가 유지하기로 고정한 관광지입니다.',
+          move: '도보 5분',
+          source: 'agent',
+          lockLevel: 'pinned',
+        },
+      ],
+    }
+
+    const nextDraft = applyWishlistSummaryToPlanDraft(createDraft([pinnedAgentDay]))
+
+    expect(nextDraft.days[0].summary).toBe('해안 산책과 로컬 식사를 잇는 코스입니다.')
+    expect(nextDraft.summary).toBe('강릉 바다를 중심으로 여유롭게 이동하는 일정입니다.')
   })
 })

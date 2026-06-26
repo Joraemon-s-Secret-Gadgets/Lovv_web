@@ -1,4 +1,4 @@
-import type { PlanDay } from '../../shared/types/app'
+import type { PlanDay, SelectedMealPlace } from '../../shared/types/app'
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner'
 
@@ -18,16 +18,8 @@ export type KakaoMealPlaceRaw = {
   address_name?: string
   phone?: string
   place_url?: string
-}
-
-export type SelectedMealPlace = {
-  id: string
-  placeName: string
-  roadAddressName?: string
-  addressName?: string
-  phone?: string
-  placeUrl?: string
-  source: 'kakao'
+  x?: string
+  y?: string
 }
 
 const mealTypeOrder: MealType[] = ['breakfast', 'lunch', 'dinner']
@@ -75,5 +67,7 @@ export const adaptKakaoMealPlace = (rawPlace: KakaoMealPlaceRaw): SelectedMealPl
     phone: readTrimmedString(rawPlace.phone),
     placeUrl: readTrimmedString(rawPlace.place_url),
     source: 'kakao',
+    lat: rawPlace.y ? parseFloat(rawPlace.y) : undefined,
+    lng: rawPlace.x ? parseFloat(rawPlace.x) : undefined,
   }
 }
