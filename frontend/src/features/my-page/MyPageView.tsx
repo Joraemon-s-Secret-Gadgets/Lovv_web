@@ -15,6 +15,20 @@ const socialProviderLabels: Record<SocialAuthProvider, string> = {
   kakao: 'Kakao',
 }
 
+const resolveProviderTone = (label: string): SocialAuthProvider | null => {
+  const normalizedLabel = label.toLowerCase()
+
+  if (normalizedLabel.includes('kakao')) {
+    return 'kakao'
+  }
+
+  if (normalizedLabel.includes('google')) {
+    return 'google'
+  }
+
+  return null
+}
+
 const formatJoinDate = (value: string | null | undefined) => {
   if (!value) {
     return null
@@ -26,7 +40,7 @@ const formatJoinDate = (value: string | null | undefined) => {
     return null
   }
 
-  return `${parsed.getFullYear()}.${String(parsed.getMonth() + 1).padStart(2, '0')}.${String(parsed.getDate()).padStart(2, '0')}`
+  return `${String(parsed.getFullYear()).slice(-2)}.${String(parsed.getMonth() + 1).padStart(2, '0')}.${String(parsed.getDate()).padStart(2, '0')}`
 }
 
 type MyPageViewProps = {
@@ -118,7 +132,8 @@ export function MyPageView({
 
   const currentUserName = currentUser?.name?.trim() || '사용자'
   const joinDateLabel = formatJoinDate(currentUser?.createdAt)
-  const likedSavedPlanCount = savedPlans.filter((plan) => getSavedPlanLike(plan.id) === 'like').length
+  const reactedSavedPlanCount = savedPlans.filter((plan) => getSavedPlanLike(plan.id) !== null).length
+  const currentProviderTone = resolveProviderTone(currentProviderLabel)
   const isProviderLinked = (provider: SocialAuthProvider) =>
     currentUser?.provider === provider || socialAccounts.some((account) => account.provider === provider)
   const getSavedPlanShareUrl = (planId: string) => `${window.location.origin}/plans/${encodeURIComponent(planId)}`
@@ -167,7 +182,7 @@ export function MyPageView({
   return (
     <section
                   aria-labelledby="mypage-title"
-                  className="mx-auto min-h-dvh max-w-[1440px] px-16 pb-16 pt-28 max-lg:px-8 max-sm:px-5"
+                  className="lovv-page-mypage mx-auto min-h-dvh max-w-[1440px] px-16 pb-16 pt-28 max-lg:px-8 max-sm:px-5"
                 >
                   <div className="mb-5 flex justify-start">
                     <button
@@ -179,7 +194,7 @@ export function MyPageView({
                     </button>
                   </div>
                   <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(320px,0.55fr)] gap-6 max-lg:grid-cols-1">
-                    <section className="rounded-[22px] border border-transparent bg-[#fffffa] p-7 shadow-[0_14px_36px_-24px_rgba(51,39,30,0.28)]">
+                    <section className="rounded-[24px] border border-white/70 bg-gradient-to-br from-[#fffffa]/92 via-[#FFF8F1]/82 to-[#EEF7F2]/62 p-7 shadow-[0_24px_58px_-42px_rgba(51,39,30,0.32)] backdrop-blur-xl">
                       <p className="text-sm font-black uppercase tracking-[0.18em] text-[#F36B12]">
                         My Lovv
                       </p>
@@ -210,66 +225,82 @@ export function MyPageView({
                       ) : null}
 
                       <div className="mt-8 grid grid-cols-2 gap-4 max-md:grid-cols-1 md:grid-cols-3 xl:grid-cols-5">
-                        {/* 1. 로그인 방식 */}
-                        <article className="flex flex-col justify-between rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
+                        <article className="flex min-h-[150px] flex-col justify-between rounded-[12px] border border-white/70 bg-white/70 p-5 shadow-[0_18px_38px_-30px_rgba(51,39,30,0.25)] backdrop-blur-md">
                           <div>
                             <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
                               로그인 방식
                             </p>
-                            <p className="mt-3 break-keep text-lg font-black leading-7 text-[#33271E]">
+                            <div
+                              className={`mt-4 inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-black shadow-sm ${
+                                currentProviderTone === 'kakao'
+                                  ? 'border-[#F2D741] bg-[#FEE500] text-[#191600]'
+                                  : currentProviderTone === 'google'
+                                    ? 'border-white/80 bg-[#fffffa] text-[#33271E]'
+                                    : 'border-white/70 bg-[#FFF0E4] text-[#33271E]'
+                              }`}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className={`flex size-7 items-center justify-center rounded-full text-[13px] font-black ${
+                                  currentProviderTone === 'kakao'
+                                    ? 'bg-[#191600] text-[#FEE500]'
+                                    : currentProviderTone === 'google'
+                                      ? 'bg-white text-[#4285F4] shadow-[inset_0_0_0_1px_rgba(51,39,30,0.12)]'
+                                      : 'bg-[#F36B12] text-[#33271E]'
+                                }`}
+                              >
+                                {currentProviderTone === 'kakao' ? 'k' : currentProviderTone === 'google' ? 'G' : 'L'}
+                              </span>
                               {currentProviderLabel}
-                            </p>
+                            </div>
                           </div>
                         </article>
-                        {/* 2. 선택 테마 (기존 하단 섹션 기능을 이곳에 통합) */}
-                        <article className="flex flex-col justify-between rounded-[18px] border border-transparent bg-[#FFF0E4] p-5 md:col-span-2 xl:col-span-1">
+
+                        <article className="flex min-h-[150px] flex-col justify-between rounded-[20px] border border-white/70 bg-gradient-to-br from-[#EEF7F2] to-[#fffffa] p-5 shadow-[0_18px_38px_-30px_rgba(45,90,61,0.28)] md:col-span-2 xl:col-span-1">
                           <div>
-                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#2D5A3D]">
                               선택 테마
                             </p>
                             <p className="mt-3 break-keep text-lg font-black leading-7 text-[#33271E]">
                               {selectedPreferenceLabel}
                             </p>
                           </div>
-                          <div className="mt-4 pt-2 border-t border-[#33271E]/10">
+                          <div className="mt-4 border-t border-[#2D5A3D]/10 pt-2">
                             <button
                               type="button"
                               onClick={openPreferenceEdit}
-                              className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-3.5 text-xs font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                              className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#2D5A3D]/20 bg-[#2D5A3D] px-3.5 text-xs font-black text-[#fffffa] transition hover:bg-[#3E704D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                             >
                               테마 변경
                             </button>
                           </div>
                         </article>
-                          
-                        {/* 3. 저장 일정 */}
-                        <article className="flex flex-col justify-between rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
+
+                        <article className="flex min-h-[150px] flex-col justify-between rounded-[20px] border border-white/70 bg-gradient-to-br from-[#FFF0E4] to-[#fffffa] p-5 shadow-[0_18px_38px_-30px_rgba(243,107,18,0.28)]">
                           <div>
                             <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
                               저장 일정
                             </p>
-                            <p className="mt-3 break-keep text-lg font-black leading-7 text-[#33271E]">
+                            <p className="mt-3 break-keep text-2xl font-black leading-8 text-[#33271E]">
                               {savedPlans.length > 0 ? `${savedPlans.length}개` : '아직 없음'}
                             </p>
                           </div>
                         </article>
 
-                        {/* 4. 좋아요한 일정 */}
-                        <article className="flex flex-col justify-between rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
+                        <article className="flex min-h-[150px] flex-col justify-between rounded-[20px] border border-white/70 bg-gradient-to-br from-[#F7EFE6] to-[#fffffa] p-5 shadow-[0_18px_38px_-30px_rgba(156,106,67,0.3)]">
                           <div>
-                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
-                              좋아요한 일정
+                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#7A4D2A]">
+                              반응 남긴 일정
                             </p>
-                            <p className="mt-3 break-keep text-lg font-black leading-7 text-[#33271E]">
-                              {likedSavedPlanCount > 0 ? `${likedSavedPlanCount}개` : '아직 없음'}
+                            <p className="mt-3 break-keep text-2xl font-black leading-8 text-[#33271E]">
+                              {reactedSavedPlanCount > 0 ? `${reactedSavedPlanCount}개` : '아직 없음'}
                             </p>
                           </div>
                         </article>
 
-                        {/* 5. 가입일 */}
-                        <article className="flex flex-col justify-between rounded-[18px] border border-transparent bg-[#FFF0E4] p-5">
+                        <article className="flex min-h-[150px] flex-col justify-between rounded-[20px] border border-white/70 bg-gradient-to-br from-[#F8F3EA] to-[#fffffa] p-5 shadow-[0_18px_38px_-30px_rgba(51,39,30,0.18)]">
                           <div>
-                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#6E5A50]">
                               가입일
                             </p>
                             <p className="mt-3 break-keep text-lg font-black leading-7 text-[#33271E]">
@@ -279,7 +310,7 @@ export function MyPageView({
                         </article>
                       </div>
 
-                      <section className="mt-8 rounded-[24px] border border-white/50 bg-[#FFF0E4]/45 p-6 backdrop-blur-md">
+                      <section className="mt-8 rounded-[24px] border border-white/60 bg-gradient-to-br from-[#FFF7F0]/78 to-[#fffffa]/72 p-6 shadow-[0_18px_44px_-36px_rgba(51,39,30,0.22)] backdrop-blur-md">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-black text-[#33271E]">저장한 일정</p>
@@ -384,10 +415,33 @@ export function MyPageView({
                       </div>
                       
                       {/* 연동 상태 */}
-                      <div className="mt-7 rounded-[20px] border border-white/50 bg-white/50 p-5 shadow-[0_12px_30px_-24px_rgba(51,39,30,0.15)] backdrop-blur-md">
+                      <div className="mt-7 rounded-[20px] border border-white/60 bg-gradient-to-br from-[#fffffa]/82 to-[#FFF0E4]/54 p-5 shadow-[0_12px_30px_-24px_rgba(51,39,30,0.15)] backdrop-blur-md">
                         <p className="text-sm font-black text-[#33271E]">연동 상태</p>
-                        <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#33271E]">
-                          {currentProviderLabel}로 로그인되어 있습니다.
+                        <div
+                          className={`mt-3 inline-flex min-h-10 items-center gap-2 rounded-full border px-3.5 py-1 text-sm font-black shadow-sm ${
+                            currentProviderTone === 'kakao'
+                              ? 'border-[#F2D741] bg-[#FEE500] text-[#191600]'
+                              : currentProviderTone === 'google'
+                                ? 'border-white/80 bg-[#fffffa] text-[#33271E]'
+                                : 'border-white/70 bg-[#FFF0E4] text-[#33271E]'
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`flex size-7 items-center justify-center rounded-full text-[13px] font-black ${
+                              currentProviderTone === 'kakao'
+                                ? 'bg-[#191600] text-[#FEE500]'
+                                : currentProviderTone === 'google'
+                                  ? 'bg-white text-[#4285F4] shadow-[inset_0_0_0_1px_rgba(51,39,30,0.12)]'
+                                  : 'bg-[#F36B12] text-[#33271E]'
+                            }`}
+                          >
+                            {currentProviderTone === 'kakao' ? 'k' : currentProviderTone === 'google' ? 'G' : 'L'}
+                          </span>
+                          {currentProviderLabel}
+                        </div>
+                        <p className="mt-3 break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
+                          소셜 로그인 정보는 Lovv 계정 식별에만 사용합니다.
                         </p>
                       </div>
 
