@@ -225,13 +225,13 @@ export function MyPageView({
                       ) : null}
 
                       <div className="mt-8 grid grid-cols-2 gap-4 max-md:grid-cols-1 md:grid-cols-3 xl:grid-cols-5">
-                        <article className="flex min-h-[150px] flex-col justify-between rounded-[12px] border border-white/70 bg-white/70 p-5 shadow-[0_18px_38px_-30px_rgba(51,39,30,0.25)] backdrop-blur-md">
+                        <article className="flex min-h-[150px] min-w-0 flex-col justify-between overflow-hidden rounded-[12px] border border-white/70 bg-white/70 p-5 shadow-[0_18px_38px_-30px_rgba(51,39,30,0.25)] backdrop-blur-md">
                           <div>
                             <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
                               로그인 방식
                             </p>
                             <div
-                              className={`mt-4 inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-black shadow-sm ${
+                              className={`mt-4 inline-flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-black shadow-sm ${
                                 currentProviderTone === 'kakao'
                                   ? 'border-[#F2D741] bg-[#FEE500] text-[#191600]'
                                   : currentProviderTone === 'google'
@@ -241,7 +241,7 @@ export function MyPageView({
                             >
                               <span
                                 aria-hidden="true"
-                                className={`flex size-7 items-center justify-center rounded-full text-[13px] font-black ${
+                                className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-black ${
                                   currentProviderTone === 'kakao'
                                     ? 'bg-[#191600] text-[#FEE500]'
                                     : currentProviderTone === 'google'
@@ -251,7 +251,7 @@ export function MyPageView({
                               >
                                 {currentProviderTone === 'kakao' ? 'k' : currentProviderTone === 'google' ? 'G' : 'L'}
                               </span>
-                              {currentProviderLabel}
+                              <span className="min-w-0 truncate">{currentProviderLabel}</span>
                             </div>
                           </div>
                         </article>
@@ -418,7 +418,7 @@ export function MyPageView({
                       <div className="mt-7 rounded-[20px] border border-white/60 bg-gradient-to-br from-[#fffffa]/82 to-[#FFF0E4]/54 p-5 shadow-[0_12px_30px_-24px_rgba(51,39,30,0.15)] backdrop-blur-md">
                         <p className="text-sm font-black text-[#33271E]">연동 상태</p>
                         <div
-                          className={`mt-3 inline-flex min-h-10 items-center gap-2 rounded-full border px-3.5 py-1 text-sm font-black shadow-sm ${
+                          className={`mt-3 inline-flex min-h-10 max-w-full min-w-0 items-center gap-2 rounded-full border px-3 py-1 text-sm font-black shadow-sm ${
                             currentProviderTone === 'kakao'
                               ? 'border-[#F2D741] bg-[#FEE500] text-[#191600]'
                               : currentProviderTone === 'google'
@@ -428,7 +428,7 @@ export function MyPageView({
                         >
                           <span
                             aria-hidden="true"
-                            className={`flex size-7 items-center justify-center rounded-full text-[13px] font-black ${
+                            className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-black ${
                               currentProviderTone === 'kakao'
                                 ? 'bg-[#191600] text-[#FEE500]'
                                 : currentProviderTone === 'google'
@@ -438,7 +438,7 @@ export function MyPageView({
                           >
                             {currentProviderTone === 'kakao' ? 'k' : currentProviderTone === 'google' ? 'G' : 'L'}
                           </span>
-                          {currentProviderLabel}
+                          <span className="min-w-0 truncate">{currentProviderLabel}</span>
                         </div>
                         <p className="mt-3 break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
                           소셜 로그인 정보는 Lovv 계정 식별에만 사용합니다.

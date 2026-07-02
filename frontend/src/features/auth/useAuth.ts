@@ -217,6 +217,12 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
     }
   }, [])
 
+  const isSameSavedPlanIdentity = (left: SavedPlan, right: SavedPlan) =>
+    left.id === right.id ||
+    Boolean(left.sourceRecommendationId && left.sourceRecommendationId === right.sourceRecommendationId) ||
+    Boolean(right.sourceRecommendationId && right.sourceRecommendationId === left.id) ||
+    Boolean(left.sourceRecommendationId && left.sourceRecommendationId === right.id)
+
   const routePlanId = getPlanDetailRouteId(location.pathname)
   
   const authCallbackProvider = getAuthCallbackProvider(location.pathname)
@@ -274,9 +280,6 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
           routePlanLoadFailed = true
         }
       }
-
-      writeStoredSavedPlans(nextSavedPlans)
-      writeStoredSavedPlanLikes(nextSavedPlanLikes)
 
       return { savedPlans: nextSavedPlans, savedPlanLikes: nextSavedPlanLikes, routePlanLoadFailed }
     },
@@ -468,8 +471,27 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
 
     log.info('PLAN', `Saved plans loaded (${savedPlansQuery.data.savedPlans.length})`)
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSavedPlans(savedPlansQuery.data.savedPlans)
-    setSavedPlanLikes(savedPlansQuery.data.savedPlanLikes)
+    setSavedPlans((currentPlans) => {
+      const serverPlans = savedPlansQuery.data.savedPlans
+      const localOnlyPlans = currentPlans.filter(
+        (currentPlan) => !serverPlans.some((serverPlan) => isSameSavedPlanIdentity(currentPlan, serverPlan)),
+      )
+      const nextPlans = [...localOnlyPlans, ...serverPlans]
+
+      writeStoredSavedPlans(nextPlans)
+
+      return nextPlans
+    })
+    setSavedPlanLikes((currentLikes) => {
+      const nextLikes = {
+        ...currentLikes,
+        ...savedPlansQuery.data.savedPlanLikes,
+      }
+
+      writeStoredSavedPlanLikes(nextLikes)
+
+      return nextLikes
+    })
 
     if (savedPlansQuery.data.routePlanLoadFailed) {
       setSavedPlanNotice('저장 일정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')

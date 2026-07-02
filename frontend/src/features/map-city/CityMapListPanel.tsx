@@ -22,10 +22,10 @@ export function CityMapListPanel({
 }: CityMapListPanelProps) {
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-white/50 bg-white/45 px-4 py-3 backdrop-blur-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-white/70 bg-white/66 px-4 py-3 shadow-[0_14px_30px_-26px_rgba(51,39,30,0.2)] backdrop-blur-sm">
         <div>
           <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
-            Marker list
+            Result list
           </p>
           <h3
             id="city-map-results-title"
@@ -43,7 +43,7 @@ export function CityMapListPanel({
         <ol
           aria-labelledby="city-map-results-title"
           data-testid="city-map-result-list"
-          className="mt-3 grid gap-1.5"
+          className="mt-3 grid gap-2"
         >
           {filteredSmallCities.map((city) => {
             const isSelected = city.id === selectedSmallCity?.id
@@ -55,10 +55,10 @@ export function CityMapListPanel({
                   type="button"
                   aria-current={isSelected ? 'true' : undefined}
                   onClick={() => onSelectCityFromList(city)}
-                  className={`min-h-[58px] w-full rounded-[10px] border px-3 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                  className={`min-h-[64px] w-full rounded-[16px] border px-4 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
                     isSelected
-                      ? 'border-white/40 bg-gradient-to-tr from-[#FFE0CA]/90 to-[#FFE0CA]/60 shadow-[0_10px_22px_-20px_rgba(51,39,30,0.25)]'
-                      : 'border-white/30 bg-white/40 hover:border-white/60 hover:bg-[#fffffa]/60'
+                      ? 'border-[#F3B489]/70 bg-gradient-to-tr from-[#FFE0CA]/96 to-[#fffffa]/78 shadow-[0_16px_30px_-24px_rgba(51,39,30,0.3)]'
+                      : 'border-white/60 bg-white/58 shadow-sm hover:-translate-y-0.5 hover:border-[#F3B489]/60 hover:bg-[#fffffa]/78 hover:shadow-[0_14px_28px_-24px_rgba(51,39,30,0.24)]'
                   }`}
                 >
                   <span className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
@@ -75,12 +75,12 @@ export function CityMapListPanel({
                       {visibleThemes.slice(0, 2).map((theme) => (
                         <span
                           key={`${city.id}-list-${theme}`}
-                          className="rounded-full bg-[#FFF8F6] px-2 py-0.5 text-[10px] font-black text-[#6E5A50]"
+                          className="rounded-full border border-white/60 bg-[#FFF8F6]/90 px-2 py-0.5 text-[10px] font-black text-[#6E5A50]"
                         >
                           #{theme}
                         </span>
                       ))}
-                      <span className="rounded-full border border-white/60 bg-[#fffffa]/80 px-2.5 py-1 text-[10px] font-black text-[#A92B10] shadow-sm">
+                      <span className="rounded-full border border-white/70 bg-[#fffffa]/88 px-2.5 py-1 text-[10px] font-black text-[#A92B10] shadow-sm">
                         보기
                       </span>
                     </span>

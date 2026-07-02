@@ -43,10 +43,16 @@ export function AppHeader({
   // Session menu state from central store
   const isSessionMenuOpen = useUiToggleStore((state) => state.isSessionMenuOpen)
   const toggleSessionMenu = useUiToggleStore((state) => state.toggleSessionMenu)
+  const headerFontClass =
+    activeView === 'planner' || activeView === 'chat'
+      ? 'lovv-font-suit'
+      : activeView === 'map' || activeView === 'mypage'
+        ? 'lovv-font-numeric'
+        : 'lovv-font-pretendard'
 
   return (
-    <header className="fixed inset-x-0 top-0 z-20 border-b border-white/60 bg-white/40 shadow-[0_8px_32px_-24px_rgba(51,39,30,0.25)] backdrop-blur-2xl">
-      <div className="relative mx-auto flex items-center justify-between min-h-[58px] max-w-[1440px] px-9 py-1 max-lg:px-8 max-sm:px-4">
+    <header className={`fixed inset-x-0 top-0 z-20 border-b border-white/60 bg-white/40 shadow-[0_8px_32px_-24px_rgba(51,39,30,0.25)] backdrop-blur-2xl ${headerFontClass}`}>
+      <div className="relative mx-auto flex items-center min-h-[58px] max-w-[1440px] px-9 py-1 max-lg:px-8 max-sm:px-4">
         {/* Left: Logo */}
         <div className="flex justify-start">
           <a
@@ -59,12 +65,12 @@ export function AppHeader({
           </a>
         </div>
 
-        {/* Center: Navigation — 'AI 일정 짜기' anchored at exact center */}
-        <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 grid grid-cols-3 items-center gap-7 max-sm:gap-3.5" role="navigation" aria-label="메인 메뉴">
+        {/* Left: Navigation */}
+        <nav className="ml-8 flex items-center gap-7 max-lg:gap-5 max-sm:ml-4 max-sm:gap-3" role="navigation" aria-label="메인 메뉴">
           <button
             type="button"
             onClick={openMap}
-            className={`justify-self-end min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
+            className={`min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] max-sm:text-[12px] ${
               activeView === 'map'
                 ? 'text-[#F36B12] font-black'
                 : 'text-[#33271E] hover:text-[#F36B12]'
@@ -78,21 +84,21 @@ export function AppHeader({
           <button
             type="button"
             onClick={openPlanner}
-            className={`justify-self-center min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
-              activeView === 'planner' || activeView === 'chat' || activeView === 'planDetail'
+            className={`min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] max-sm:text-[12px] ${
+              activeView === 'planner' || activeView === 'chat'
                 ? 'text-[#F36B12] font-black'
                 : 'text-[#33271E] hover:text-[#F36B12]'
             }`}
           >
             {t('common.plan_itinerary')}
-            {(activeView === 'planner' || activeView === 'chat' || activeView === 'planDetail') && (
+            {(activeView === 'planner' || activeView === 'chat') && (
               <span className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-[#F36B12]" />
             )}
           </button>
           <button
             type="button"
             onClick={openRecommendation}
-            className={`justify-self-start min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
+            className={`min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] max-sm:text-[12px] ${
               activeView === 'recommendation'
                 ? 'text-[#F36B12] font-black'
                 : 'text-[#33271E] hover:text-[#F36B12]'
@@ -106,7 +112,7 @@ export function AppHeader({
         </nav>
 
         {/* Right: Session Menu & Language Selector */}
-        <div className="flex items-center justify-end gap-3.5">
+        <div className="ml-auto flex items-center justify-end gap-3.5">
           <LanguageSelector />
           <div className="relative shrink-0">
             {/* Avatar single button representation for accessibility and consistency */}
