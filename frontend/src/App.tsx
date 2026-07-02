@@ -54,6 +54,9 @@ const providerLabels: Record<SocialAuthProvider, string> = {
   kakao: 'Kakao',
 }
 
+const SUIT_FONT_PRELOAD_HREF =
+  'https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/variable/woff2/SUIT-Variable.woff2'
+
 const resolveSocialAuthProvider = (
   user: LovvUser | null,
   fallbackProvider: SocialAuthProvider | null,
@@ -104,6 +107,8 @@ function App() {
   // Coordinator state variables
   const [activeMonthlyRecommendation, setActiveMonthlyRecommendation] = useState(monthlyRecommendations[0])
   const [activeViewOverride, setActiveViewOverride] = useState<View | null>(null)
+  const [generatedPlanDetailRouteId, setGeneratedPlanDetailRouteId] = useState<string | null>(null)
+  const [savedPlanActionRouteId, setSavedPlanActionRouteId] = useState<string | null>(null)
 
   const routedView = getCanonicalViewFromPath(location.pathname) ?? 'auth'
   const activeView =
@@ -140,6 +145,35 @@ function App() {
     navigateToView,
     activeView,
   })
+
+  useEffect(() => {
+    const shouldPreloadSuitFont =
+      activeView === 'onboarding' ||
+      activeView === 'planner' ||
+      activeView === 'chat' ||
+      activeView === 'planDetail' ||
+      preferences.isPreferenceEditView
+
+    if (!shouldPreloadSuitFont || typeof document === 'undefined') {
+      return
+    }
+
+    const existingPreload = document.querySelector<HTMLLinkElement>(
+      `link[rel="preload"][href="${SUIT_FONT_PRELOAD_HREF}"]`,
+    )
+
+    if (existingPreload) {
+      return
+    }
+
+    const preload = document.createElement('link')
+    preload.rel = 'preload'
+    preload.href = SUIT_FONT_PRELOAD_HREF
+    preload.as = 'font'
+    preload.type = 'font/woff2'
+    preload.crossOrigin = 'anonymous'
+    document.head.appendChild(preload)
+  }, [activeView, preferences.isPreferenceEditView])
 
   const planner = usePlanner({
     authAccessToken: auth.authAccessToken,
@@ -231,8 +265,15 @@ function App() {
   const savedPlanForRouteFromQuery = routePlanId
     ? auth.savedPlansQuery.data?.savedPlans.find((plan) => plan.id === routePlanId) ?? null
     : null
+  const routeSavedPlan = savedPlanForRoute ?? savedPlanForRouteFromQuery
   
   const isRouteCurrentGeneratedPlan = routePlanId === planner.currentPlanId && planner.isPlannerReady
+  const savedGeneratedPlanForRoute = isRouteCurrentGeneratedPlan
+    ? auth.savedPlans.find(
+        (plan) => plan.id === planner.currentPlanId || plan.sourceRecommendationId === planner.currentPlanId,
+      ) ?? null
+    : null
+  const activeSavedPlanForRoute = isRouteCurrentGeneratedPlan ? savedGeneratedPlanForRoute : routeSavedPlan
   const isBackendRoutePlanLoading =
     auth.isBackendAuthMode && Boolean(routePlanId) && auth.isSavedPlansRestoring
 
@@ -245,47 +286,49 @@ function App() {
   )
 
   const savedRoutePlanDraft = useMemo<PlanDraft | null>(() => {
-    if (!savedPlanForRoute) {
+    if (!routeSavedPlan) {
       return null
     }
 
     const days =
-      savedPlanForRoute.days && savedPlanForRoute.days.length > 0
-        ? savedPlanForRoute.days
+      routeSavedPlan.days && routeSavedPlan.days.length > 0
+        ? routeSavedPlan.days
         : [
             {
               day: 1,
               title: '저장된 일정',
-              summary: savedPlanForRoute.summary,
-              stops: savedPlanForRoute.stops,
+              summary: routeSavedPlan.summary,
+              stops: routeSavedPlan.stops,
             },
           ]
 
     return {
-      durationLabel: savedPlanForRoute.durationLabel,
+      durationLabel: routeSavedPlan.durationLabel,
       dayCount: days.length,
-      intensityLabel: savedPlanForRoute.intensityLabel,
-      festivalThemeLabel: savedPlanForRoute.festivalThemeLabel,
-      summary: savedPlanForRoute.summary,
+      intensityLabel: routeSavedPlan.intensityLabel,
+      festivalThemeLabel: routeSavedPlan.festivalThemeLabel,
+      summary: routeSavedPlan.summary,
       days,
-      stops: savedPlanForRoute.stops,
-      selectedRestaurants: savedPlanForRoute.selectedRestaurants ?? [],
+      stops: routeSavedPlan.stops,
+      selectedRestaurants: routeSavedPlan.selectedRestaurants ?? [],
     }
-  }, [savedPlanForRoute])
+  }, [routeSavedPlan])
 
-  const activePlanDetailId = isRouteCurrentGeneratedPlan ? planner.currentPlanId : savedPlanForRoute?.id ?? planner.currentPlanId
+  const activePlanDetailId =
+    activeSavedPlanForRoute?.id ??
+    (isRouteCurrentGeneratedPlan ? planner.currentPlanId : routeSavedPlan?.id ?? routePlanId ?? planner.currentPlanId)
   const activePlanDetailDraft = isRouteCurrentGeneratedPlan ? planner.planDraft : savedRoutePlanDraft ?? planner.planDraft
   const activePlanDetailTitle = isRouteCurrentGeneratedPlan
     ? planner.currentPlanTitle
-    : savedPlanForRoute?.title ?? planner.currentPlanTitle
+    : routeSavedPlan?.title ?? planner.currentPlanTitle
   const activePlanDetailBasisLabel = isRouteCurrentGeneratedPlan
     ? planner.plannerBasisLabel
-    : savedPlanForRoute?.cityPair ?? planner.plannerBasisLabel
+    : routeSavedPlan?.cityPair ?? planner.plannerBasisLabel
   const activePlanDetailDestinationId = isRouteCurrentGeneratedPlan
     ? (planner.plannerCityContext?.cityId ?? planner.generatedPlanDestinationId ?? undefined)
-    : savedPlanForRoute?.destinationId ?? undefined
-  const isActivePlanDetailReady = isRouteCurrentGeneratedPlan || Boolean(savedPlanForRoute)
-  const isActivePlanDetailSaved = isRouteCurrentGeneratedPlan ? planner.isCurrentPlanSaved : Boolean(savedPlanForRoute)
+    : routeSavedPlan?.destinationId ?? undefined
+  const isActivePlanDetailReady = isRouteCurrentGeneratedPlan || Boolean(routeSavedPlan)
+  const isActivePlanDetailSaved = isRouteCurrentGeneratedPlan ? Boolean(savedGeneratedPlanForRoute) || planner.isCurrentPlanSaved : Boolean(routeSavedPlan)
 
 
 
@@ -395,6 +438,7 @@ function App() {
 
   const openMyPage = () => {
     useUiToggleStore.getState().closeSessionMenu()
+    setGeneratedPlanDetailRouteId(null)
     navigateToView('mypage')
   }
 
@@ -465,6 +509,8 @@ function App() {
 
   const openSavedPlanDetail = (planId: string) => {
     auth.setSavedPlanNotice(null)
+    setGeneratedPlanDetailRouteId(null)
+    setSavedPlanActionRouteId(planId)
     navigate(`/plans/${encodeURIComponent(planId)}`)
   }
 
@@ -474,6 +520,8 @@ function App() {
     }
 
     auth.setSavedPlanNotice(null)
+    setGeneratedPlanDetailRouteId(planner.currentPlanId)
+    setSavedPlanActionRouteId(null)
     navigateToView('planDetail')
   }
 
@@ -589,6 +637,7 @@ function App() {
           onCancelPreferenceEdit={preferences.cancelPreferenceEdit}
           onSavePreferenceEdit={preferences.savePreferenceEdit}
           onEnterMainWithPreference={preferences.enterMainWithPreference}
+          onLogoHome={goHome}
           onPreviewTrayOpenChange={preferences.setIsPreviewTrayOpen}
           onSelectPreviewImage={preferences.selectPreviewImage}
         />
@@ -620,6 +669,7 @@ function App() {
               savedPlansCount={auth.savedPlans.length}
               likedPlansCount={Object.keys(auth.savedPlanLikes).length}
               currentUser={auth.currentUser}
+              monthlyCandidateCities={map.smallCityCatalogState.cities}
             />
           ) : activeView === 'map' ? (
             <div className="pt-[58px]">
@@ -627,9 +677,7 @@ function App() {
             </div>
           ) : activeView === 'recommendation' ? (
             <div className="pt-[58px]">
-              <RecommendationView
-                onOpenMonthlyRecommendationDetail={openMonthlyRecommendationDetail}
-              />
+              <RecommendationView />
             </div>
           ) : activeView === 'themeDetail' ? (
             <ThemeDetailView recommendation={activeMonthlyRecommendation} goHome={goHome} openMonthlyRecommendationPlan={openMonthlyRecommendationPlan} />
@@ -650,6 +698,8 @@ function App() {
                 saveGeneratedPlan={planner.saveGeneratedPlan}
                 isPlanSaving={planner.isSavingPlan}
                 isCurrentPlanSaved={isActivePlanDetailSaved}
+                isGeneratedPlanDetail={Boolean(generatedPlanDetailRouteId)}
+                allowSavedPlanActions={routePlanId === savedPlanActionRouteId}
                 savedPlanDeletePending={planner.isSavedPlanDeletePending(activePlanDetailId)}
                 onDeleteSavedPlan={planner.deleteSavedPlan}
                 openMyPage={openMyPage}
@@ -660,10 +710,12 @@ function App() {
                 activeThemeIds={preferences.activeThemeIds}
                 onAddThemePreference={handleAddThemePreference}
                 onRemoveThemePreferences={handleRemoveThemePreferences}
+                getSavedPlanLike={planner.getSavedPlanLike}
+                onSelectSavedPlanLike={planner.selectSavedPlanLike}
                 selectedTravelMonth={planner.selectedTravelMonth}
                 currentUser={auth.currentUser}
-                ownerId={savedPlanForRoute?.ownerId ?? savedPlanForRouteFromQuery?.ownerId}
-                isPublic={savedPlanForRoute?.isPublic ?? savedPlanForRouteFromQuery?.isPublic}
+                ownerId={activeSavedPlanForRoute?.ownerId}
+                isPublic={activeSavedPlanForRoute?.isPublic}
                 isPlanCloning={planner.isPlanCloning}
                 cloneSavedPlan={planner.cloneSavedPlan}
                 isShareStatusUpdating={planner.isShareStatusUpdating[activePlanDetailId]}

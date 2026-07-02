@@ -496,13 +496,24 @@ export const getRecommendationBasisHashtags = (profile: PreferenceProfile) => {
 export const getPreferenceProfileLabel = (profile: PreferenceProfile) =>
   getThemeLabels(profile.selectedThemeIds).join(' · ')
 
-export const getPlannerStepClassName = (status: PlannerStepStatus) => {
+export type PlannerStepTone = 'orange' | 'green' | 'brown' | 'teal' | 'blue' | 'purple'
+
+const completedPlannerStepClassNames: Record<PlannerStepTone, string> = {
+  orange: 'border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-[#33271E] shadow-sm',
+  green: 'border border-white/40 bg-gradient-to-tr from-[#4F7C5B] to-[#83A96F] text-[#fffffa] shadow-sm',
+  brown: 'border border-white/40 bg-gradient-to-tr from-[#9C6A43] to-[#C18A5E] text-[#fffffa] shadow-sm',
+  teal: 'border border-white/40 bg-gradient-to-tr from-[#0D9488] to-[#2DD4BF] text-[#fffffa] shadow-sm',
+  blue: 'border border-white/40 bg-gradient-to-tr from-[#2563EB] to-[#60A5FA] text-[#fffffa] shadow-sm',
+  purple: 'border border-white/40 bg-gradient-to-tr from-[#7C3AED] to-[#A78BFA] text-[#fffffa] shadow-sm',
+}
+
+export const getPlannerStepClassName = (status: PlannerStepStatus, tone: PlannerStepTone = 'orange') => {
   if (status === 'completed') {
-    return 'border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-[#33271E] shadow-sm'
+    return completedPlannerStepClassNames[tone]
   }
 
   if (status === 'active') {
-    return 'border border-white/50 bg-[#FFF0E4]/70 text-[#33271E] backdrop-blur-sm'
+    return `lovv-planner-step-active lovv-planner-step-tone-${tone} border border-white/50 text-[#33271E] shadow-sm backdrop-blur-sm`
   }
 
   return 'border border-white/30 bg-white/20 text-[#897163] backdrop-blur-sm'

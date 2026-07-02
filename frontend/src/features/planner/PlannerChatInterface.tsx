@@ -153,16 +153,16 @@ export function PlannerChatInterface({
   ) => (
     <div className="flex max-w-[760px] items-start gap-3 animate-[lovv-chip-in_0.3s_ease-out_both]">
       <span
-        className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] border border-[#F36B12]/20 shadow-[0_6px_14px_-6px_rgba(243,107,18,0.4)]"
+        className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#F3B489]/50 bg-[#FFF0E4] shadow-[0_8px_18px_-10px_rgba(51,39,30,0.35)]"
         aria-hidden="true"
       >
         <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
       </span>
-      <div className="min-w-0 rounded-[20px] border border-white/50 bg-white/45 p-3 shadow-[0_16px_34px_-28px_rgba(51,39,30,0.15)] backdrop-blur-md">
+      <div className="min-w-0 rounded-[22px] border border-white/60 bg-[#fffffa]/70 p-3 shadow-[0_18px_38px_-30px_rgba(51,39,30,0.22)] backdrop-blur-md">
         <p className="mb-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#315B3E]">
-          Lovv AI
+          Lovv Planner
         </p>
-        <div className="inline-flex max-w-full rounded-[16px] border border-transparent bg-[#fffffa] px-5 py-4 text-sm font-bold leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-6">
+        <div className="inline-flex max-w-full rounded-[16px] border border-[#F3B489]/20 bg-white px-5 py-4 text-sm font-bold leading-6 text-[#33271E] shadow-sm max-sm:text-[13px] max-sm:leading-6">
           {promptText}
         </div>
         <div className={`mt-3 ${optionsClassName}`}>
@@ -190,13 +190,13 @@ export function PlannerChatInterface({
     <section
       aria-label="여행 조건을 대화로 정리하기"
       data-testid="chat-conversation-panel"
-      className="lovv-liquid-panel flex h-full min-h-[680px] min-w-0 flex-col overflow-hidden rounded-[22px] border-0 shadow-[0_24px_56px_-34px_rgba(51,39,30,0.25)] xl:min-h-0"
+      className="lovv-chat-panel flex h-full min-h-[680px] min-w-0 flex-col overflow-hidden rounded-[26px] border border-white/70 shadow-[0_28px_64px_-40px_rgba(51,39,30,0.34)] xl:min-h-0"
     >
-      <header className="border-b border-white/40 bg-[#FFF8F6]/60 px-6 py-5 backdrop-blur-sm">
+      <header className="border-b border-white/60 bg-[#FFF8F6]/76 px-6 py-5 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-5">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#A92B10]">
-              Lovv Conversation
+              Conversation
             </p>
             <h3 className="mt-2 break-keep text-2xl font-black leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7">
               여행 조건을 대화로 정리하기
@@ -205,9 +205,9 @@ export function PlannerChatInterface({
               대화에서 조건을 좁히고, 옆 요약 패널에서 일정 초안을 바로 확인합니다.
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-full border border-white/60 bg-[#fffffa]/80 px-3 py-2 shadow-sm backdrop-blur-sm">
+          <div className="flex shrink-0 items-center gap-2 rounded-full border border-white/70 bg-[#fffffa]/85 px-3 py-2 shadow-sm backdrop-blur-sm">
             <span
-              className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] border border-[#F36B12]/20"
+              className="flex size-9 items-center justify-center overflow-hidden rounded-full border border-[#F3B489]/50 bg-[#FFF0E4]"
               aria-hidden="true"
             >
               <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
@@ -221,7 +221,7 @@ export function PlannerChatInterface({
         ref={chatScrollRef}
         role="log"
         aria-label="AI 일정 대화"
-        className="flex-1 space-y-5 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,250,0.2),rgba(255,248,246,0.1))] px-6 py-6"
+        className="lovv-chat-scroll flex-1 space-y-5 overflow-y-auto px-6 py-6"
       >
         {chatMessages.map((message) => {
           const isAssistant = message.role === 'assistant'
@@ -234,7 +234,7 @@ export function PlannerChatInterface({
             >
               {isAssistant ? (
                 <span
-                  className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0E4] border border-[#F36B12]/20 shadow-[0_6px_14px_-6px_rgba(243,107,18,0.4)]"
+                  className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#F3B489]/50 bg-[#FFF0E4] shadow-[0_8px_18px_-10px_rgba(51,39,30,0.35)]"
                   aria-hidden="true"
                 >
                   <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
@@ -250,13 +250,13 @@ export function PlannerChatInterface({
                     isAssistant ? 'text-[#315B3E]' : 'text-[#A92B10]'
                   }`}
                 >
-                  {isAssistant ? 'Lovv AI' : '내 조건'}
+                  {isAssistant ? 'Lovv Planner' : '내 조건'}
                 </p>
                 <div
-                  className={`break-keep whitespace-pre-wrap rounded-[20px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-sm max-sm:text-[13px] max-sm:leading-6 ${
+                  className={`break-keep whitespace-pre-wrap rounded-[22px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-sm max-sm:text-[13px] max-sm:leading-6 ${
                     isAssistant
-                      ? 'border-white/50 bg-white/60 backdrop-blur-sm shadow-sm'
-                      : 'ml-auto border-[#F36B12]/10 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-[#33271E] font-bold shadow-[0_12px_24px_-10px_rgba(243,107,18,0.35)] hover:scale-[1.01] transition-all duration-200'
+                      ? 'lovv-chat-bubble-assistant border-white/70 bg-white/78 backdrop-blur-sm shadow-[0_12px_26px_-22px_rgba(51,39,30,0.3)]'
+                      : 'lovv-chat-bubble-user ml-auto border-[#E65E12]/25 bg-[#F36B12] text-[#33271E] font-bold shadow-[0_12px_24px_-10px_rgba(243,107,18,0.35)] transition-all duration-200 hover:scale-[1.01]'
                   }`}
                 >
                   {isLoading ? (
@@ -307,7 +307,7 @@ export function PlannerChatInterface({
           : null}
 
         {isPlannerReady ? (
-          <div aria-label="조건 해석 결과" className="rounded-[18px] border border-white/40 bg-[#FFF8F6]/75 p-5 backdrop-blur-sm">
+          <div aria-label="조건 해석 결과" className="rounded-[20px] border border-white/60 bg-[#FFF8F6]/84 p-5 shadow-[0_14px_30px_-26px_rgba(51,39,30,0.18)] backdrop-blur-sm">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-[5px] border border-white/65 bg-[#fffffa]/90 px-3 py-1 text-[12px] font-bold text-[#33271E] shadow-sm">
                 일정 초안
@@ -341,7 +341,7 @@ export function PlannerChatInterface({
         ) : null}
       </div>
 
-      <div className="border-t border-white/40 bg-[#FFF8F6]/40 p-5 backdrop-blur-md">
+      <div className="border-t border-white/60 bg-[#FFF8F6]/72 p-5 backdrop-blur-md">
         {isPlannerReady ? (
           <div className="mb-3">
             <p className="text-[12px] font-black text-[#A92B10]">자주 쓰는 조건</p>
@@ -363,7 +363,7 @@ export function PlannerChatInterface({
         
         <form
           onSubmit={submitChatForm}
-          className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[24px] border border-white/50 bg-[#fffffa]/60 p-2 shadow-[0_16px_32px_-26px_rgba(51,39,30,0.15)] max-sm:grid-cols-1 max-sm:rounded-[22px] focus-within:border-[#F36B12]/40 focus-within:bg-white focus-within:shadow-[0_12px_24px_-10px_rgba(243,107,18,0.25)] focus-within:ring-2 focus-within:ring-[#F36B12]/10 transition-all duration-200 backdrop-blur-sm"
+          className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[24px] border border-white/70 bg-[#fffffa]/82 p-2 shadow-[0_18px_34px_-28px_rgba(51,39,30,0.22)] max-sm:grid-cols-1 max-sm:rounded-[22px] focus-within:border-[#F36B12]/40 focus-within:bg-white focus-within:shadow-[0_12px_24px_-10px_rgba(243,107,18,0.25)] focus-within:ring-2 focus-within:ring-[#F36B12]/10 transition-all duration-200 backdrop-blur-sm"
         >
           <input
             aria-label="여행 조건 입력"

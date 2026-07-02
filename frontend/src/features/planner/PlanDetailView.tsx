@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ChatMessage, PlanDay, PlanDraft, PlanStop, RoutePathCoordinate, ThemeId, LovvUser, SelectedMealPlace } from '../../shared/types/app'
+import type { ChatMessage, PlanDay, PlanDraft, PlanStop, RoutePathCoordinate, ThemeId, LovvUser, SelectedMealPlace, SavedPlanLike } from '../../shared/types/app'
 import { useTranslation } from 'react-i18next'
 import type { SmallCityCountry } from '../map-city/smallCities'
-import { requestGetSmallCityPlaces } from '../../shared/api/smallCityApi'
+import { requestGetSmallCityDetail, requestGetSmallCityPlaces } from '../../shared/api/smallCityApi'
 import { PlanDetailGoogleMap } from './PlanDetailGoogleMap'
 import {
   createDayReplacementCandidate,
@@ -15,14 +15,19 @@ import { searchKakaoMealPlaces } from './kakaoMealSearch'
 import {
   createKakaoMapSearchUrl,
 } from './plannerMealModel'
-import { buildAttractionImageUrl as buildAttractionImageUrlFromModel } from './plannerImageModel'
-import { getPlanRouteCoordinates, requestOpenRouteServicePath } from './plannerRouteModel'
+import {
+  DEFAULT_IMAGE_CDN_BASE_URL,
+  buildAttractionImageUrl as buildAttractionImageUrlFromModel,
+} from './plannerImageModel'
+import { formatEstimatedMoveLabel, getPlanRouteCoordinates, getPlanStopLatLng, requestOpenRouteServicePath } from './plannerRouteModel'
 
 // ---------------------------------------------------------------------------
 // Image URL helpers (Task 13 – S3 / CloudFront integration)
 // ---------------------------------------------------------------------------
 
-const IMAGE_CDN_BASE = (import.meta.env.VITE_IMAGE_CDN_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '') ?? ''
+const IMAGE_CDN_BASE =
+  (import.meta.env.VITE_IMAGE_CDN_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '') ||
+  DEFAULT_IMAGE_CDN_BASE_URL
 const OPEN_ROUTE_SERVICE_API_KEY = (import.meta.env.VITE_OPENROUTESERVICE_API_KEY as string | undefined)?.trim() ?? ''
 let rainyMessageIdSequence = 0
 
@@ -35,13 +40,39 @@ const createRainyMessageId = (prefix: string) => {
  * Build the CloudFront URL for an attraction image.
  * Current deployed image source is KR-only; pass country into the image model
  * when JP attraction image keys are confirmed.
- * Pattern: images/KR/<cityEnglishName>/<RomanizedTitle>_1.jpg
+ * Pattern: images/KR/<CITY_ENGLISH_NAME>/<RomanizedTitle>_1.jpg
  *
  * @param cityEnglishName  – e.g. "Gangneung"
  * @param title            – Korean attraction name, e.g. "경포해수욕장"
  */
-const buildAttractionImageUrl = (cityEnglishName: string, title: string): string => {
-  return buildAttractionImageUrlFromModel(IMAGE_CDN_BASE, cityEnglishName, title, 'KR')
+const buildAttractionImageUrl = (
+  cityEnglishName: string,
+  title: string,
+  country: SmallCityCountry = 'KR',
+): string => {
+  return buildAttractionImageUrlFromModel(IMAGE_CDN_BASE, cityEnglishName, title, country)
+}
+
+const normalizePlaceLookupKey = (value?: string | number | null) =>
+  value == null ? '' : String(value).trim().toLowerCase().replace(/\s+/g, '')
+
+const normalizeContentLookupKey = (value?: string | number | null) => {
+  const normalized = normalizePlaceLookupKey(value).replace(/[^a-z0-9가-힣]/g, '')
+  const numericMatch = normalized.match(/\d+/g)
+
+  return numericMatch ? numericMatch.join('') : normalized
+}
+
+const addPlaceLookupValue = <T,>(
+  map: Record<string, T>,
+  value: string | number | null | undefined,
+  mappedValue: T,
+  normalize: (value?: string | number | null) => string = normalizePlaceLookupKey,
+) => {
+  const key = normalize(value)
+  if (key) {
+    map[key] = mappedValue
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -76,14 +107,23 @@ const AttractionImageFallback = () => (
 type AttractionImageProps = {
   src: string
   alt: string
+  fallbackSrc?: string
 }
 
-const AttractionImage = ({ src, alt }: AttractionImageProps) => {
+const AttractionImage = ({ src, alt, fallbackSrc }: AttractionImageProps) => {
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
-  const isLoaded = loadedSrc === src
+  const primarySrc = src.trim()
+  const fallbackCandidate = fallbackSrc?.trim() ?? ''
+  const safeFallbackSrc = fallbackCandidate && fallbackCandidate !== primarySrc ? fallbackCandidate : ''
+  const activeSrc = primarySrc && errorSrc !== primarySrc
+    ? primarySrc
+    : safeFallbackSrc && errorSrc !== safeFallbackSrc
+      ? safeFallbackSrc
+      : ''
+  const isLoaded = loadedSrc === activeSrc
 
-  if (!src || errorSrc === src) {
+  if (!activeSrc) {
     return <AttractionImageFallback />
   }
 
@@ -95,11 +135,11 @@ const AttractionImage = ({ src, alt }: AttractionImageProps) => {
         </div>
       )}
       <img
-        key={src}
-        src={src}
+        key={activeSrc}
+        src={activeSrc}
         alt={alt}
-        onLoad={() => setLoadedSrc(src)}
-        onError={() => setErrorSrc(src)}
+        onLoad={() => setLoadedSrc(activeSrc)}
+        onError={() => setErrorSrc(activeSrc)}
         className={`h-full w-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0'}`}
       />
     </>
@@ -117,24 +157,44 @@ const AttractionImage = ({ src, alt }: AttractionImageProps) => {
  */
 const usePlaceDataMap = (destinationId?: string) => {
   const [cityEnglishName, setCityEnglishName] = useState<string>('')
+  const [cityFallbackImageUrl, setCityFallbackImageUrl] = useState<string>('')
   const [nameToImageUrl, setNameToImageUrl] = useState<Record<string, string>>({})
   const [nameToCoords, setNameToCoords] = useState<Record<string, { lat: number; lng: number }>>({})
   const [countryCode, setCountryCode] = useState<SmallCityCountry>('KR')
+  const [loadedDestinationId, setLoadedDestinationId] = useState<string | undefined>(undefined)
   const prevId = useRef<string | undefined>(undefined)
 
   useEffect(() => {
-    if (!destinationId || destinationId === prevId.current) return
+    if (!destinationId) {
+      prevId.current = undefined
+      return
+    }
+
+    if (destinationId === prevId.current) return
     prevId.current = destinationId
 
     let cancelled = false
 
     const fetchPlaces = async () => {
       try {
-        const result = await requestGetSmallCityPlaces(destinationId)
+        const [placesResult, detailResult] = await Promise.allSettled([
+          requestGetSmallCityPlaces(destinationId),
+          requestGetSmallCityDetail(destinationId),
+        ])
         if (cancelled) return
+        if (placesResult.status === 'rejected') {
+          throw placesResult.reason
+        }
+
+        const result = placesResult.value
 
         const derivedCountry = destinationId.startsWith('JP') ? 'JP' : 'KR'
         setCountryCode(derivedCountry)
+        setCityFallbackImageUrl(
+          detailResult.status === 'fulfilled'
+            ? detailResult.value.detail?.city.image?.trim() ?? ''
+            : '',
+        )
 
         // Extract city English name from the first place record's cityId.
         // City IDs follow the pattern "KR-<EnglishName>" e.g. "KR-Gangneung".
@@ -156,17 +216,22 @@ const usePlaceDataMap = (destinationId?: string) => {
           // Use place.imageUrl when available (API-provided), else construct from CDN
           const url =
             place.imageUrl?.trim() ||
-            buildAttractionImageUrl(derivedEnglishName, place.name)
-          const key = place.name.trim().toLowerCase().replace(/\s+/g, '')
+            buildAttractionImageUrl(derivedEnglishName, place.name, derivedCountry)
           if (url) {
-            imgMap[key] = url
+            addPlaceLookupValue(imgMap, place.name, url)
+            addPlaceLookupValue(imgMap, place.id, url, normalizeContentLookupKey)
+            addPlaceLookupValue(imgMap, place.contentId, url, normalizeContentLookupKey)
           }
           if (place.latitude != null && place.longitude != null) {
-            coordsMap[key] = { lat: place.latitude, lng: place.longitude }
+            const coords = { lat: place.latitude, lng: place.longitude }
+            addPlaceLookupValue(coordsMap, place.name, coords)
+            addPlaceLookupValue(coordsMap, place.id, coords, normalizeContentLookupKey)
+            addPlaceLookupValue(coordsMap, place.contentId, coords, normalizeContentLookupKey)
           }
         })
         setNameToImageUrl(imgMap)
         setNameToCoords(coordsMap)
+        setLoadedDestinationId(destinationId)
       } catch {
         // Silently ignore – images will show fallback
       }
@@ -176,7 +241,15 @@ const usePlaceDataMap = (destinationId?: string) => {
     return () => { cancelled = true }
   }, [destinationId])
 
-  return { cityEnglishName, nameToImageUrl, nameToCoords, countryCode }
+  const hasLoadedCurrentDestination = Boolean(destinationId) && loadedDestinationId === destinationId
+
+  return {
+    cityEnglishName: hasLoadedCurrentDestination ? cityEnglishName : '',
+    cityFallbackImageUrl: hasLoadedCurrentDestination ? cityFallbackImageUrl : '',
+    nameToImageUrl: hasLoadedCurrentDestination ? nameToImageUrl : {},
+    nameToCoords: hasLoadedCurrentDestination ? nameToCoords : {},
+    countryCode: hasLoadedCurrentDestination ? countryCode : 'KR',
+  }
 }
 
 /**
@@ -187,14 +260,18 @@ const resolveStopImageUrl = (
   stop: PlanStop,
   nameToImageUrl: Record<string, string>,
   cityEnglishName: string,
+  countryCode: SmallCityCountry,
 ): string => {
   if (stop.imageUrl?.trim()) return stop.imageUrl.trim()
 
-  const key = stop.title.trim().toLowerCase().replace(/\s+/g, '')
-  if (nameToImageUrl[key]) return nameToImageUrl[key]
+  const contentKey = normalizeContentLookupKey(stop.contentId)
+  if (contentKey && nameToImageUrl[contentKey]) return nameToImageUrl[contentKey]
+
+  const titleKey = normalizePlaceLookupKey(stop.title)
+  if (nameToImageUrl[titleKey]) return nameToImageUrl[titleKey]
 
   // Fallback: construct CDN URL directly from title romanization
-  return buildAttractionImageUrl(cityEnglishName, stop.title)
+  return buildAttractionImageUrl(cityEnglishName, stop.title, countryCode)
 }
 
 const getDropTargetTimeLabel = (stops: PlanStop[], targetIndex: number): PlanStop['time'] => {
@@ -249,6 +326,8 @@ type PlanDetailViewProps = {
   saveGeneratedPlan: () => void
   isCurrentPlanSaved: boolean
   isPlanSaving?: boolean
+  isGeneratedPlanDetail?: boolean
+  allowSavedPlanActions?: boolean
   savedPlanDeletePending?: boolean
   onDeleteSavedPlan: (planId: string, options?: { navigateToMyPage?: boolean }) => void
   openMyPage: () => void
@@ -259,6 +338,8 @@ type PlanDetailViewProps = {
   activeThemeIds?: ThemeId[]
   onAddThemePreference?: (themeId: ThemeId) => void
   onRemoveThemePreferences?: (themeIdsToRemove: ThemeId[]) => void
+  getSavedPlanLike?: (planId: string) => SavedPlanLike
+  onSelectSavedPlanLike?: (planId: string, like: Exclude<SavedPlanLike, null>) => void
   selectedTravelMonth?: number | null
   currentUser?: LovvUser | null
   ownerId?: string
@@ -270,6 +351,26 @@ type PlanDetailViewProps = {
   setPendingAuthRedirectPath?: (path: string | null) => void
   addWishlistRestaurant?: (restaurant: SelectedMealPlace) => void
   removeWishlistRestaurant?: (restaurantId: string) => void
+}
+
+const createPlanHeroSubtitle = (planDraft: PlanDraft) => {
+  const routeStops = planDraft.days
+    .flatMap((day) => day.stops)
+    .filter((stop) => !isMealPlaceholderStop(stop))
+  const stopCount = routeStops.length
+  const dayCount = Math.max(1, planDraft.days.length)
+  const stopsPerDay = Math.max(1, Math.round(stopCount / dayCount))
+  const densityLabel = /덜|여유|느린/.test(planDraft.intensityLabel)
+    ? '여유형'
+    : /알찬|촘촘|빽빽/.test(planDraft.intensityLabel)
+      ? '알찬형'
+      : '맞춤형'
+
+  if (stopCount > 0) {
+    return `${stopCount}개 방문지를 하루 ${stopsPerDay}곳 안팎으로 나눈 ${densityLabel} 코스`
+  }
+
+  return '방문 순서와 이동 흐름을 정리한 맞춤 일정'
 }
 
 type PendingPlanEdit =
@@ -304,6 +405,8 @@ export function PlanDetailView({
   saveGeneratedPlan,
   isCurrentPlanSaved,
   isPlanSaving = false,
+  isGeneratedPlanDetail = false,
+  allowSavedPlanActions = false,
   savedPlanDeletePending = false,
   onDeleteSavedPlan,
   openMyPage,
@@ -314,6 +417,8 @@ export function PlanDetailView({
   activeThemeIds = [],
   onAddThemePreference,
   onRemoveThemePreferences,
+  getSavedPlanLike,
+  onSelectSavedPlanLike,
   selectedTravelMonth = null,
   currentUser = null,
   ownerId,
@@ -345,6 +450,7 @@ export function PlanDetailView({
   const [restaurantSearchQuery, setRestaurantSearchQuery] = useState('')
   const [restaurantSearchStatus, setRestaurantSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'missing-key' | 'unavailable' | 'zero-result'>('idle')
   const [restaurantSearchResults, setRestaurantSearchResults] = useState<SelectedMealPlace[]>([])
+  const [pendingSavedPlanExitAction, setPendingSavedPlanExitAction] = useState<(() => void) | null>(null)
 
   const toggleStopCollapse = (dayNumber: number, stopIndex: number) => {
     const key = `${dayNumber}-${stopIndex}`
@@ -375,9 +481,20 @@ export function PlanDetailView({
     if (isCurrentlySelected && onRemoveThemePreferences) {
       onRemoveThemePreferences([themeId])
       setFeedbackNotice(t('feedback.notice_toggled_off'))
+
+      const remainingSelected = (activeThemeIds ?? []).filter(
+        (id) => id !== themeId && ['healing_rest', 'nature_trekking', 'history_tradition', 'food_local'].includes(id),
+      )
+      if (remainingSelected.length === 0 && onSelectSavedPlanLike && getSavedPlanLike?.(planId) === 'like') {
+        onSelectSavedPlanLike(planId, 'like')
+      }
     } else if (onAddThemePreference) {
       onAddThemePreference(themeId)
       setFeedbackNotice(t('feedback.notice_positive'))
+
+      if (onSelectSavedPlanLike && getSavedPlanLike?.(planId) !== 'like') {
+        onSelectSavedPlanLike(planId, 'like')
+      }
     }
     setTimeout(() => setFeedbackNotice(null), 3000)
   }
@@ -386,6 +503,10 @@ export function PlanDetailView({
     if (onRemoveThemePreferences && activeThemeIds) {
       onRemoveThemePreferences(activeThemeIds)
       setFeedbackNotice(t('feedback.notice_negative'))
+
+      if (onSelectSavedPlanLike && getSavedPlanLike?.(planId) === 'like') {
+        onSelectSavedPlanLike(planId, 'like')
+      }
       setTimeout(() => setFeedbackNotice(null), 3000)
     }
   }
@@ -450,7 +571,8 @@ export function PlanDetailView({
   }, [planId])
 
   // Fetch place data map (images & coords) for the current destination
-  const { cityEnglishName, nameToImageUrl, nameToCoords, countryCode } = usePlaceDataMap(destinationId)
+  const { cityEnglishName, cityFallbackImageUrl, nameToImageUrl, nameToCoords, countryCode } = usePlaceDataMap(destinationId)
+  const planHeroImageUrl = cityImageUrl?.trim() || cityFallbackImageUrl
   const days = planDraft.days
   const safeDayIndex = Math.min(activeDayIndex, Math.max(0, days.length - 1))
   const activeDay = days[safeDayIndex]
@@ -534,6 +656,54 @@ export function PlanDetailView({
         : activeRouteCoordinates.length > 1
           ? '직선 동선 표시'
           : null
+  const displayDestinationName = destinationName ?? plannerBasisLabel
+  const planHeroSubtitle = createPlanHeroSubtitle(planDraft)
+  const isReadOnly = Boolean(isCurrentPlanSaved && ownerId && ownerId !== currentUser?.id)
+  const canUseSavedPlanActions = Boolean(isCurrentPlanSaved && !isReadOnly && !isGeneratedPlanDetail && allowSavedPlanActions)
+  const canEditSavedPlan = canUseSavedPlanActions && Boolean(onReplacePlanStop && onReplacePlanDay)
+  const canUseMealWishlist = Boolean(!isReadOnly && onReplacePlanDay && addWishlistRestaurant)
+  const shouldAskSavedPlanExitFeedback =
+    canUseSavedPlanActions && Boolean(onSelectSavedPlanLike) && getSavedPlanLike?.(planId) !== 'like'
+  const recentChatMessages = chatMessages.slice(-4)
+  const selectedMealCount = (planDraft.selectedRestaurants ?? []).length
+
+  const requestSavedPlanExit = (nextAction: () => void) => {
+    if (shouldAskSavedPlanExitFeedback) {
+      setPendingSavedPlanExitAction(() => nextAction)
+      return
+    }
+
+    nextAction()
+  }
+
+  const confirmSavedPlanExitWithFeedback = () => {
+    onSelectSavedPlanLike?.(planId, 'like')
+    const nextAction = pendingSavedPlanExitAction
+    setPendingSavedPlanExitAction(null)
+    nextAction?.()
+  }
+
+  const continueSavedPlanExitWithoutFeedback = () => {
+    const nextAction = pendingSavedPlanExitAction
+    setPendingSavedPlanExitAction(null)
+    nextAction?.()
+  }
+
+  const handleSaveGeneratedPlanClick = () => {
+    if (isCurrentPlanSaved) {
+      requestSavedPlanExit(openMyPage)
+      return
+    }
+
+    if (!currentUser) {
+      alert('일정을 저장하려면 로그인이 필요합니다. 로그인 페이지로 이동합니다.')
+      setPendingAuthRedirectPath?.(window.location.pathname)
+      navigate('/auth')
+      return
+    }
+
+    saveGeneratedPlan()
+  }
 
   if (isSavedPlanDetailLoading) {
       return (
@@ -592,11 +762,6 @@ export function PlanDetailView({
     }
 
     const dayTabLabel = (dayNumber: number) => (days.length <= 1 ? '당일' : `${dayNumber}일차`)
-    const displayDestinationName = destinationName ?? plannerBasisLabel
-    const isReadOnly = Boolean(isCurrentPlanSaved && ownerId && ownerId !== currentUser?.id)
-    const canEditGeneratedPlan = !isReadOnly && Boolean(onReplacePlanStop && onReplacePlanDay)
-    const recentChatMessages = chatMessages.slice(-4)
-    const selectedMealCount = (planDraft.selectedRestaurants ?? []).length
 
     const openStopReplacement = (day: PlanDay, stopIndex: number) => {
       setPendingEdit({
@@ -647,6 +812,10 @@ export function PlanDetailView({
     }
 
     const openRestaurantSearch = () => {
+      if (!canUseMealWishlist) {
+        return
+      }
+
       setRestaurantSearchQuery(`${displayDestinationName} 맛집`)
       setRestaurantSearchStatus('idle')
       setRestaurantSearchResults([])
@@ -668,12 +837,18 @@ export function PlanDetailView({
     }
 
     const selectRestaurant = (place: SelectedMealPlace) => {
+      if (!canUseMealWishlist) {
+        return
+      }
+
       addWishlistRestaurant?.(place)
       setRestaurantSearchOpen(false)
     }
 
     const handleDropRestaurant = (restaurant: SelectedMealPlace, targetIndex: number) => {
-      if (!activeDay || !onReplacePlanDay) return
+      if (!canUseMealWishlist || !activeDay || !onReplacePlanDay) return
+
+      const currentStops = [...activeDay.stops]
 
       const newStop: PlanStop = {
         time: getDropTargetTimeLabel(activeDay.stops, targetIndex),
@@ -688,10 +863,23 @@ export function PlanDetailView({
         imageUrl: '',
         latitude: restaurant.lat ?? null,
         longitude: restaurant.lng ?? null,
-        move: '도보 5분',
+        move: '이동 시간 확인 필요',
       }
 
-      const currentStops = [...activeDay.stops]
+      const previousStop = currentStops[targetIndex - 1]
+      const nextStop = currentStops[targetIndex]
+      const restaurantCoords = getPlanStopLatLng(newStop, nameToCoords)
+
+      if (previousStop) {
+        currentStops[targetIndex - 1] = {
+          ...previousStop,
+          move: formatEstimatedMoveLabel(getPlanStopLatLng(previousStop, nameToCoords), restaurantCoords),
+        }
+      }
+
+      newStop.move = nextStop
+        ? formatEstimatedMoveLabel(restaurantCoords, getPlanStopLatLng(nextStop, nameToCoords))
+        : '0분'
       currentStops.splice(targetIndex, 0, newStop)
 
       const updatedDay: PlanDay = {
@@ -704,18 +892,22 @@ export function PlanDetailView({
     }
 
     const renderDropZone = (dropIndex: number) => {
+      if (!canUseMealWishlist) {
+        return null
+      }
+
       return (
         <div
           onDragOver={(e) => {
             e.preventDefault()
-            e.currentTarget.classList.add('border-[#F36B12]', 'bg-[#FFF0E4]/30')
+            e.currentTarget.classList.add('border-[#F36B12]', 'bg-[#FFF0E4]')
           }}
           onDragLeave={(e) => {
-            e.currentTarget.classList.remove('border-[#F36B12]', 'bg-[#FFF0E4]/30')
+            e.currentTarget.classList.remove('border-[#F36B12]', 'bg-[#FFF0E4]')
           }}
           onDrop={(e) => {
             e.preventDefault()
-            e.currentTarget.classList.remove('border-[#F36B12]', 'bg-[#FFF0E4]/30')
+            e.currentTarget.classList.remove('border-[#F36B12]', 'bg-[#FFF0E4]')
             try {
               const data = e.dataTransfer.getData('text/plain')
               if (!data) return
@@ -727,12 +919,13 @@ export function PlanDetailView({
               console.error('Drop handling failed:', err)
             }
           }}
-          className={`h-4 my-1 flex items-center justify-center border border-dashed rounded-[10px] transition-all duration-200 ${
-            isDragging ? 'border-[#F3B489] bg-[#FFF7F0]/40' : 'border-transparent'
+          aria-label={`${dropIndex + 1}번째 위치에 맛집 드롭`}
+          className={`my-3 flex min-h-14 items-center justify-center rounded-[16px] border border-dashed px-4 transition-all duration-200 ${
+            isDragging ? 'border-[#F36B12] bg-[#FFF0E4] shadow-[0_12px_28px_-24px_rgba(51,39,30,0.3)]' : 'border-[#F3B489]/55 bg-[#fffffa]/70'
           }`}
         >
-          <span className={`text-[10px] font-black text-[#F36B12] transition-opacity duration-200 ${isDragging ? 'opacity-100' : 'opacity-0'}`}>
-             여기에 드롭하여 코스 추가
+          <span className={`break-keep text-[12px] font-black text-[#A92B10] transition-opacity duration-200 ${isDragging ? 'opacity-100' : 'opacity-70'}`}>
+            맛집을 이 위치에 드롭해서 코스에 추가
           </span>
         </div>
       )
@@ -776,10 +969,10 @@ export function PlanDetailView({
           aria-labelledby="plan-detail-title"
           className="rounded-[24px] border border-transparent bg-[#fffffa] shadow-[0_18px_48px_-32px_rgba(51,39,30,0.35)]"
         >
-          {cityImageUrl && (
+          {planHeroImageUrl && (
             <div className="relative h-52 w-full overflow-hidden max-sm:h-36">
               <img
-                src={cityImageUrl}
+                src={planHeroImageUrl}
                 alt={currentPlanTitle}
                 className="h-full w-full object-cover"
               />
@@ -801,7 +994,7 @@ export function PlanDetailView({
                       {destinationName}
                     </h1>
                     <h2 className="mt-2 break-keep text-xl font-bold leading-8 text-[#33271E]/70 max-sm:text-lg">
-                      {currentPlanTitle}
+                      {planHeroSubtitle}
                     </h2>
                   </>
                 ) : (
@@ -900,7 +1093,7 @@ export function PlanDetailView({
                       <span className="inline-flex min-h-8 items-center rounded-full bg-[#fffffa] px-3 py-1 text-[12px] font-black leading-4 text-[#33271E]">
                         {activeDay.stops.length}개 코스
                       </span>
-                      {canEditGeneratedPlan ? (
+                      {canEditSavedPlan ? (
                         <button
                           type="button"
                           onClick={() => openDayReplacementConfirmation(activeDay.day)}
@@ -999,7 +1192,7 @@ export function PlanDetailView({
 
                     {/* Filter out meal placeholder stops from the numbered list */}
                     {activeDay.stops.filter((s) => !isMealPlaceholderStop(s)).map((item, index) => {
-                      const imageUrl = resolveStopImageUrl(item, nameToImageUrl, cityEnglishName)
+                      const imageUrl = resolveStopImageUrl(item, nameToImageUrl, cityEnglishName, countryCode)
                       const isStopActive = index === activeStopIndex
                       const isStopCollapsed = collapsedStops[`${activeDay.day}-${index}`] === true
 
@@ -1024,7 +1217,11 @@ export function PlanDetailView({
                                 {/* Attraction image */}
                                 {!isStopCollapsed && (
                                   <div className="relative h-40 w-full overflow-hidden max-sm:h-32">
-                                    <AttractionImage src={imageUrl} alt={item.title} />
+                                    <AttractionImage
+                                      src={imageUrl}
+                                      alt={item.title}
+                                      fallbackSrc={cityFallbackImageUrl}
+                                    />
                                   </div>
                                 )}
 
@@ -1043,7 +1240,7 @@ export function PlanDetailView({
                                     >
                                       {isStopCollapsed ? '펼치기 ▼' : '접기 ▲'}
                                     </button>
-                                    {canEditGeneratedPlan ? (
+                                    {canEditSavedPlan ? (
                                       <button
                                         type="button"
                                         onClick={() => openStopReplacement(activeDay, index)}
@@ -1087,51 +1284,59 @@ export function PlanDetailView({
             <div className="flex min-w-0 flex-col gap-5">
               {/* Itinerary Actions Panel */}
               <aside className="shrink-0 rounded-[20px] border border-transparent bg-[#FFF0E4] p-5 shadow-[0_16px_42px_-30px_rgba(51,39,30,0.22)] lg:max-h-[34dvh] lg:overflow-y-auto">
-                <p className="text-sm font-black text-[#33271E]">일정 액션</p>
-                <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#33271E]/80">
-                  피드백을 남기거나 마이페이지에 저장해 다시 확인할 수 있습니다.
+                <p className="text-sm font-black text-[#33271E]">
+                  {canUseSavedPlanActions ? '일정 액션' : isReadOnly ? '공유 일정 담기' : '일정 저장'}
                 </p>
-                <div className="mt-5 rounded-[14px] border border-transparent bg-[#fffffa] p-4">
-                  <p className="break-keep text-sm font-black text-[#33271E]">
-                    {t('feedback.title')}
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {feedbackChips.map((chip) => {
-                      const isSelected = activeThemeIds?.includes(chip.id as ThemeId)
-                      return (
-                        <button
-                          key={chip.id}
-                          type="button"
-                          onClick={() => handleChipClick(chip.id as ThemeId)}
-                          className={`inline-flex min-h-10 items-center justify-center rounded-[8px] border px-3 text-[12px] font-bold transition focus-visible:outline focus-visible:outline-2 ${
-                            isSelected
-                              ? 'border-[#F36B12] bg-[#FFE0CA] text-[#33271E]'
-                              : 'border-[#F3B489] bg-[#fffffa] text-[#33271E]/80 hover:bg-[#FFE0CA]'
-                          }`}
-                        >
-                          {chip.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      onClick={handleNegativeClick}
-                      className="inline-flex min-h-10 w-full items-center justify-center rounded-[8px] border border-gray-200 bg-[#fffffa] px-3 text-[12px] font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition focus-visible:outline focus-visible:outline-2"
-                    >
-                      {t('feedback.chip_negative')}
-                    </button>
-                  </div>
-                  <p className="mt-2 break-keep text-[10px] font-semibold leading-4 text-[#6E5A50]">
-                    {t('feedback.guide_note')}
-                  </p>
-                  {feedbackNotice && (
-                    <p aria-live="polite" className="mt-2 text-[11px] font-bold text-[#A92B10]">
-                      {feedbackNotice}
+                <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#33271E]/80">
+                  {canUseSavedPlanActions
+                    ? '저장된 일정에 반응을 남기고 공유 설정을 관리할 수 있습니다.'
+                    : isReadOnly
+                      ? '마음에 드는 공유 일정을 내 마이페이지에 담아 다시 확인할 수 있습니다.'
+                      : '마이페이지에 저장하고 일정을 다시 볼 수 있습니다.'}
+                </p>
+                {canUseSavedPlanActions ? (
+                  <div className="mt-5 rounded-[14px] border border-transparent bg-[#fffffa] p-4">
+                    <p className="break-keep text-sm font-black text-[#33271E]">
+                      {t('feedback.title')}
                     </p>
-                  )}
-                </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {feedbackChips.map((chip) => {
+                        const isSelected = activeThemeIds?.includes(chip.id as ThemeId)
+                        return (
+                          <button
+                            key={chip.id}
+                            type="button"
+                            onClick={() => handleChipClick(chip.id as ThemeId)}
+                            className={`inline-flex min-h-10 items-center justify-center rounded-[8px] border px-3 text-[12px] font-bold transition focus-visible:outline focus-visible:outline-2 ${
+                              isSelected
+                                ? 'border-[#F36B12] bg-[#FFE0CA] text-[#33271E]'
+                                : 'border-[#F3B489] bg-[#fffffa] text-[#33271E]/80 hover:bg-[#FFE0CA]'
+                            }`}
+                          >
+                            {chip.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={handleNegativeClick}
+                        className="inline-flex min-h-10 w-full items-center justify-center rounded-[8px] border border-gray-200 bg-[#fffffa] px-3 text-[12px] font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition focus-visible:outline focus-visible:outline-2"
+                      >
+                        {t('feedback.chip_negative')}
+                      </button>
+                    </div>
+                    <p className="mt-2 break-keep text-[10px] font-semibold leading-4 text-[#6E5A50]">
+                      {t('feedback.guide_note')}
+                    </p>
+                    {feedbackNotice && (
+                      <p aria-live="polite" className="mt-2 text-[11px] font-bold text-[#A92B10]">
+                        {feedbackNotice}
+                      </p>
+                    )}
+                  </div>
+                ) : null}
                 <div className="mt-5 grid gap-3">
                   {isReadOnly ? (
                     /* 타인의 공유 일정을 보고 있는 읽기 전용 상태: 내 일정으로 담기 버튼 제공 */
@@ -1162,20 +1367,10 @@ export function PlanDetailView({
                     <>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (!currentUser) {
-                            alert('일정을 저장하려면 로그인이 필요합니다. 로그인 페이지로 이동합니다.')
-                            setPendingAuthRedirectPath?.(window.location.pathname)
-                            navigate('/auth')
-                          } else {
-                            saveGeneratedPlan()
-                          }
-                        }}
-                        disabled={isCurrentPlanSaved || isPlanSaving}
+                        onClick={handleSaveGeneratedPlanClick}
+                        disabled={isPlanSaving}
                         className={`inline-flex min-h-12 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-5 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
-                          isCurrentPlanSaved
-                            ? 'disabled:cursor-default disabled:bg-[#FF8A2A]'
-                            : isPlanSaving
+                          isPlanSaving
                             ? 'disabled:cursor-wait disabled:opacity-75'
                             : ''
                         }`}
@@ -1186,10 +1381,10 @@ export function PlanDetailView({
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
                         )}
-                        {isCurrentPlanSaved ? '마이페이지에 저장됨' : isPlanSaving ? '저장 중...' : '마이페이지에 저장'}
+                        {isCurrentPlanSaved ? '마이페이지로 이동' : isPlanSaving ? '저장 중...' : '마이페이지에 저장'}
                       </button>
 
-                      {isCurrentPlanSaved ? (
+                      {canUseSavedPlanActions ? (
                         <>
                           {/* 공개/비공개 설정 토글 버튼 */}
                           <button
@@ -1238,17 +1433,10 @@ export function PlanDetailView({
 
                   <button
                     type="button"
-                    onClick={returnToChatWorkspace}
+                    onClick={() => requestSavedPlanExit(returnToChatWorkspace)}
                     className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                   >
                     채팅으로 돌아가기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openMyPage}
-                    className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-5 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
-                  >
-                    마이페이지로 이동
                   </button>
                 </div>
                 {savedPlanNotice ? (
@@ -1278,7 +1466,8 @@ export function PlanDetailView({
                 </div>
 
                 {/* 나의 맛집 위시리스트 (Pocket) */}
-                <div className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#F3B489] bg-[#fffffa] p-5 shadow-[0_14px_36px_-24px_rgba(51,39,30,0.2)] max-lg:max-h-[420px]">
+                {canUseMealWishlist ? (
+                  <div className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#F3B489] bg-[#fffffa] p-5 shadow-[0_14px_36px_-24px_rgba(51,39,30,0.2)] max-lg:max-h-[420px]">
                   <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h4 className="flex items-center gap-2 text-base font-black text-[#33271E]">
@@ -1352,12 +1541,13 @@ export function PlanDetailView({
                       </p>
                     </div>
                   )}
-                </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
         </div>
-        {restaurantSearchOpen ? (
+        {restaurantSearchOpen && canUseMealWishlist ? (
           <section
             aria-label="맛집 검색 및 추가"
             className="fixed bottom-24 right-6 z-40 w-[420px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[22px] border border-white/65 bg-[#fffffa]/95 shadow-[0_24px_56px_-28px_rgba(51,39,30,0.3)] backdrop-blur-2xl max-sm:bottom-20 max-sm:right-4"
@@ -1461,7 +1651,7 @@ export function PlanDetailView({
             </div>
           </section>
         ) : null}
-        {canEditGeneratedPlan ? (
+        {canEditSavedPlan ? (
           <div className="fixed bottom-6 right-6 z-40 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3 max-sm:bottom-4 max-sm:right-4">
             {floatingChatOpen ? (
               <section
@@ -1614,6 +1804,45 @@ export function PlanDetailView({
               <span aria-hidden="true">✦</span>
               Lovv 챗봇
             </button>
+          </div>
+        ) : null}
+        {pendingSavedPlanExitAction ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="saved-plan-exit-feedback-title"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#33271E]/35 px-5 backdrop-blur-sm"
+          >
+            <div className="w-full max-w-[420px] rounded-[24px] border border-white/70 bg-[#fffffa] p-6 shadow-[0_24px_70px_-30px_rgba(51,39,30,0.45)]">
+              <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#F36B12]">
+                Feedback
+              </p>
+              <h2
+                id="saved-plan-exit-feedback-title"
+                className="mt-3 break-keep text-2xl font-black leading-8 text-[#33271E]"
+              >
+                이 일정이 마음에 드셨나요?
+              </h2>
+              <p className="mt-3 break-keep text-sm font-semibold leading-6 text-[#6E5A50]">
+                저장된 일정을 둘러본 뒤 남긴 반응은 다음 추천과 인기 순위에 반영됩니다.
+              </p>
+              <div className="mt-6 grid grid-cols-2 gap-2 max-sm:grid-cols-1">
+                <button
+                  type="button"
+                  onClick={confirmSavedPlanExitWithFeedback}
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#A92B10] bg-[#F36B12] px-4 text-sm font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                >
+                  반응 남기고 이동
+                </button>
+                <button
+                  type="button"
+                  onClick={continueSavedPlanExitWithoutFeedback}
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-4 text-sm font-black text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                >
+                  그냥 이동
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
       </section>

@@ -6,9 +6,11 @@ import {
   requestGetSavedPlan,
   requestLikeSavedPlan,
   requestListSavedPlans,
+  requestUpdateSavedPlanShareStatus,
   requestUnlikeSavedPlan,
   savedPlansApiEndpoints,
 } from './savedPlansApi'
+import type { SavedPlan } from '../types/app'
 
 describe('saved plans API adapter', () => {
   it('uses the saved_plans is_liked field as the only like source', () => {
@@ -294,6 +296,13 @@ describe('saved plans API adapter', () => {
         durationLabel: '당일치기',
         themes: ['전통'],
         itinerary: {
+          selected_restaurants: [
+            {
+              id: 'meal-1',
+              name: '경주 밥집',
+              address: '경북 경주시 원화로 1',
+            },
+          ],
           days: [
             {
               day: 1,
@@ -338,6 +347,13 @@ describe('saved plans API adapter', () => {
               wishlistRestaurantId: 'meal-1',
             },
           ],
+        },
+      ],
+      selectedRestaurants: [
+        {
+          id: 'meal-1',
+          name: '경주 밥집',
+          address: '경북 경주시 원화로 1',
         },
       ],
     })
@@ -432,6 +448,79 @@ describe('saved plans API adapter', () => {
       statusCode: 404,
       code: 'ITINERARY_NOT_FOUND',
       message: 'Saved itinerary was not found',
+    })
+  })
+
+  it('keeps the existing saved plan details when share response only returns public status', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        itineraryId: 'plan-1',
+        isPublic: true,
+      }),
+    }))
+    const fallbackPlan: SavedPlan = {
+      id: 'plan-1',
+      sourceRecommendationId: 'source-1',
+      ownerId: 'user-1',
+      title: '강릉 1박 2일',
+      cityPair: '강릉',
+      themeTag: '바다',
+      themeLabels: ['바다'],
+      conditionSummary: '',
+      durationLabel: '1박 2일',
+      festivalThemeLabel: '',
+      intensityLabel: '',
+      summary: '해안 산책 중심 일정',
+      days: [
+        {
+          day: 1,
+          title: '1일차',
+          summary: '도착과 산책',
+          stops: [
+            {
+              time: '아침',
+              move: '도보 10분',
+              title: '안목해변',
+              body: '바다를 먼저 봅니다.',
+              reason: '바다 테마와 맞습니다.',
+            },
+          ],
+        },
+      ],
+      stops: [
+        {
+          time: '아침',
+          move: '도보 10분',
+          title: '안목해변',
+          body: '바다를 먼저 봅니다.',
+          reason: '바다 테마와 맞습니다.',
+        },
+      ],
+      selectedRestaurants: [],
+      isLiked: false,
+      isPublic: false,
+      copiedFromItineraryId: '',
+      createdAt: '',
+      savedAt: '2026-06-11T00:00:00Z',
+    }
+
+    await expect(
+      requestUpdateSavedPlanShareStatus('plan-1', true, { fetchImpl, baseUrl: '' }, fallbackPlan),
+    ).resolves.toMatchObject({
+      id: 'plan-1',
+      title: '강릉 1박 2일',
+      isPublic: true,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/v1/me/itineraries/plan-1/share', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ isPublic: true }),
+      credentials: 'include',
     })
   })
 })

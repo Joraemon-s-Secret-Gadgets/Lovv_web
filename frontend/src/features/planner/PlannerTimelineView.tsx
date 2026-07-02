@@ -97,9 +97,9 @@ export function PlannerTimelineView({
     <section
       aria-label="AI 일정 생성 중"
       aria-busy="true"
-      className="lovv-liquid-panel flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border-0 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:min-h-0"
+      className="lovv-itinerary-panel flex h-full min-h-[680px] flex-col overflow-hidden rounded-[26px] border border-white/70 shadow-[0_24px_58px_-38px_rgba(33,46,33,0.24)] xl:min-h-0"
     >
-      <div className="shrink-0 border-b border-white/40 bg-[#FFF0E4]/45 px-6 py-6 backdrop-blur-md">
+      <div className="shrink-0 border-b border-white/60 bg-[#FFF0E4]/60 px-6 py-6 backdrop-blur-md">
         <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-[#33271E]">AI가 맞춤 일정을 짜는 중…</p>
@@ -146,7 +146,7 @@ export function PlannerTimelineView({
           <div className="mt-1 h-4 w-3/4 rounded-md bg-[#F3B489]/30" style={{ animation: 'lovv-pulse 1.6s ease-in-out infinite', animationDelay: '160ms' }} />
         </div>
 
-        <section className="mt-6 rounded-[20px] border border-white/50 bg-[#FFF7F0]/70 p-5 backdrop-blur-sm">
+        <section className="mt-6 rounded-[22px] border border-white/60 bg-[#FFF7F0]/82 p-5 shadow-[0_16px_34px_-28px_rgba(51,39,30,0.2)] backdrop-blur-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#F36B12]">Summary</p>
@@ -190,7 +190,7 @@ export function PlannerTimelineView({
     return (
       <section
         aria-label="AI 일정 결과"
-        className="lovv-liquid-panel flex h-full min-h-[680px] flex-col justify-between overflow-hidden rounded-[22px] border-0 p-6 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:min-h-0"
+        className="lovv-itinerary-panel flex h-full min-h-[680px] flex-col justify-between overflow-hidden rounded-[26px] border border-white/70 p-6 shadow-[0_24px_58px_-38px_rgba(33,46,33,0.24)] xl:min-h-0"
       >
         <div>
           <p className="text-sm font-semibold text-[#33271E]">맞춤 일정 결과</p>
@@ -225,9 +225,9 @@ export function PlannerTimelineView({
     <section
       ref={planResultPanelRef}
       aria-labelledby="generated-plan-title"
-      className="lovv-liquid-panel flex h-full min-h-[680px] flex-col overflow-hidden rounded-[22px] border-0 shadow-[0_18px_44px_-32px_rgba(33,46,33,0.1)] xl:min-h-0"
+      className="lovv-itinerary-panel flex h-full min-h-[680px] flex-col overflow-hidden rounded-[26px] border border-white/70 shadow-[0_24px_58px_-38px_rgba(33,46,33,0.24)] xl:min-h-0"
     >
-      <div className="shrink-0 border-b border-white/40 bg-[#FFF0E4]/45 px-6 py-6 backdrop-blur-md">
+      <div className="shrink-0 border-b border-white/60 bg-[#FFF0E4]/60 px-6 py-6 backdrop-blur-md">
         <div className="grid grid-cols-[1fr_auto] items-start gap-5 max-md:grid-cols-1">
           <div>
             <p className="text-sm font-semibold text-[#33271E]">맞춤 일정 결과</p>
@@ -274,7 +274,7 @@ export function PlannerTimelineView({
         <h4 className="sr-only break-keep max-sm:text-lg max-sm:leading-6">{currentPlanTitle}</h4>
         <span className="sr-only">총 {planDraft.stops.length}개 코스</span>
 
-        <div className="mt-4 rounded-[16px] border border-white/40 bg-[#FFF8F6]/75 p-4 shadow-sm backdrop-blur-sm">
+        <div className="mt-4 rounded-[18px] border border-white/60 bg-[#FFF8F6]/85 p-4 shadow-[0_14px_28px_-24px_rgba(51,39,30,0.18)] backdrop-blur-sm">
           <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#A92B10]">
             핵심 추천 기준
           </p>
@@ -285,7 +285,7 @@ export function PlannerTimelineView({
 
         <section
           aria-labelledby="generated-plan-summary-title"
-          className="mt-6 rounded-[20px] border border-white/50 bg-[#FFF7F0]/70 p-5 backdrop-blur-sm"
+          className="mt-6 rounded-[22px] border border-white/60 bg-[#FFF7F0]/85 p-5 shadow-[0_16px_34px_-28px_rgba(51,39,30,0.2)] backdrop-blur-sm"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -308,7 +308,7 @@ export function PlannerTimelineView({
             {planDraft.days.map((day) => (
               <li
                 key={day.day}
-                className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-start gap-3 rounded-[16px] border border-white/40 bg-[#fffffa]/80 px-4 py-3 max-sm:grid-cols-[38px_minmax(0,1fr)] shadow-sm"
+                className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-start gap-3 rounded-[18px] border border-white/60 bg-[#fffffa]/88 px-4 py-3 shadow-sm transition hover:-translate-y-0.5 hover:border-[#F3B489]/70 hover:shadow-[0_16px_30px_-26px_rgba(51,39,30,0.24)] max-sm:grid-cols-[38px_minmax(0,1fr)]"
               >
                 <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-sm font-black text-[#33271E]">
                   {day.day}
@@ -399,12 +399,10 @@ export function PlannerTimelineView({
             </button>
             <button
               type="button"
-              onClick={saveGeneratedPlan}
-              disabled={isCurrentPlanSaved || isPlanSaving}
+              onClick={isCurrentPlanSaved ? openMyPage : saveGeneratedPlan}
+              disabled={isPlanSaving}
               className={`inline-flex min-h-12 items-center justify-center rounded-full border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-5 text-sm font-black text-[#33271E] shadow-sm transition hover:scale-[1.01] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
-                isCurrentPlanSaved
-                  ? 'disabled:cursor-default disabled:opacity-85'
-                  : isPlanSaving
+                isPlanSaving
                   ? 'disabled:cursor-wait disabled:opacity-75'
                   : ''
               }`}
@@ -415,7 +413,7 @@ export function PlannerTimelineView({
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               )}
-              {isCurrentPlanSaved ? '마이페이지에 저장됨' : isPlanSaving ? '저장 중...' : '마이페이지에 저장'}
+              {isCurrentPlanSaved ? '마이페이지로 이동' : isPlanSaving ? '저장 중...' : '마이페이지에 저장'}
             </button>
             <button
               type="button"
@@ -426,15 +424,6 @@ export function PlannerTimelineView({
             </button>
           </div>
 
-          {isCurrentPlanSaved ? (
-            <button
-              type="button"
-              onClick={openMyPage}
-              className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/60 bg-[#fffffa]/80 px-4 text-sm font-bold text-[#33271E] shadow-sm transition hover:border-[#F36B12] hover:bg-[#FFE0CA] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
-            >
-              마이페이지 보기
-            </button>
-          ) : null}
           {savedPlanNotice ? (
             <p aria-live="polite" className="mt-4 break-keep text-sm font-bold leading-6 text-[#33271E]">
               {savedPlanNotice}

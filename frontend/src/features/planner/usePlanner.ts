@@ -73,7 +73,36 @@ import type {
   Preference,
   SelectedMealPlace,
 } from '../../shared/types/app'
-import type { PlannerCityContext } from '../map-city/smallCities'
+import { resolveSmallCityDisplayName, type PlannerCityContext } from '../map-city/smallCities'
+
+const stableStringifyForIdempotency = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringifyForIdempotency).join(',')}]`
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringifyForIdempotency(record[key])}`)
+      .join(',')}}`
+  }
+
+  return JSON.stringify(value) ?? String(value)
+}
+
+const createIdempotencyFingerprint = (value: unknown) => {
+  const source = stableStringifyForIdempotency(value)
+  let hash = 0
+
+  for (let index = 0; index < source.length; index += 1) {
+    hash = Math.imul(31, hash) + source.charCodeAt(index)
+    hash |= 0
+  }
+
+  return (hash >>> 0).toString(36)
+}
 
 export interface UsePlannerOptions {
   authAccessToken: string | null
@@ -242,6 +271,59 @@ export function usePlanner({
   const isCurrentPlanSaved = Boolean(savedCurrentPlan)
   const isCurrentPlanLiked = getSavedPlanLike(currentPlanId) === 'like'
 
+  useEffect(() => {
+    if (!isPlannerReady || !savedCurrentPlan) {
+      return
+    }
+
+    const draftSelectedRestaurants = planDraft.selectedRestaurants
+    const selectedRestaurants = draftSelectedRestaurants ?? []
+    const hasSelectedRestaurantDrift = draftSelectedRestaurants
+      ? savedCurrentPlan.selectedRestaurants !== draftSelectedRestaurants
+      : (savedCurrentPlan.selectedRestaurants ?? []).length > 0
+    const shouldSyncSavedDraft =
+      savedCurrentPlan.durationLabel !== planDraft.durationLabel ||
+      savedCurrentPlan.festivalThemeLabel !== planDraft.festivalThemeLabel ||
+      savedCurrentPlan.intensityLabel !== planDraft.intensityLabel ||
+      savedCurrentPlan.summary !== planDraft.summary ||
+      savedCurrentPlan.days !== planDraft.days ||
+      savedCurrentPlan.stops !== planDraft.stops ||
+      hasSelectedRestaurantDrift
+
+    if (!shouldSyncSavedDraft) {
+      return
+    }
+
+    setSavedPlans((currentPlans) => {
+      let didUpdate = false
+      const nextPlans = currentPlans.map((plan) => {
+        if (plan.id !== savedCurrentPlan.id && plan.sourceRecommendationId !== currentPlanId) {
+          return plan
+        }
+
+        didUpdate = true
+        return {
+          ...plan,
+          durationLabel: planDraft.durationLabel,
+          festivalThemeLabel: planDraft.festivalThemeLabel,
+          intensityLabel: planDraft.intensityLabel,
+          summary: planDraft.summary,
+          days: planDraft.days,
+          stops: planDraft.stops,
+          selectedRestaurants,
+        }
+      })
+
+      if (!didUpdate) {
+        return currentPlans
+      }
+
+      writeStoredSavedPlans(nextPlans)
+
+      return nextPlans
+    })
+  }, [currentPlanId, isPlannerReady, planDraft, savedCurrentPlan, setSavedPlans])
+
   const resetPlannerFlow = useCallback((
     preference = selectedPreference,
     cityContext: PlannerCityContext | null = plannerCityContext,
@@ -284,9 +366,8 @@ export function usePlanner({
       sourceRecommendationId
     const destinationName = plannerCityContext?.cityName ?? generatedPlanDestinationName ?? plannerBasisLabel
 
-    return {
+    const payloadWithoutIdempotencyKey: Omit<SavedPlanApiCreatePayload, 'idempotencyKey'> = {
       sourceRecommendationId,
-      idempotencyKey: sourceRecommendationId,
       title: plan.title,
       summary: plan.summary,
       destination: {
@@ -319,6 +400,30 @@ export function usePlanner({
         selectedRestaurants: plan.selectedRestaurants ?? [],
       },
     }
+
+    return {
+      ...payloadWithoutIdempotencyKey,
+      idempotencyKey: `${sourceRecommendationId}:${createIdempotencyFingerprint(payloadWithoutIdempotencyKey)}`,
+    }
+  }
+
+  const formatSavedItineraryDestinationName = (destinationName: string) => {
+    const compactDestinationName = destinationName.replace(/\s+/g, '')
+
+    if (/^[가-힣]{2,8}$/.test(compactDestinationName) && !/(시|군|구|읍|면)$/.test(compactDestinationName)) {
+      return `${destinationName}시`
+    }
+
+    return destinationName
+  }
+
+  const createSavedItineraryTitle = () => {
+    const explicitDestinationName = generatedPlanDestinationName ?? plannerCityContext?.cityName
+    const destinationName = explicitDestinationName
+      ? formatSavedItineraryDestinationName(explicitDestinationName)
+      : (plannerBasisLabel.split('·')[0]?.trim() ?? plannerBasisLabel)
+
+    return `${destinationName} ${planDraft.durationLabel} 일정`
   }
 
   const createSavedPlanMutation = useMutation({
@@ -339,11 +444,17 @@ export function usePlanner({
       : getThemeLabels(plannerPreferenceProfile.selectedThemeIds)
     const savedAt = new Date().toISOString()
     const sourceRecommendationId = currentPlanId
+    const savedPlanDestinationId =
+      plannerCityContext?.agentCoreId ??
+      plannerCityContext?.cityId ??
+      generatedPlanDestinationId ??
+      sourceRecommendationId
+    const savedPlanTitle = createSavedItineraryTitle()
     const draftPlan: SavedPlan = {
       id: currentPlanId,
       sourceRecommendationId,
       ownerId: currentUser?.id ?? 'mock-user',
-      title: currentPlanTitle,
+      title: savedPlanTitle,
       cityPair: generatedPlanDestinationName ?? plannerBasisLabel,
       themeTag: themeLabels.join('·'),
       themeLabels,
@@ -355,6 +466,7 @@ export function usePlanner({
       days: planDraft.days,
       stops: planDraft.stops,
       selectedRestaurants: planDraft.selectedRestaurants ?? [],
+      destinationId: savedPlanDestinationId,
       createdAt: savedAt,
       savedAt,
     }
@@ -369,9 +481,17 @@ export function usePlanner({
         nextPlan = {
           ...draftPlan,
           id: savedPlanResult.itineraryId,
-          sourceRecommendationId: savedPlanResult.sourceRecommendationId || sourceRecommendationId,
+          sourceRecommendationId,
           savedAt: savedPlanResult.savedAt || savedAt,
           createdAt: savedPlanResult.savedAt || savedAt,
+        }
+
+        if (getSavedPlanLike(currentPlanId)) {
+          try {
+            await savedPlanLikeMutation.mutateAsync({ planId: nextPlan.id, like: 'like' })
+          } catch (likeError) {
+            log.error('PLAN', 'Failed to sync draft like to backend during plan save', likeError)
+          }
         }
       } catch {
         setSavedPlanNotice('일정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.')
@@ -438,11 +558,32 @@ export function usePlanner({
   }
 
   const toggleSavedPlanShareStatus = async (planId: string, isPublic: boolean) => {
-    setIsShareStatusUpdating((prev) => ({ ...prev, [planId]: true }))
+    const matchedPlan = savedPlans.find((plan) => plan.id === planId || plan.sourceRecommendationId === planId)
+    const backendPlanId = matchedPlan?.id ?? planId
+    const pendingPlanIds = getSavedPlanLikeIds(planId, matchedPlan)
+
+    setIsShareStatusUpdating((prev) => (
+      pendingPlanIds.reduce(
+        (nextState, pendingPlanId) => ({ ...nextState, [pendingPlanId]: true }),
+        prev,
+      )
+    ))
     try {
-      const updatedPlan = await requestUpdateSavedPlanShareStatus(planId, isPublic, { accessToken: authAccessToken })
+      const updatedPlan = await requestUpdateSavedPlanShareStatus(
+        backendPlanId,
+        isPublic,
+        { accessToken: authAccessToken },
+        matchedPlan,
+      )
       setSavedPlans((currentPlans) => {
-        const nextPlans = currentPlans.map((p) => (p.id === planId ? updatedPlan : p))
+        const nextPlans = currentPlans.map((p) =>
+          p.id === backendPlanId || p.sourceRecommendationId === planId
+            ? {
+                ...updatedPlan,
+                sourceRecommendationId: p.sourceRecommendationId,
+              }
+            : p,
+        )
         writeStoredSavedPlans(nextPlans)
         return nextPlans
       })
@@ -453,7 +594,12 @@ export function usePlanner({
       setSavedPlanNotice('공유 설정 업데이트에 실패했어요.')
       return false
     } finally {
-      setIsShareStatusUpdating((prev) => ({ ...prev, [planId]: false }))
+      setIsShareStatusUpdating((prev) => (
+        pendingPlanIds.reduce(
+          (nextState, pendingPlanId) => ({ ...nextState, [pendingPlanId]: false }),
+          prev,
+        )
+      ))
     }
   }
 
@@ -865,13 +1011,9 @@ export function usePlanner({
           setPlannerConditionExtraction(nextExtraction)
           setPlanDraft(realDraft)
           setSavedPlanNotice(null)
-          const destName = response.destination?.name
-          if (destName && !String(destName).toLowerCase().includes('mock')) {
-            setGeneratedPlanDestinationName(destName)
-          } else {
-            setGeneratedPlanDestinationName(plannerCityContext.cityName)
-          }
           const destId = response.destination?.cityId || response.destination?.destinationId
+          const destName = resolveSmallCityDisplayName(response.destination?.name, destId, plannerCityContext.cityName)
+          setGeneratedPlanDestinationName(destName ?? plannerCityContext.cityName)
           setGeneratedPlanDestinationId(destId || plannerCityContext.cityId)
         } catch (err) {
           log.error('PLAN', 'Recommendation API failed for selected city duration', err)
@@ -1018,11 +1160,12 @@ export function usePlanner({
       setPlannerConditionExtraction(nextExtraction)
       setPlanDraft(realDraft)
       setSavedPlanNotice(null)
-      const destName = response.destination?.name
+      const destId = response.destination?.cityId || response.destination?.destinationId
+      const destName = resolveSmallCityDisplayName(response.destination?.name, destId)
+
       if (destName && !String(destName).toLowerCase().includes('mock')) {
         setGeneratedPlanDestinationName(destName)
       }
-      const destId = response.destination?.cityId || response.destination?.destinationId
       if (destId) {
         setGeneratedPlanDestinationId(destId)
       }

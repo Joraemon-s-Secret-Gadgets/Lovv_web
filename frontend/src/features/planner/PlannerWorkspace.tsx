@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
 import { getPlannerStepClassName } from './plannerModel'
+import type { PlannerStepTone } from './plannerModel'
 import type { PlannerCityContext } from '../map-city/smallCities'
 import type {
   ChatMessage,
@@ -13,6 +14,18 @@ import type {
 } from '../../shared/types/app'
 import { PlannerChatInterface } from './PlannerChatInterface'
 import { PlannerTimelineView } from './PlannerTimelineView'
+
+const plannerStepToneByThemeId: Partial<Record<ThemeId, PlannerStepTone>> = {
+  food_local: 'orange',
+  nature_trekking: 'green',
+  history_tradition: 'brown',
+  healing_rest: 'teal',
+  sea_coast: 'blue',
+  art_sense: 'purple',
+}
+
+const getPlannerStepToneForTheme = (themeId: ThemeId | undefined): PlannerStepTone =>
+  (themeId ? plannerStepToneByThemeId[themeId] : undefined) ?? 'orange'
 
 export type PlannerStateStep = {
   id: string
@@ -118,6 +131,13 @@ export function PlannerWorkspace({
     }
   }, [isPlannerReady])
 
+  const activeThemes =
+    activeThemeIds && activeThemeIds.length > 0
+      ? activeThemeIds
+      : plannerPreferenceProfile?.selectedThemeIds ?? []
+  const getStepTone = (stepIndex: number) =>
+    getPlannerStepToneForTheme(activeThemes[stepIndex % Math.max(activeThemes.length, 1)])
+
   const renderPlannerStateHeader = () => (
     <section
       aria-label="Planner State"
@@ -131,7 +151,7 @@ export function PlannerWorkspace({
             id="chat-title"
             className="mt-3 break-keep text-[28px] font-black leading-9 text-[#33271E] max-sm:text-2xl max-sm:leading-8"
           >
-            AI 일정 챗봇
+            일정 생성하기
           </h2>
           <p className="mt-4 break-keep text-sm leading-6 text-[#33271E]">
             {plannerCityContext
@@ -146,7 +166,7 @@ export function PlannerWorkspace({
           {plannerStateSteps.map((step, index) => (
             <li
               key={step.id}
-              className={`min-w-0 rounded-[14px] border px-4 py-3 ${getPlannerStepClassName(step.status)}`}
+              className={`min-w-0 rounded-[14px] border px-4 py-3 ${getPlannerStepClassName(step.status, getStepTone(index))}`}
             >
               <div className="flex items-start gap-3">
                 <span
@@ -161,6 +181,19 @@ export function PlannerWorkspace({
                     <span className="rounded-[5px] bg-white/45 px-2 py-0.5 text-[11px] font-black leading-4">
                       {step.statusLabel}
                     </span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 break-keep text-[12px] font-semibold leading-5">
+                    {step.body}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {step.chips.slice(0, 3).map((chip) => (
+                      <span
+                        key={`${step.id}-${chip}`}
+                        className="inline-flex min-h-7 items-center rounded-[5px] bg-white/52 px-2.5 py-0.5 text-[11px] font-black leading-4"
+                      >
+                        {chip}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
