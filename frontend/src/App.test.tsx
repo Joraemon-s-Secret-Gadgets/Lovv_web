@@ -2418,7 +2418,6 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '마이페이지에 저장' }))
 
     expect(screen.getByRole('button', { name: '마이페이지로 이동' })).toBeInTheDocument()
-    expect(screen.getByText('마이페이지에서 다시 확인할 수 있어요.')).toBeInTheDocument()
 
     const savedPlans = JSON.parse(localStorage.getItem('lovv.savedPlans') ?? '[]')
 
@@ -2439,6 +2438,8 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '마이페이지로 이동' }))
 
     expect(window.location.pathname).toBe('/mypage')
+    expect(screen.queryByText('일정을 내 마이페이지에 담았어요!')).not.toBeInTheDocument()
+    expect(screen.queryByText('마이페이지에서 다시 확인할 수 있어요.')).not.toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('lovv.savedPlans') ?? '[]')).toHaveLength(1)
   })
 

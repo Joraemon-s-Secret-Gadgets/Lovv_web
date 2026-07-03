@@ -438,6 +438,7 @@ function App() {
 
   const openMyPage = () => {
     useUiToggleStore.getState().closeSessionMenu()
+    auth.setSavedPlanNotice(null)
     setGeneratedPlanDetailRouteId(null)
     navigateToView('mypage')
   }
