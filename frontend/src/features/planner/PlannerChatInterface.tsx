@@ -118,6 +118,7 @@ type PlannerChatInterfaceProps = {
   submitChatForm: (event: FormEvent<HTMLFormElement>) => void
   isPlannerLoading: boolean
   shouldAskFestivalTheme: boolean
+  onSelectClarificationOption: (messageId: string, optionId: string) => void
 }
 
 export function PlannerChatInterface({
@@ -139,6 +140,7 @@ export function PlannerChatInterface({
   submitChatForm,
   isPlannerLoading,
   shouldAskFestivalTheme,
+  onSelectClarificationOption,
 }: PlannerChatInterfaceProps) {
   
   const renderAssistantOptionGroup = (
@@ -265,6 +267,47 @@ export function PlannerChatInterface({
                     message.content
                   )}
                 </div>
+                {isAssistant && message.clarification ? (
+                  <div
+                    role="group"
+                    aria-label="추가 확인 선택지"
+                    className="mt-3 rounded-[20px] border border-[#F3B489]/25 bg-[#FFF8F6]/88 p-4 shadow-[0_12px_28px_-24px_rgba(51,39,30,0.24)] backdrop-blur-sm"
+                  >
+                    <p className="break-keep text-sm font-black leading-6 text-[#33271E]">
+                      {message.clarification.prompt}
+                    </p>
+                    <div className="mt-3 grid gap-2">
+                      {message.clarification.options.map((option) => {
+                        const isSelected = message.clarification?.selectedOptionId === option.optionId
+                        const isDisabled = isPlannerLoading || Boolean(message.clarification?.selectedOptionId)
+
+                        return (
+                          <button
+                            key={option.optionId}
+                            type="button"
+                            aria-pressed={isSelected}
+                            disabled={isDisabled}
+                            onClick={() => onSelectClarificationOption(message.id, option.optionId)}
+                            className={`group rounded-[14px] border px-4 py-3 text-left transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] disabled:cursor-not-allowed ${
+                              isSelected
+                                ? 'border-[#F36B12]/50 bg-[#FFE0CA] shadow-[0_10px_20px_-16px_rgba(243,107,18,0.45)]'
+                                : 'border-white/70 bg-white/84 hover:border-[#F36B12]/40 hover:bg-white hover:shadow-[0_10px_18px_-15px_rgba(243,107,18,0.34)] disabled:opacity-60'
+                            }`}
+                          >
+                            <span className="block break-keep text-sm font-black leading-5 text-[#33271E]">
+                              {option.label}
+                            </span>
+                            {option.description ? (
+                              <span className="mt-1 block break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
+                                {option.description}
+                              </span>
+                            ) : null}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </article>
           )

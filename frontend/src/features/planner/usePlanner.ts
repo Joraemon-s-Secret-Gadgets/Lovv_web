@@ -44,8 +44,9 @@ import {
 import {
   requestCreateRecommendation,
   mapRecommendationToDraft,
-  type RecommendationRequestPayload,
   type RecommendationApiResponse,
+  type RecommendationCreateRequestPayload,
+  type RecommendationThemeLabel,
 } from '../../shared/api/recommendationsApi'
 import {
   applyPlanDayReplacement,
@@ -72,8 +73,91 @@ import type {
   LovvUser,
   Preference,
   SelectedMealPlace,
+  ThemeId,
+  ChatClarification,
 } from '../../shared/types/app'
 import { resolveSmallCityDisplayName, type PlannerCityContext } from '../map-city/smallCities'
+
+const createRecommendationRequestId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+
+  return `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+const toRecommendationThemeLabels = (themeIds: ThemeId[]): RecommendationThemeLabel[] =>
+  getThemeLabels(themeIds) as RecommendationThemeLabel[]
+
+const createRecommendationRequestPayload = ({
+  rawQuery,
+  country,
+  tripType,
+  activeThemeIds,
+  includeFestivals,
+  destinationId,
+  travelYear,
+  travelMonth,
+}: {
+  rawQuery: string
+  country: RecommendationCreateRequestPayload['country']
+  tripType: RecommendationCreateRequestPayload['tripType']
+  activeThemeIds: ThemeId[]
+  includeFestivals: boolean
+  destinationId?: string | null
+  travelYear: number
+  travelMonth: number
+}): RecommendationCreateRequestPayload => ({
+  entryType: 'create',
+  requestId: createRecommendationRequestId(),
+  rawQuery,
+  country,
+  travelMonth,
+  travelYear,
+  tripType,
+  activeRequiredThemes: toRecommendationThemeLabels(activeThemeIds),
+  includeFestivals,
+  destinationId: destinationId ?? null,
+  executionMode: destinationId ? 'anchored_place_search' : 'city_discovery',
+  userLocation: null,
+})
+
+const getRecommendationClarificationLabel = (option: {
+  optionId?: string
+  label?: string
+  title?: string
+}) => option.label?.trim() || option.title?.trim() || option.optionId?.trim() || '선택하기'
+
+const createRecommendationClarification = (
+  response: RecommendationApiResponse,
+): ChatClarification | null => {
+  const options = Array.isArray(response.clarification?.options)
+    ? response.clarification.options
+        .filter((option) => typeof option.optionId === 'string' && option.optionId.trim().length > 0)
+        .map((option) => ({
+          optionId: option.optionId?.trim() ?? '',
+          label: getRecommendationClarificationLabel(option),
+          description: option.description?.trim() || undefined,
+        }))
+    : []
+  const threadId = response.threadId?.trim() || response.sessionId?.trim()
+
+  if (!threadId || options.length === 0) {
+    return null
+  }
+
+  return {
+    threadId,
+    recommendationId: response.recommendationId?.trim() || undefined,
+    reasonCode: response.clarification?.reasonCode?.trim() || undefined,
+    prompt:
+      response.clarification?.prompt?.trim() ||
+      response.clarification?.question?.trim() ||
+      response.clarification?.message?.trim() ||
+      '일정을 계속 만들기 전에 하나만 골라주세요.',
+    options,
+  }
+}
 
 const stableStringifyForIdempotency = (value: unknown): string => {
   if (Array.isArray(value)) {
@@ -533,7 +617,7 @@ export function usePlanner({
         return nextLikes
       })
     }
-    setSavedPlanNotice('마이페이지에서 다시 확인할 수 있어요.')
+    setSavedPlanNotice('설정 정보를 확인하세요.')
     setIsSavingPlan(false)
   }
 
@@ -876,8 +960,8 @@ export function usePlanner({
     return currentLike === selectedLike ? null : selectedLike
   }
 
-  const getRecommendationTripType = (durationLabel: string | null): RecommendationRequestPayload['tripType'] => {
-    const tripTypeMap: Record<string, RecommendationRequestPayload['tripType']> = {
+  const getRecommendationTripType = (durationLabel: string | null): RecommendationCreateRequestPayload['tripType'] => {
+    const tripTypeMap: Record<string, RecommendationCreateRequestPayload['tripType']> = {
       '당일치기': 'daytrip',
       '1박 2일': '2d1n',
       '2박 3일': '3d2n',
@@ -890,7 +974,7 @@ export function usePlanner({
 
   const createRecommendationMutation = useMutation({
     mutationFn: (payload: Parameters<typeof requestCreateRecommendation>[0]) =>
-      requestCreateRecommendation(payload),
+      requestCreateRecommendation(payload, { accessToken: authAccessToken }),
   })
 
   const submitChatMessage = async (message: string) => {
@@ -979,17 +1063,35 @@ export function usePlanner({
         setIsPlannerLoading(true)
 
         try {
-          const response = (await createRecommendationMutation.mutateAsync({
-            entryType: 'map_marker',
-            country: plannerCityContext.country || 'KR',
-            tripType: getRecommendationTripType(nextSelectedDurationLabel),
-            themes: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
-            includeFestivals: false,
-            destinationId: plannerCityContext.agentCoreId ?? plannerCityContext.cityId,
-            naturalLanguageQuery: `${nextSelectedDurationLabel} ${plannerContextText}`.trim(),
-            travelYear: new Date().getFullYear(),
-            travelMonth: defaultTravelMonth,
-          })) as RecommendationApiResponse
+          const response = (await createRecommendationMutation.mutateAsync(
+            createRecommendationRequestPayload({
+              rawQuery: `${nextSelectedDurationLabel} ${plannerContextText}`.trim(),
+              country: plannerCityContext.country || 'KR',
+              tripType: getRecommendationTripType(nextSelectedDurationLabel),
+              activeThemeIds: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
+              includeFestivals: false,
+              destinationId: plannerCityContext.cityId,
+              travelYear: new Date().getFullYear(),
+              travelMonth: defaultTravelMonth,
+            }),
+          )) as RecommendationApiResponse
+          const clarification = createRecommendationClarification(response)
+
+          if (clarification) {
+            setChatMessages((currentMessages) => [
+              ...currentMessages.filter((m) => m.id !== assistantLoadingMessageId),
+              {
+                id: createMessageId('assistant', currentMessages.length),
+                role: 'assistant',
+                content: '일정을 계속 만들기 전에 선택이 필요해요.',
+                clarification,
+              },
+            ])
+            setPlannerConditionExtraction(null)
+            setSavedPlanNotice(null)
+
+            return
+          }
 
           const realDraft = mapRecommendationToDraft(response)
           const filteredNotices = (realDraft.userNotice || []).filter(
@@ -1124,17 +1226,36 @@ export function usePlanner({
     setIsPlannerLoading(true)
 
     try {
-      const response = (await createRecommendationMutation.mutateAsync({
-        entryType: 'chat',
-        country: plannerCityContext?.country || 'KR',
-        tripType: getRecommendationTripType(selectedDurationLabel),
-        themes: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
-        includeFestivals: false,
-        destinationId: plannerCityContext?.agentCoreId ?? plannerCityContext?.cityId,
-        naturalLanguageQuery: trimmedMessage,
-        travelYear: new Date().getFullYear(),
-        travelMonth: selectedTravelMonth ?? new Date().getMonth() + 1,
-      })) as RecommendationApiResponse
+      const response = (await createRecommendationMutation.mutateAsync(
+        createRecommendationRequestPayload({
+          rawQuery: trimmedMessage,
+          country: plannerCityContext?.country || 'KR',
+          tripType: getRecommendationTripType(selectedDurationLabel),
+          activeThemeIds: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
+          includeFestivals: false,
+          destinationId: plannerCityContext?.cityId ?? null,
+          travelYear: new Date().getFullYear(),
+          travelMonth: selectedTravelMonth ?? new Date().getMonth() + 1,
+        }),
+      )) as RecommendationApiResponse
+      const clarification = createRecommendationClarification(response)
+
+      if (clarification) {
+        setChatMessages((currentMessages) => [
+          ...currentMessages.filter((m) => m.id !== assistantLoadingMessageId),
+          {
+            id: createMessageId('assistant', currentMessages.length),
+            role: 'assistant',
+            content: '일정을 계속 만들기 전에 선택이 필요해요.',
+            clarification,
+          },
+        ])
+        setPlannerContextText(nextPlannerContextText)
+        setPlannerConditionExtraction(nextExtraction)
+        setSavedPlanNotice(null)
+
+        return
+      }
 
       const realDraft = mapRecommendationToDraft(response)
 
@@ -1197,6 +1318,112 @@ export function usePlanner({
         setGeneratedPlanDestinationName(plannerCityContext.cityName)
         setGeneratedPlanDestinationId(plannerCityContext.cityId)
       }
+    } finally {
+      setIsPlannerLoading(false)
+    }
+  }
+
+  const selectClarificationOption = async (messageId: string, optionId: string) => {
+    const targetMessage = chatMessages.find((message) => message.id === messageId)
+    const clarification = targetMessage?.clarification
+    const selectedOption = clarification?.options.find((option) => option.optionId === optionId)
+
+    if (!clarification || !selectedOption || isPlannerLoading) {
+      return
+    }
+
+    const assistantLoadingMessageId = 'loading-assistant'
+
+    setChatMessages((currentMessages) => [
+      ...currentMessages
+        .filter((message) => message.id !== assistantLoadingMessageId)
+        .map((message) =>
+          message.id === messageId && message.clarification
+            ? {
+                ...message,
+                clarification: {
+                  ...message.clarification,
+                  selectedOptionId: optionId,
+                },
+              }
+            : message,
+        ),
+      {
+        id: createMessageId('user', currentMessages.length),
+        role: 'user',
+        content: selectedOption.label,
+      },
+      {
+        id: assistantLoadingMessageId,
+        role: 'assistant',
+        content: selectedOption.label,
+      },
+    ])
+    setSavedPlanNotice(null)
+    setIsPlannerLoading(true)
+
+    try {
+      const response = (await createRecommendationMutation.mutateAsync({
+        entryType: 'clarify',
+        threadId: clarification.threadId,
+        recommendationId: clarification.recommendationId,
+        selectedOptionId: optionId,
+      })) as RecommendationApiResponse
+      const nextClarification = createRecommendationClarification(response)
+
+      if (nextClarification) {
+        setChatMessages((currentMessages) => [
+          ...currentMessages.filter((message) => message.id !== assistantLoadingMessageId),
+          {
+            id: createMessageId('assistant', currentMessages.length),
+            role: 'assistant',
+            content: '추가로 하나만 더 확인할게요.',
+            clarification: nextClarification,
+          },
+        ])
+
+        return
+      }
+
+      const realDraft = mapRecommendationToDraft(response)
+      const filteredNotices = (realDraft.userNotice || []).filter(
+        (notice: string) => notice !== response.itinerary?.summary,
+      )
+      const userNoticeText =
+        filteredNotices.length > 0
+          ? '\n\n' + filteredNotices.join('\n')
+          : ''
+
+      setChatMessages((currentMessages) => [
+        ...currentMessages.filter((message) => message.id !== assistantLoadingMessageId),
+        {
+          id: createMessageId('assistant', currentMessages.length),
+          role: 'assistant',
+          content: `${response.itinerary?.summary || '일정이 성공적으로 생성되었습니다.'} 우측에 생성된 일정을 둘러보세요.${userNoticeText}`,
+        },
+      ])
+      setPlanDraft(realDraft)
+      setSavedPlanNotice(null)
+      const destId = response.destination?.cityId || response.destination?.destinationId
+      const destName = resolveSmallCityDisplayName(response.destination?.name, destId, plannerCityContext?.cityName)
+
+      if (destName && !String(destName).toLowerCase().includes('mock')) {
+        setGeneratedPlanDestinationName(destName)
+      }
+      if (destId) {
+        setGeneratedPlanDestinationId(destId)
+      }
+    } catch (err) {
+      log.error('PLAN', 'Recommendation clarification failed', err)
+
+      setChatMessages((currentMessages) => [
+        ...currentMessages.filter((message) => message.id !== assistantLoadingMessageId),
+        {
+          id: createMessageId('assistant', currentMessages.length),
+          role: 'assistant',
+          content: '선택한 조건을 반영하지 못했어요. 잠시 후 다시 시도해 주세요.',
+        },
+      ])
     } finally {
       setIsPlannerLoading(false)
     }
@@ -1334,6 +1561,7 @@ export function usePlanner({
     addWishlistRestaurant,
     removeWishlistRestaurant,
     submitChatMessage,
+    selectClarificationOption,
     submitChatForm,
     plannerStateSteps,
     getSavedPlanLike,

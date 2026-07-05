@@ -73,6 +73,7 @@ type PlannerWorkspaceProps = {
   activeThemeIds?: ThemeId[]
   onAddThemePreference?: (themeId: ThemeId) => void
   onRemoveThemePreferences?: (themeIdsToRemove: ThemeId[]) => void
+  selectClarificationOption: (messageId: string, optionId: string) => void
 }
 
 export function PlannerWorkspace({
@@ -112,6 +113,7 @@ export function PlannerWorkspace({
   activeThemeIds,
   onAddThemePreference,
   onRemoveThemePreferences,
+  selectClarificationOption,
 }: PlannerWorkspaceProps) {
   const chatScrollRef = useRef<HTMLDivElement | null>(null)
   const planResultPanelRef = useRef<HTMLElement | null>(null)
@@ -253,6 +255,7 @@ export function PlannerWorkspace({
             submitChatForm={submitChatForm}
             isPlannerLoading={isPlannerLoading}
             shouldAskFestivalTheme={shouldAskFestivalTheme}
+            onSelectClarificationOption={selectClarificationOption}
           />
           <PlannerTimelineView
             planResultPanelRef={planResultPanelRef}

@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from './features/auth/useAuth'
 import { usePreferences } from './features/onboarding/usePreferences'
 import { usePlanner } from './features/planner/usePlanner'
@@ -14,7 +15,7 @@ import { AuthView } from './features/auth/AuthView'
 import { heroRotationIntervalMs, heroThemes, monthlyRecommendations } from './features/home/homeContent'
 import { HomeView } from './features/home/HomeView'
 import { ThemeDetailView } from './features/home/ThemeDetailView'
-import { RecommendationView } from './features/recommendation/RecommendationView'
+import { RecommendationView, type RecommendationDestinationTarget } from './features/recommendation/RecommendationView'
 import { CityMapDiscoverySection } from './features/map-city/CityMapDiscoverySection'
 import {
   createPlannerCityContext,
@@ -30,6 +31,7 @@ import { AppHeader } from './shared/components/AppHeader'
 import { Footer } from './shared/components/Footer'
 import { LegalNoticeDialog } from './shared/components/LegalNoticeDialog'
 import { useUiToggleStore } from './shared/store/uiToggleStore'
+import { requestListReactionCities, type PopularDestinationApiItem } from './shared/api/recommendationsApi'
 import {
   getCanonicalViewFromPath,
   getGuardRedirectPath,
@@ -56,6 +58,72 @@ const providerLabels: Record<SocialAuthProvider, string> = {
 
 const SUIT_FONT_PRELOAD_HREF =
   'https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/variable/woff2/SUIT-Variable.woff2'
+
+const personalizedRecommendationSlotCount = 1
+
+const isThemeId = (value: unknown): value is ThemeId =>
+  value === 'healing_rest' ||
+  value === 'sea_coast' ||
+  value === 'history_tradition' ||
+  value === 'food_local' ||
+  value === 'nature_trekking' ||
+  value === 'art_sense'
+
+const getPreferenceForRecommendationItem = (
+  item: PopularDestinationApiItem,
+  selectedPreferenceProfile: PreferenceProfile,
+) => {
+  const itemThemeId = Array.isArray(item.themeIds)
+    ? item.themeIds.find(isThemeId)
+    : undefined
+  const preferredThemeId = itemThemeId ?? selectedPreferenceProfile.selectedThemeIds.find(isThemeId)
+
+  return (
+    monthlyRecommendations.find((recommendation) => recommendation.preference.themeId === preferredThemeId)
+      ?.preference ?? monthlyRecommendations[0].preference
+  )
+}
+
+const mapReactionCityToMonthlyRecommendation = (
+  item: PopularDestinationApiItem,
+  index: number,
+  selectedPreferenceProfile: PreferenceProfile,
+): MonthlyRecommendation | null => {
+  const cityName = item.name?.trim() || item.cityId?.replace(/^(KR|JP)-/, '').replace(/-/g, ' ').trim()
+
+  if (!cityName) {
+    return null
+  }
+
+  const preference = getPreferenceForRecommendationItem(item, selectedPreferenceProfile)
+  const region = item.region?.trim()
+  const themeLabels = Array.isArray(item.themes) ? item.themes.filter(Boolean).slice(0, 3) : []
+  const badge = themeLabels.length > 0 ? themeLabels.slice(0, 2).join('·') : preference.tag
+  const image = item.imageUrl?.trim() || item.image_url?.trim() || null
+
+  return {
+    id: `reaction-${item.cityId ?? cityName}-${item.priority ?? index + 1}`,
+    preference: {
+      ...preference,
+      cityPair: region ? `${cityName} · ${region}` : cityName,
+      routeHint: themeLabels.length > 0 ? themeLabels.slice(0, 2).join(' · ') : preference.routeHint,
+    },
+    title: item.title?.trim() || `반응 남긴 일정과 비슷한 ${cityName}`,
+    summary:
+      item.recommendationReason?.trim() ||
+      item.recommendation_reason?.trim() ||
+      item.summary?.trim() ||
+      '저장 일정에 남긴 반응을 바탕으로 비슷한 분위기의 소도시를 추천합니다.',
+    badge,
+    image,
+    themes: themeLabels.length > 0 ? themeLabels : badge.split('·').filter(Boolean),
+    cityId: item.cityId,
+    cityName,
+    region,
+    timingTag: '반응 기반',
+    source: 'api',
+  }
+}
 
 const resolveSocialAuthProvider = (
   user: LovvUser | null,
@@ -256,6 +324,32 @@ function App() {
   const [currentHeroThemeIndex, setCurrentHeroThemeIndex] = useState(0)
   const currentHeroTheme = heroThemes[currentHeroThemeIndex]
   const recommendationBasisHashtags = getRecommendationBasisHashtags(auth.selectedPreferenceProfile)
+  const savedPlansCount = auth.savedPlans.length
+  const likedPlansCount = Object.keys(auth.savedPlanLikes).length
+  const shouldLoadPersonalizedRecommendations =
+    auth.isBackendAuthMode &&
+    Boolean(auth.currentUser) &&
+    Boolean(auth.authAccessToken) &&
+    savedPlansCount + likedPlansCount >= 2
+  const personalizedRecommendationsQuery = useQuery({
+    queryKey: ['reactionCities', 'home', auth.currentUser?.id, savedPlansCount, likedPlansCount],
+    queryFn: () =>
+      requestListReactionCities(personalizedRecommendationSlotCount, {
+        accessToken: auth.authAccessToken,
+    }),
+    enabled: shouldLoadPersonalizedRecommendations,
+    retry: false,
+    staleTime: 60_000,
+  })
+  const personalizedMonthlyRecommendations = useMemo(
+    () =>
+      (personalizedRecommendationsQuery.data?.items ?? [])
+        .map((item, index) =>
+          mapReactionCityToMonthlyRecommendation(item, index, auth.selectedPreferenceProfile),
+        )
+        .filter((item): item is MonthlyRecommendation => Boolean(item)),
+    [auth.selectedPreferenceProfile, personalizedRecommendationsQuery.data?.items],
+  )
 
   const routePlanId = getPlanDetailRouteId(location.pathname)
   const savedPlanForRoute = useMemo(
@@ -482,6 +576,34 @@ function App() {
     navigateToView('recommendation')
   }
 
+  const openRecommendationDestinationOnMap = (destination: RecommendationDestinationTarget) => {
+    const destinationCountry = destination.country === 'JP' ? 'JP' : 'KR'
+    const matchedCity = map.smallCityCatalogState.cities.find(
+      (city) =>
+        city.id === destination.cityId ||
+        city.nameKo === destination.name ||
+        city.nameLocal === destination.name,
+    )
+    const nextCountry = matchedCity?.country ?? destinationCountry
+
+    useUiToggleStore.getState().closeSessionMenu()
+    useUiToggleStore.getState().closeQuickActions()
+    map.setCityMapCountry(nextCountry)
+    map.setSelectedSmallCityThemes([])
+
+    if (matchedCity) {
+      map.setCityMapQuery('')
+      map.setSelectedSmallCityId(matchedCity.id)
+      map.setCityMapPanelMode('detail')
+    } else {
+      map.setCityMapQuery(destination.name)
+      map.setSelectedSmallCityId('')
+      map.setCityMapPanelMode('list')
+    }
+
+    navigateToView('map')
+  }
+
   const createSinglePreferenceProfile = (
     preference: Preference,
     source: PreferenceProfileSource,
@@ -667,8 +789,10 @@ function App() {
               onOpenMonthlyRecommendationDetail={openMonthlyRecommendationDetail}
               onOpenChatFromQuickAction={openChatFromQuickAction}
               onScrollToTop={scrollToTop}
-              savedPlansCount={auth.savedPlans.length}
-              likedPlansCount={Object.keys(auth.savedPlanLikes).length}
+              savedPlansCount={savedPlansCount}
+              likedPlansCount={likedPlansCount}
+              personalizedRecommendations={personalizedMonthlyRecommendations}
+              isPersonalizedRecommendationsLoading={personalizedRecommendationsQuery.isLoading}
               currentUser={auth.currentUser}
               monthlyCandidateCities={map.smallCityCatalogState.cities}
             />
@@ -678,7 +802,7 @@ function App() {
             </div>
           ) : activeView === 'recommendation' ? (
             <div className="pt-[58px]">
-              <RecommendationView />
+              <RecommendationView onOpenDestinationOnMap={openRecommendationDestinationOnMap} />
             </div>
           ) : activeView === 'themeDetail' ? (
             <ThemeDetailView recommendation={activeMonthlyRecommendation} goHome={goHome} openMonthlyRecommendationPlan={openMonthlyRecommendationPlan} />
@@ -778,6 +902,7 @@ function App() {
                 hasGuidedPlannerChoices={planner.hasGuidedPlannerChoices}
                 canSubmitChatInput={planner.canSubmitChatInput}
                 submitChatForm={planner.submitChatForm}
+                selectClarificationOption={planner.selectClarificationOption}
                 currentPlanTitle={planner.currentPlanTitle}
                 plannerPreferenceProfile={planner.plannerPreferenceProfile}
                 openPlanDetailView={openPlanDetailView}

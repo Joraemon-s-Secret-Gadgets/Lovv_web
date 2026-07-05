@@ -238,4 +238,81 @@ describe('HomeView monthly recommendations', () => {
       `${monthlyRecommendations[monthlyRecommendations.length - 1].preference.cityPair} 이달 추천 상세 보기`,
     )
   })
+
+  it('does not render the old mock personalized card when there is no backend reaction data', () => {
+    render(
+      <HomeView
+        currentHeroTheme={heroThemes[0]}
+        selectedPreferenceProfile={{
+          version: 2,
+          countryTrack: 'KR',
+          selectedThemeIds: [monthlyRecommendations[0].preference.themeId],
+          source: 'onboarding',
+          updatedAt: '2026-06-12T00:00:00.000Z',
+        }}
+        selectedThemeHashtags={[]}
+        recommendationBasisHashtags={[]}
+        openChat={vi.fn()}
+        openMap={vi.fn()}
+        onOpenMonthlyRecommendationDetail={vi.fn()}
+        onOpenChatFromQuickAction={vi.fn()}
+        onScrollToTop={vi.fn()}
+        savedPlansCount={2}
+        likedPlansCount={0}
+        personalizedRecommendations={[]}
+      />,
+    )
+
+    expect(screen.queryByText('곡성 취향 벡터')).not.toBeInTheDocument()
+    expect(screen.queryByText('지난번 ❤ 곡성과 비슷')).not.toBeInTheDocument()
+    expect(screen.getByText('7월 날씨·축제 경향이 맞는 소도시를 먼저 보여드려요')).toBeInTheDocument()
+  })
+
+  it('renders a personalized card only from backend reaction recommendation data', () => {
+    render(
+      <HomeView
+        currentHeroTheme={heroThemes[0]}
+        selectedPreferenceProfile={{
+          version: 2,
+          countryTrack: 'KR',
+          selectedThemeIds: [monthlyRecommendations[0].preference.themeId],
+          source: 'onboarding',
+          updatedAt: '2026-06-12T00:00:00.000Z',
+        }}
+        selectedThemeHashtags={[]}
+        recommendationBasisHashtags={[]}
+        openChat={vi.fn()}
+        openMap={vi.fn()}
+        onOpenMonthlyRecommendationDetail={vi.fn()}
+        onOpenChatFromQuickAction={vi.fn()}
+        onScrollToTop={vi.fn()}
+        savedPlansCount={2}
+        likedPlansCount={1}
+        personalizedRecommendations={[
+          {
+            ...monthlyRecommendations[0],
+            id: 'reaction-gurye',
+            preference: {
+              ...monthlyRecommendations[0].preference,
+              cityPair: '구례 · 전남',
+            },
+            title: '좋아한 자연 일정과 비슷한 구례',
+            summary: '최근 반응 남긴 일정의 자연·산책 테마와 유사',
+            badge: '자연·산책',
+            image: null,
+            themes: ['자연', '산책'],
+            cityId: 'KR-Gurye',
+            cityName: '구례',
+            region: '전남',
+            timingTag: '반응 기반',
+            source: 'api',
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText('반응 기반')).toBeInTheDocument()
+    expect(screen.getByText('좋아한 자연 일정과 비슷한 구례')).toBeInTheDocument()
+    expect(screen.getByText('지난번 다녀오신 소도시의 분위기를 기억해, 비슷한 곳을 골랐어요')).toBeInTheDocument()
+  })
 })

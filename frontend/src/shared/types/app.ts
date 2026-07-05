@@ -80,10 +80,26 @@ export type HeroTheme = {
   glowClassName: string
 }
 
+export type ChatClarificationOption = {
+  optionId: string
+  label: string
+  description?: string
+}
+
+export type ChatClarification = {
+  threadId: string
+  recommendationId?: string
+  reasonCode?: string
+  prompt: string
+  selectedOptionId?: string
+  options: ChatClarificationOption[]
+}
+
 export type ChatMessage = {
   id: string
   role: 'assistant' | 'user'
   content: string
+  clarification?: ChatClarification
 }
 
 export type PlannerStepStatus = 'completed' | 'active' | 'pending'

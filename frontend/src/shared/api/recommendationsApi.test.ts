@@ -1,13 +1,22 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import { mapRecommendationToDraft, requestListPopularDestinations } from './recommendationsApi'
-import type { RecommendationApiResponse } from './recommendationsApi'
+import {
+  mapRecommendationToDraft,
+  requestCreateRecommendation,
+  requestListPopularDestinations,
+  requestListReactionCities,
+} from './recommendationsApi'
+import type {
+  RecommendationApiResponse,
+  RecommendationItinerary,
+  RecommendationRequestPayload,
+} from './recommendationsApi'
 import type { PlanRoute } from '../types/app'
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
-const makeItem = (overrides: Partial<RecommendationApiResponse['itinerary']['days'][0]['items'][0]> = {}) => ({
+const makeItem = (overrides: Partial<RecommendationItinerary['days'][0]['items'][0]> = {}) => ({
   itemId: 'item-1',
   sortOrder: 1,
   timeOfDay: 'morning' as const,
@@ -20,8 +29,8 @@ const makeItem = (overrides: Partial<RecommendationApiResponse['itinerary']['day
 
 const makeDay = (
   day: number,
-  items: RecommendationApiResponse['itinerary']['days'][0]['items'],
-  overrides: Partial<RecommendationApiResponse['itinerary']['days'][0]> = {},
+  items: RecommendationItinerary['days'][0]['items'],
+  overrides: Partial<RecommendationItinerary['days'][0]> = {},
 ) => ({
   day,
   title: `${day}일차`,
@@ -31,7 +40,7 @@ const makeDay = (
 })
 
 const makeResponse = (
-  days: RecommendationApiResponse['itinerary']['days'],
+  days: RecommendationItinerary['days'],
   overrides: Partial<RecommendationApiResponse> = {},
 ): RecommendationApiResponse => ({
   itinerary: {
@@ -42,6 +51,119 @@ const makeResponse = (
     days,
   },
   ...overrides,
+})
+
+describe('requestCreateRecommendation', () => {
+  it('calls the recommendation endpoint with credentials and authorization when access token is provided', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => makeResponse([makeDay(1, [makeItem()])]),
+    })
+    const payload: RecommendationRequestPayload = {
+      entryType: 'create',
+      requestId: 'req-001',
+      rawQuery: '양양으로 1박 2일',
+      country: 'KR' as const,
+      travelMonth: 7,
+      travelYear: 2026,
+      tripType: '2d1n' as const,
+      activeRequiredThemes: ['바다·해안'],
+      includeFestivals: false,
+      destinationId: 'KR-42-830',
+      executionMode: 'anchored_place_search',
+      userLocation: null,
+    }
+
+    const response = await requestCreateRecommendation(payload, {
+      baseUrl: 'https://api.lovv.example/',
+      accessToken: 'access-token',
+      fetchImpl,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.lovv.example/api/v1/recommendations',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer access-token',
+        },
+        body: JSON.stringify(payload),
+        credentials: 'include',
+      },
+    )
+    expect(response.itinerary?.title).toBe('서울 여행')
+  })
+
+  it('keeps explicit Bearer tokens intact', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => makeResponse([makeDay(1, [makeItem()])]),
+    })
+
+    await requestCreateRecommendation(
+      {
+        entryType: 'create',
+        requestId: 'req-002',
+        rawQuery: '자연 쪽으로 당일치기',
+        country: 'KR',
+        travelMonth: 7,
+        travelYear: 2026,
+        tripType: 'daytrip',
+        activeRequiredThemes: ['자연·트레킹'],
+        includeFestivals: false,
+        destinationId: null,
+        executionMode: 'city_discovery',
+        userLocation: null,
+      },
+      { baseUrl: '', accessToken: 'Bearer restored-token', fetchImpl },
+    )
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      '/api/v1/recommendations',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer restored-token',
+        }),
+      }),
+    )
+  })
+
+  it('sends clarification option answers without rewriting the server option id', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'END',
+        itinerary: {
+          tripType: '2d1n',
+          title: '양양 여행',
+          summary: '확정된 일정',
+          durationLabel: '1박 2일',
+          days: [],
+        },
+      }),
+    })
+    const payload: RecommendationRequestPayload = {
+      entryType: 'clarify',
+      threadId: 'thread-001',
+      recommendationId: 'rec-001',
+      selectedOptionId: 'continue_without_festival',
+    }
+
+    await requestCreateRecommendation(payload, {
+      baseUrl: 'https://api.lovv.example/',
+      accessToken: 'access-token',
+      fetchImpl,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.lovv.example/api/v1/recommendations',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    )
+  })
 })
 
 // ── timeOfDay 매핑 ────────────────────────────────────────────────────────────
@@ -132,6 +254,71 @@ describe('requestListPopularDestinations', () => {
   })
 })
 
+describe('requestListReactionCities', () => {
+  it('calls the authenticated reaction cities endpoint with credentials', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: [
+          {
+            cityId: 'KR-Gurye',
+            name: '구례',
+            themes: ['자연', '산책'],
+            imageUrl: 'https://cdn.lovv.example/gurye.jpg',
+          },
+        ],
+      }),
+    })
+    vi.stubGlobal('fetch', fetchImpl)
+
+    const response = await requestListReactionCities(1, 'https://api.lovv.example/')
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.lovv.example/api/v1/recommendations/reaction-cities?limit=1',
+      {
+        method: 'GET',
+        headers: {},
+        credentials: 'include',
+      },
+    )
+    expect(response.items).toHaveLength(1)
+    expect(response.items[0].cityId).toBe('KR-Gurye')
+  })
+
+  it('falls back to an empty item list when the reaction response shape is incomplete', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    }))
+
+    await expect(requestListReactionCities()).resolves.toEqual({ items: [] })
+  })
+
+  it('includes authorization when loading reaction cities with an access token', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ items: [] }),
+    })
+
+    await requestListReactionCities(1, {
+      baseUrl: 'https://api.lovv.example/',
+      accessToken: 'access-token',
+      fetchImpl,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.lovv.example/api/v1/recommendations/reaction-cities?limit=1',
+      {
+        method: 'GET',
+        headers: {
+          Authorization: 'Bearer access-token',
+        },
+        credentials: 'include',
+      },
+    )
+  })
+})
+
 // ── contentId 처리 ────────────────────────────────────────────────────────────
 describe('mapRecommendationToDraft — contentId 처리', () => {
   it('contentId 있으면 stop에 포함', () => {
@@ -205,7 +392,7 @@ describe('mapRecommendationToDraft — PlanDraft 구조', () => {
           imageUrl: 'https://example.com/anmok.jpg',
           moveDurationSeconds: 780,
           moveDistanceMeters: 4200,
-        } as unknown as Partial<RecommendationApiResponse['itinerary']['days'][0]['items'][0]>),
+        } as unknown as Partial<RecommendationItinerary['days'][0]['items'][0]>),
       ]),
     ])
 

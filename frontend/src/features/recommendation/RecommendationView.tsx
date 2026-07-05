@@ -9,14 +9,22 @@ const popularDestinationSlotCount = 6
 
 type PopularDestination = {
   key: string
+  cityId?: string
   name: string
   count: number
   reactionCount: number
   themeLabels: string[]
   region?: string
+  country?: string
   countryLabel?: string
   imageUrl?: string | null
   summary?: string
+}
+
+export type RecommendationDestinationTarget = {
+  cityId?: string
+  name: string
+  country?: string
 }
 
 type PopularAgeGroup = {
@@ -71,11 +79,13 @@ const normalizePopularDestination = (item: PopularDestinationApiItem): PopularDe
 
   return {
     key,
+    cityId: item.cityId,
     name,
     count: Math.max(0, item.savedPlanCount ?? item.saved_plan_count ?? 0),
     reactionCount: Math.max(0, item.reactionCount ?? item.reaction_count ?? 0),
     themeLabels,
     region: item.region,
+    country: item.country,
     countryLabel: item.countryLabel,
     imageUrl: item.imageUrl ?? item.image_url ?? null,
     summary: buildPopularDestinationSummary(item, name, themeLabels),
@@ -96,7 +106,11 @@ const normalizeAgeGroup = (group: NonNullable<Awaited<ReturnType<typeof requestL
   return { ageGroup, label, items }
 }
 
-export function RecommendationView() {
+type RecommendationViewProps = {
+  onOpenDestinationOnMap?: (destination: RecommendationDestinationTarget) => void
+}
+
+export function RecommendationView({ onOpenDestinationOnMap }: RecommendationViewProps) {
   const navigate = useNavigate()
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<string | null>(null)
   const {
@@ -198,6 +212,7 @@ export function RecommendationView() {
               description="전체 사용자의 반응을 지역별로 합산한 순위입니다."
               badge="전체"
               slots={popularSlots}
+              onOpenDestinationOnMap={onOpenDestinationOnMap}
             />
             <RankingListPanel
               title="나이대별 인기"
@@ -211,6 +226,7 @@ export function RecommendationView() {
               ageGroups={ageGroups}
               selectedAgeGroup={activeAgeGroup?.ageGroup ?? null}
               onSelectAgeGroup={setSelectedAgeGroup}
+              onOpenDestinationOnMap={onOpenDestinationOnMap}
             />
           </div>
         )}
@@ -298,6 +314,7 @@ function RankingListPanel({
   ageGroups,
   selectedAgeGroup,
   onSelectAgeGroup,
+  onOpenDestinationOnMap,
 }: {
   title: string
   description: string
@@ -306,6 +323,7 @@ function RankingListPanel({
   ageGroups?: PopularAgeGroup[]
   selectedAgeGroup?: string | null
   onSelectAgeGroup?: (ageGroup: string) => void
+  onOpenDestinationOnMap?: (destination: RecommendationDestinationTarget) => void
 }) {
   return (
     <section className="rounded-[24px] border border-white/75 bg-[#fffffa]/62 p-4 shadow-[0_18px_44px_-38px_rgba(51,39,30,0.28)]">
@@ -351,7 +369,11 @@ function RankingListPanel({
         {slots.map((destination, index) => (
           <li key={destination?.key ?? `${title}-empty-${index}`}>
             {destination ? (
-              <RankingListItem destination={destination} rank={index + 1} />
+              <RankingListItem
+                destination={destination}
+                rank={index + 1}
+                onOpenDestinationOnMap={onOpenDestinationOnMap}
+              />
             ) : (
               <RankingEmptyItem rank={index + 1} />
             )}
@@ -362,11 +384,30 @@ function RankingListPanel({
   )
 }
 
-function RankingListItem({ destination, rank }: { destination: PopularDestination; rank: number }) {
+function RankingListItem({
+  destination,
+  rank,
+  onOpenDestinationOnMap,
+}: {
+  destination: PopularDestination
+  rank: number
+  onOpenDestinationOnMap?: (destination: RecommendationDestinationTarget) => void
+}) {
   const locationLabel = [destination.countryLabel, destination.region].filter(Boolean).join(' · ')
 
   return (
-    <article className="group flex min-h-[116px] gap-3 rounded-[20px] border border-white/80 bg-white/70 p-3 shadow-[0_12px_28px_-24px_rgba(51,39,30,0.36)] transition hover:-translate-y-0.5 hover:border-[#F3B489] hover:bg-white max-sm:min-h-0">
+    <button
+      type="button"
+      onClick={() =>
+        onOpenDestinationOnMap?.({
+          cityId: destination.cityId,
+          name: destination.name,
+          country: destination.country,
+        })
+      }
+      aria-label={`${destination.name} 여행지 찾아보기에서 보기`}
+      className="group flex min-h-[116px] w-full gap-3 rounded-[20px] border border-white/80 bg-white/70 p-3 text-left shadow-[0_12px_28px_-24px_rgba(51,39,30,0.36)] transition hover:-translate-y-0.5 hover:border-[#F3B489] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F36B12] max-sm:min-h-0"
+    >
       <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[16px] bg-[#FFF2EA] max-sm:h-20 max-sm:w-20">
         {destination.imageUrl ? (
           <img
@@ -423,7 +464,7 @@ function RankingListItem({ destination, rank }: { destination: PopularDestinatio
           </span>
         </div>
       </div>
-    </article>
+    </button>
   )
 }
 

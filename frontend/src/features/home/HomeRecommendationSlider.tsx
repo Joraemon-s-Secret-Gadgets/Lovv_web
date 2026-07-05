@@ -52,6 +52,8 @@ type HomeRecommendationSliderProps = {
   currentUser?: LovvUser | null
   savedPlansCount?: number
   likedPlansCount?: number
+  personalizedRecommendations?: MonthlyRecommendation[]
+  isPersonalizedRecommendationsLoading?: boolean
   monthlyCandidateCities?: SmallCity[]
   selectedPreferenceProfile: PreferenceProfile
   onOpenMonthlyRecommendationDetail: (recommendation: MonthlyRecommendation) => void
@@ -61,6 +63,8 @@ export function HomeRecommendationSlider({
   currentUser = null,
   savedPlansCount = 0,
   likedPlansCount = 0,
+  personalizedRecommendations = [],
+  isPersonalizedRecommendationsLoading = false,
   monthlyCandidateCities,
   selectedPreferenceProfile,
   onOpenMonthlyRecommendationDetail,
@@ -149,7 +153,8 @@ export function HomeRecommendationSlider({
     [],
   )
 
-  const isPersonalized = savedPlansCount + likedPlansCount >= 2
+  const hasPersonalizationSignal = savedPlansCount + likedPlansCount >= 2
+  const isPersonalized = personalizedRecommendations.length > 0
 
   const sectionHeader = (
     <div className="mb-6 flex items-end justify-between gap-6 max-md:flex-col max-md:items-start">
@@ -169,6 +174,8 @@ export function HomeRecommendationSlider({
         <p className="mt-3 max-w-[660px] break-keep text-sm font-semibold leading-6 text-[#33271E]">
           {isPersonalized
             ? '지난번 다녀오신 소도시의 분위기를 기억해, 비슷한 곳을 골랐어요'
+            : isPersonalizedRecommendationsLoading && hasPersonalizationSignal
+              ? '저장 일정과 반응 기록을 확인하고 있어요'
             : `${currentRecommendationMonth}월 날씨·축제 경향이 맞는 소도시를 먼저 보여드려요`}
         </p>
       </div>
@@ -227,17 +234,20 @@ export function HomeRecommendationSlider({
     }
   })
 
-  const personalizedCard = {
-    recommendation: monthlyRecommendations[4], // 자연·트레킹 코스를 매핑
-    timingTag: '지난번 ❤ 곡성과 비슷',
-    badgeText: 'R YOU',
-    subtitle: '조용한 강가 마을이 좋으셨죠 — 분위기 비슷한 구례',
-    exampleText: '곡성 취향 벡터',
+  const personalizedCards = personalizedRecommendations.slice(0, 1).map((recommendation) => ({
+    recommendation,
+    timingTag: recommendation.timingTag ?? '반응 기반',
+    badgeText: recommendation.badge,
+    subtitle:
+      recommendation.cityName && recommendation.region
+        ? `${recommendation.region} · ${recommendation.cityName}`
+        : recommendation.preference.cityPair,
+    exampleText: recommendation.cityName ? `예: ${recommendation.cityName}` : '개인 반응 기준',
     isCurrent: false,
-    cardType: 'personalized'
-  }
+    cardType: 'personalized' as const,
+  }))
 
-  const finalCards = isPersonalized ? [personalizedCard, ...basicCards] : basicCards
+  const finalCards = personalizedCards.length > 0 ? [...personalizedCards, ...basicCards] : basicCards
 
   return (
     <section

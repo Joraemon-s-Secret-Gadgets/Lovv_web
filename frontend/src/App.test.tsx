@@ -1538,10 +1538,14 @@ describe('MVP main entry screen', () => {
     await waitFor(() => {
       expect(requestCreateRecommendation).toHaveBeenCalledWith(
         expect.objectContaining({
-          entryType: 'map_marker',
+          entryType: 'create',
+          rawQuery: expect.stringContaining('1박 2일'),
           destinationId: expect.any(String),
+          executionMode: 'anchored_place_search',
+          activeRequiredThemes: expect.arrayContaining(['역사·전통']),
           tripType: '2d1n',
         }),
+        expect.objectContaining({ accessToken: null }),
       )
     })
     await waitFor(() => {
@@ -1944,16 +1948,15 @@ describe('MVP main entry screen', () => {
 
     expect(within(recommendationBasis).getAllByRole('listitem')).toHaveLength(2)
     expect(within(recommendationBasis).getByText('#온천')).toHaveClass(
-      'rounded-[5px]',
-      'from-[#F36B12]',
-      'to-[#FF8A2A]',
-      'border-white/40',
+      'rounded-[999px]',
+      'bg-transparent',
+      'text-[#6E5A50]',
     )
     expect(within(recommendationBasis).getByText('#온천')).not.toHaveClass('rounded-full')
     expect(within(recommendationBasis).getByText('#휴양')).toHaveClass(
-      'rounded-[5px]',
-      'bg-[#fffffa]/60',
-      'border-white/60',
+      'rounded-[999px]',
+      'bg-transparent',
+      'text-[#6E5A50]',
     )
     expect(within(recommendationBasis).getByText('#휴양')).not.toHaveClass('rounded-full')
   })
@@ -2377,7 +2380,15 @@ describe('MVP main entry screen', () => {
 
     expect(requestCreateRecommendation).toHaveBeenCalledTimes(1)
     expect(requestCreateRecommendation).toHaveBeenCalledWith(
-      expect.objectContaining({ entryType: 'chat', tripType: '2d1n' }),
+      expect.objectContaining({
+        entryType: 'create',
+        rawQuery: '온천 위주로 쉬고 싶어요',
+        destinationId: null,
+        executionMode: 'city_discovery',
+        activeRequiredThemes: expect.arrayContaining(['온천·휴양']),
+        tripType: '2d1n',
+      }),
+      expect.objectContaining({ accessToken: null }),
     )
     // API 응답 기반 채팅 메시지 확인
     const chatLog = screen.getByRole('log', { name: 'AI 일정 대화' })

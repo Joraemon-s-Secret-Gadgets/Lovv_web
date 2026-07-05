@@ -36,6 +36,8 @@ type HomeViewProps = {
   onScrollToTop: () => void
   savedPlansCount?: number
   likedPlansCount?: number
+  personalizedRecommendations?: MonthlyRecommendation[]
+  isPersonalizedRecommendationsLoading?: boolean
   currentUser?: LovvUser | null
   monthlyCandidateCities?: SmallCity[]
 }
@@ -52,6 +54,8 @@ export function HomeView({
   onScrollToTop,
   savedPlansCount = 0,
   likedPlansCount = 0,
+  personalizedRecommendations = [],
+  isPersonalizedRecommendationsLoading = false,
   currentUser = null,
   monthlyCandidateCities,
 }: HomeViewProps) {
@@ -81,14 +85,10 @@ export function HomeView({
             aria-label="추천 근거 해시태그"
             className="flex max-w-[560px] flex-wrap justify-end gap-2 max-lg:justify-start"
           >
-            {recommendationBasisHashtags.map((tag, index) => (
+            {recommendationBasisHashtags.map((tag) => (
               <li key={tag}>
                 <span
-                  className={`inline-flex min-h-[34px] items-center rounded-[5px] border px-3 py-1 text-[12px] font-bold leading-4 text-[#33271E] shadow-sm transition hover:scale-[1.01] ${
-                    index === 0
-                      ? 'border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A]'
-                      : 'border-white/60 bg-[#fffffa]/60 hover:bg-[#FFE0CA]'
-                  }`}
+                  className="inline-flex min-h-[30px] items-center rounded-[999px] border border-[#E8DED4]/80 bg-transparent px-2.5 py-1 text-[12px] font-semibold leading-4 text-[#6E5A50]"
                 >
                   {tag}
                 </span>
@@ -102,6 +102,8 @@ export function HomeView({
         currentUser={currentUser}
         savedPlansCount={savedPlansCount}
         likedPlansCount={likedPlansCount}
+        personalizedRecommendations={personalizedRecommendations}
+        isPersonalizedRecommendationsLoading={isPersonalizedRecommendationsLoading}
         monthlyCandidateCities={monthlyCandidateCities}
         selectedPreferenceProfile={selectedPreferenceProfile}
         onOpenMonthlyRecommendationDetail={onOpenMonthlyRecommendationDetail}
