@@ -43,7 +43,6 @@ import {
   createSmallCityMapMarkers,
   smallCities,
   smallCityCounts,
-  smallCityPlaceCategories,
   type SmallCityPlaceGroups,
 } from './data/smallCities'
 import type { SavedPlan } from './shared/types/app'

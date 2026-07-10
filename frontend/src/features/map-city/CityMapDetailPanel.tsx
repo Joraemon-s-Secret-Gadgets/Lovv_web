@@ -7,7 +7,6 @@
 import { getThemeLabels } from '../onboarding/preferenceModel'
 import { getVisibleMapThemes } from './mapCityFilters'
 import {
-  smallCityPlaceCategories,
   type SmallCity,
   type SmallCityFestival,
 } from './smallCities'
