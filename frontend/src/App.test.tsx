@@ -1457,9 +1457,10 @@ describe('MVP main entry screen', () => {
     expect(within(cityMapSection).getByTestId('city-map-detail-panel')).toHaveTextContent('황리단길')
     expect(filteredGoogleMap.getAttribute('data-selected-city-id')).toMatch(/^kr-/)
     expect(within(cityMapSection).queryByTestId('city-map-list-detail-panel')).not.toBeInTheDocument()
-    smallCityPlaceCategories.forEach((category) => {
-      expect(within(cityMapSection).getAllByText(category).length).toBeGreaterThan(0)
-    })
+    expect(within(cityMapSection).getAllByText('관광지').length).toBeGreaterThan(0)
+    expect(within(cityMapSection).queryByText('음식점')).not.toBeInTheDocument()
+    expect(within(cityMapSection).queryByText('카페')).not.toBeInTheDocument()
+    expect(within(cityMapSection).queryByText('숙소')).not.toBeInTheDocument()
     const kakaoPlaceLinks = within(cityMapSection).getAllByRole('link', { name: 'Kakao 장소 보기' })
     expect(kakaoPlaceLinks.length).toBeGreaterThan(0)
     expect(kakaoPlaceLinks[0]).toHaveAttribute('href', expect.stringContaining('https://map.kakao.com/link/search/'))

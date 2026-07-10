@@ -92,7 +92,7 @@ export function useCityMap() {
   const smallCityPlacesQuery = useQuery({
     queryKey: ['smallCityPlaces', selectedSmallCityId],
     queryFn: () => requestGetSmallCityPlaces(selectedSmallCityId),
-    enabled: Boolean(selectedSmallCityId),
+    enabled: Boolean(selectedSmallCityId) && cityMapPanelMode === 'detail',
   })
 
   // Compute selected city detailed state (attractions, stats, and related elements)

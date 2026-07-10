@@ -113,7 +113,7 @@ export function CityMapDetailPanel({
           장소 정보
         </p>
         <div className="mt-3 grid gap-3">
-          {smallCityPlaceCategories.map((category) => {
+          {(['관광지'] as const).map((category) => {
             const places = selectedSmallCityDetail.placesByCategory[category].filter(
               (place) => place.categoryName !== '축제',
             )
@@ -197,21 +197,8 @@ export function CityMapDetailPanel({
                     className="break-keep text-[12px] leading-5 text-[#33271E]"
                   >
                     <p className="font-black">{festival.name}</p>
-                    <p className="mt-1 font-semibold text-[#6E5A50]">{festival.summary}</p>
                     {festivalPeriod ? (
                       <p className="mt-1 font-bold text-[#8A7467]">{festivalPeriod}</p>
-                    ) : null}
-                    {festival.themeTags && festival.themeTags.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {festival.themeTags.map((tag) => (
-                          <span
-                            key={`${testId}-${festival.id}-${tag}`}
-                            className="rounded-[5px] bg-[#FFF8F6] px-2 py-1 text-[11px] font-black text-[#6E5A50]"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
                     ) : null}
                   </li>
                 )
