@@ -112,7 +112,9 @@ describe('SmallCityGoogleMap', () => {
         markerConstructor(options)
       }
 
-      addListener = (_eventName: 'click', handler: () => void) => {
+      map = null
+      addEventListener = (eventName: 'gmp-click', handler: () => void) => {
+        expect(eventName).toBe('gmp-click')
         markerListeners.push(handler)
       }
 
@@ -142,12 +144,16 @@ describe('SmallCityGoogleMap', () => {
     expect(mapRegion).toHaveAttribute('data-marker-count', '2')
     expect(script?.src).toContain('maps.googleapis.com/maps/api/js')
     expect(script?.src).toContain('key=test-google-key')
+    expect(script?.src).toContain('libraries=marker')
     expect(script?.src).toContain('callback=__lovvGoogleMapsReady')
 
     window.google = {
       maps: {
         Map: FakeMap,
         Marker: FakeMarker,
+        marker: {
+          AdvancedMarkerElement: FakeMarker,
+        },
         LatLngBounds: FakeLatLngBounds,
       },
     }
@@ -166,12 +172,13 @@ describe('SmallCityGoogleMap', () => {
     expect(extend).toHaveBeenCalledTimes(2)
     expect(markerConstructor.mock.calls[1]?.[0]).toEqual(
       expect.objectContaining({
-        clickable: true,
-        label: expect.objectContaining({ text: '경주' }),
+        content: expect.any(HTMLElement),
+        gmpClickable: true,
         map: expect.any(FakeMap),
         title: '경주',
       }),
     )
+    expect(markerConstructor.mock.calls[1]?.[0].content).toHaveTextContent('경주')
 
     markerListeners[1]()
     fireEvent.click(within(mapRegion).getByRole('button', { name: '지도 마커: 경주' }))
