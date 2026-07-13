@@ -4,6 +4,7 @@ import type { SocialAuthProvider } from '../../shared/types/app'
 import type { AuthExceptionNotice } from './authException'
 import { authServiceBullets } from './authModel'
 import { useUiToggleStore } from '../../shared/store/uiToggleStore'
+import { FileText, Mail, ShieldCheck } from 'lucide-react'
 
 type AuthViewProps = {
   authExceptionNotice?: AuthExceptionNotice | null
@@ -102,7 +103,7 @@ export function AuthView({
     <section
       aria-labelledby="auth-title"
       aria-busy={isSignInPending || undefined}
-      className={`lovv-auth-liquid-shell relative mx-auto w-full min-h-dvh transition-opacity ${
+      className={`lovv-auth-liquid-shell lovv-page-landing relative mx-auto w-full min-h-dvh transition-opacity ${
         isSignInPending ? 'opacity-80' : 'opacity-100'
       }`}
     >
@@ -241,7 +242,7 @@ export function AuthView({
       {/* 2. Full Page Scroll Landing Content (Test: auth-scroll-panel) */}
       <div
         data-testid="auth-scroll-panel"
-        className="lovv-auth-story-panel lovv-liquid-panel overflow-y-auto w-full min-h-dvh"
+        className="lovv-auth-story-panel lovv-liquid-panel lovv-landing-page lovv-page-landing overflow-y-auto w-full min-h-dvh"
       >
         {/* Navigation - use div to prevent queryByRole('banner') / queryByRole('navigation') assertion issues */}
         <div className="nav-fixed px-6 py-4 nav-scrolled" role="none">
@@ -257,31 +258,7 @@ export function AuthView({
         </div>
 
         {/* Hero Section */}
-        <section className="hero-section min-h-dvh flex items-center justify-center relative px-6 py-20 bg-[#FFFDF5]">
-          <div className="hero-bg"></div>
-
-          {/* Floating particles */}
-          <div
-            className="particle w-3 h-3 bg-[#FF6B1A]"
-            style={{ top: '20%', left: '15%', animationDelay: '0s' }}
-          ></div>
-          <div
-            className="particle w-2 h-2 bg-[#2D5A3D]"
-            style={{ top: '60%', left: '80%', animationDelay: '2s' }}
-          ></div>
-          <div
-            className="particle w-4 h-4 bg-[#FF8C42]"
-            style={{ top: '40%', left: '70%', animationDelay: '4s' }}
-          ></div>
-          <div
-            className="particle w-2 h-2 bg-[#FF6B1A]"
-            style={{ top: '80%', left: '30%', animationDelay: '1s' }}
-          ></div>
-          <div
-            className="particle w-3 h-3 bg-[#4A7C5C]"
-            style={{ top: '30%', left: '50%', animationDelay: '3s' }}
-          ></div>
-
+        <section className="lovv-landing-section lovv-landing-hero hero-section min-h-dvh flex items-center justify-center relative px-6 py-20">
           <div className="relative z-10 text-center max-w-3xl mx-auto">
             <div className="mb-6">
               <span className="tag-pill">
@@ -356,102 +333,8 @@ export function AuthView({
           </div>
         </section>
 
-        {/* Features Section */}
-        <section className="py-24 px-6 bg-[#FFFDF5]">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-16">
-              <div className="divider mx-auto mb-6"></div>
-              {/* Actual visible h2 with the responsive content */}
-              <h2 className="text-3xl md:text-4xl font-black mb-4 text-[#33271E] break-keep">
-                Lovv는 소도시 여행 추천<br />큐레이션 서비스를 제공합니다
-              </h2>
-              
-              <p className="text-[#6B7280] max-w-2xl mx-auto leading-relaxed font-semibold break-keep">
-                대도시 대신 취향과 분위기에 가까운 한국과 일본의 작은 도시 후보를 먼저 정리합니다.
-                <br className="max-sm:hidden" />
-                <span className="hidden max-sm:inline"> </span>
-                AI 챗봇으로 여행 기간, 축제 포함 여부, 걷는 양을 대화로 좁혀갑니다.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="feature-card p-8 bg-white border border-[#E8E4DC] rounded-[24px]">
-                <div className="w-14 h-14 bg-[#FFF0E0] rounded-2xl flex items-center justify-center mb-6">
-                  <svg
-                    className="w-7 h-7 text-[#FF6B1A]"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-[#33271E]">숨겨진 장소</h3>
-                <p className="text-[#6B7280] leading-relaxed text-sm font-medium">
-                  관광객이 잘 모르는 소도시를 먼저 제안합니다.
-                </p>
-              </div>
-
-              <div className="feature-card p-8 bg-white border border-[#E8E4DC] rounded-[24px]">
-                <div className="w-14 h-14 bg-[#E8F0E8] rounded-2xl flex items-center justify-center mb-6">
-                  <svg
-                    className="w-7 h-7 text-[#2D5A3D]"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-[#33271E]">취향 큐레이션</h3>
-                <p className="text-[#6B7280] leading-relaxed text-sm font-medium">
-                  AI가 테마 선택을 바탕으로 일정을 정리합니다.
-                </p>
-              </div>
-
-              <div className="feature-card p-8 bg-white border border-[#E8E4DC] rounded-[24px]">
-                <div className="w-14 h-14 bg-[#FFF0E0] rounded-2xl flex items-center justify-center mb-6">
-                  <svg
-                    className="w-7 h-7 text-[#FF6B1A]"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-[#33271E]">마이페이지 저장</h3>
-                <p className="text-[#6B7280] leading-relaxed text-sm font-medium">
-                  AI를 통해 생성한 나를 위한 여행을 저장해보세요.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Journey Steps Section */}
-        <section className="py-24 px-6 bg-white">
+        <section className="lovv-landing-section py-24 px-6">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
               <div className="divider mx-auto mb-6"></div>
@@ -474,14 +357,14 @@ export function AuthView({
             </ul>
 
             <div className="grid md:grid-cols-3 gap-8">
-              <div className="step-card p-8 bg-white border border-[#E8E4DC] rounded-[20px]">
-                <div className="step-number mb-6">01</div>
+              <div className="step-card step-card-orange p-8 border rounded-[20px]">
+                <div className="step-number step-number-orange mb-6">01</div>
                 <span className="text-xs font-bold text-[#FF6B1A] uppercase tracking-wider mb-2 block">
                   Step 01
                 </span>
                 <h3 className="text-xl font-bold mb-3 text-[#33271E]">여행 분위기 선택</h3>
                 <p className="text-[#6B7280] text-sm leading-relaxed font-semibold">
-                  도시 이름보다 여행의 테마를 먼저 고릅니다. 
+                  도시 이름이 아닌, 여행의 테마를 고릅니다.
                   <br className="max-sm:hidden" />  
                   <span className="hidden max-sm:inline"> </span>
                   6가지 테마 중 당신의 분위기를 선택하세요.
@@ -499,16 +382,16 @@ export function AuthView({
                 </div>
               </div>
 
-              <div className="step-card p-8 bg-white border border-[#E8E4DC] rounded-[20px]">
-                <div className="step-number mb-6">02</div>
-                <span className="text-xs font-bold text-[#FF6B1A] uppercase tracking-wider mb-2 block">
+              <div className="step-card step-card-green p-8 border rounded-[20px]">
+                <div className="step-number step-number-green mb-6">02</div>
+                <span className="text-xs font-bold text-[#2D5A3D] uppercase tracking-wider mb-2 block">
                   Step 02
                 </span>
                 <h3 className="text-xl font-bold mb-3 text-[#33271E]">AI 일정 대화</h3>
                 <p className="text-[#6B7280] text-sm leading-relaxed font-semibold">
                   추가적인 요구사항은 채팅으로 좁힙니다. 
                   <br className="max-sm:hidden" />
-              <span className="hidden max-sm:inline"> </span>
+                  <span className="hidden max-sm:inline"> </span>
                   대화하듯 자연스럽게 여행 조건을 설정합니다.
                 </p>
                 <div className="mt-6 flex items-center gap-2 text-xs text-[#6B7280]">
@@ -529,16 +412,16 @@ export function AuthView({
                 </div>
               </div>
 
-              <div className="step-card p-8 bg-white border border-[#E8E4DC] rounded-[20px]">
-                <div className="step-number mb-6">03</div>
-                <span className="text-xs font-bold text-[#FF6B1A] uppercase tracking-wider mb-2 block">
+              <div className="step-card step-card-brown p-8 border rounded-[20px]">
+                <div className="step-number step-number-brown mb-6">03</div>
+                <span className="text-xs font-bold text-[#7A4D2A] uppercase tracking-wider mb-2 block">
                   Step 03
                 </span>
                 <h3 className="text-xl font-bold mb-3 text-[#33271E]">소도시 일정 저장</h3>
                 <p className="text-[#6B7280] text-sm leading-relaxed font-semibold">
                   마음에 드는 추천 일정은 마이페이지에 저장합니다.
                   <br className="max-sm:hidden" />
-              <span className="hidden max-sm:inline"> </span>
+                  <span className="hidden max-sm:inline"> </span>
                   언제든 다시 꺼내보세요.
                 </p>
                 <div className="mt-6 flex items-center gap-2 text-xs text-[#6B7280]">
@@ -563,8 +446,7 @@ export function AuthView({
         </section>
 
         {/* CTA Section */}
-        <section className="py-24 px-6 relative overflow-hidden bg-[#FFFDF5] border-t border-[#E8E4DC]">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B1A]/5 to-[#2D5A3D]/5"></div>
+        <section className="lovv-landing-section lovv-landing-cta py-24 px-6 relative overflow-hidden border-t border-[#E8E4DC]">
           <div className="max-w-3xl mx-auto text-center relative z-10">
             <h2 className="text-3xl md:text-5xl font-black mb-6 text-[#33271E]">
               지금 바로<br />
@@ -582,22 +464,28 @@ export function AuthView({
           </div>
         </section>
 
-        {/* Footer - use div to prevent unwanted contentinfo role mapping */}
-        <div className="py-12 px-6 border-t border-[#E8E4DC]" role="none">
-          <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="font-display text-2xl font-bold text-[#FF6B1A]">Lovv</span>
+        {/* Keep the auth footer non-semantic so the closed app shell stays out of route-level footer queries. */}
+        <div className="lovv-landing-footer mx-auto w-full max-w-[1440px] px-16 pb-12 pt-4 max-lg:px-8 max-sm:px-5" role="none">
+          <div className="grid gap-6 rounded-[24px] border border-white/70 bg-white/20 px-8 py-6 shadow-[0_22px_56px_-32px_rgba(51,39,30,0.15)] backdrop-blur-xl md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-black tracking-wider text-[#33271E]">Lovv</span>
+              </div>
+              <p className="mt-2.5 break-keep text-[11px] font-semibold leading-5 text-[#33271E]/60">
+                © 2026 Lovv. All rights reserved. 소도시 여행의 낭만을 전달합니다.
+              </p>
             </div>
-            {/* Legal Notice Buttons - use <a> links with e.preventDefault() to avoid multiple buttons with same name */}
-            <div className="flex gap-8 text-sm text-[#6B7280] font-bold">
+            {/* Anchors avoid duplicate button names while the login modal is open. */}
+            <div className="flex flex-wrap gap-x-6 gap-y-3 text-xs font-bold text-[#33271E]/90">
               <a
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
                   onOpenLegalNotice?.('terms')
                 }}
-                className="hover:text-[#FF6B1A] transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33271E]"
               >
+                <FileText className="size-3.5 text-[#33271E]/50" />
                 이용약관
               </a>
               <a
@@ -606,8 +494,9 @@ export function AuthView({
                   e.preventDefault()
                   onOpenLegalNotice?.('privacy')
                 }}
-                className="hover:text-[#FF6B1A] transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33271E]"
               >
+                <ShieldCheck className="size-3.5 text-[#33271E]/50" />
                 개인정보처리방침
               </a>
               <a
@@ -616,12 +505,12 @@ export function AuthView({
                   e.preventDefault()
                   onOpenLegalNotice?.('contact')
                 }}
-                className="hover:text-[#FF6B1A] transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33271E]"
               >
+                <Mail className="size-3.5 text-[#33271E]/50" />
                 문의하기
               </a>
             </div>
-            <p className="text-xs text-[#6B7280]">© 2026 Lovv. All rights reserved.</p>
           </div>
         </div>
       </div>

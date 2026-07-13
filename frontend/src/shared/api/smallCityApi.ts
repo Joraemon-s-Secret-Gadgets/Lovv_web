@@ -410,6 +410,9 @@ const normalizeSmallCityApiPlaceRecord = (
     normalizeRequiredString(record.id) ??
     normalizeRequiredString(record.contentId) ??
     normalizeRequiredString(record.content_id)
+  const contentId =
+    normalizeOptionalString(record.contentId) ??
+    normalizeOptionalString(record.content_id)
   const cityId =
     normalizeRequiredString(record.cityId) ??
     normalizeRequiredString(record.city_id) ??
@@ -483,6 +486,7 @@ const normalizeSmallCityApiPlaceRecord = (
   return {
     place: {
       id,
+      contentId,
       cityId,
       category,
       categoryCode: normalizeOptionalString(record.category),
@@ -856,23 +860,61 @@ export const requestListSmallCities = async (
   params: SmallCityApiListParams = {},
   options: SmallCityApiRequestOptions = {},
 ) => {
-  const queryString = createSmallCityApiQuery(params)
-  const endpoint = queryString ? `${smallCityApiEndpoints.list}?${queryString}` : smallCityApiEndpoints.list
   try {
-    const response = await requestSmallCityApiJson<SmallCityApiListResponse>(
-      endpoint,
-      {
-        method: 'GET',
-        headers: createSmallCityApiHeaders(options),
-      },
-      options,
-    )
+    const requestPage = async (page: number) => {
+      const queryString = createSmallCityApiQuery({ ...params, page })
+      const endpoint = queryString ? `${smallCityApiEndpoints.list}?${queryString}` : smallCityApiEndpoints.list
+
+      return requestSmallCityApiJson<SmallCityApiListResponse>(
+        endpoint,
+        {
+          method: 'GET',
+          headers: createSmallCityApiHeaders(options),
+        },
+        options,
+      )
+    }
+
+    const firstPageNumber = params.page ?? 1
+    const firstResponse = await requestPage(firstPageNumber)
+    const firstPage = isSmallCityApiRecordObject(firstResponse.page)
+      ? (firstResponse.page as SmallCityApiPage)
+      : { page: firstPageNumber, pageSize: defaultSmallCityApiPageSize, total: 0, hasNext: false }
+    const combinedData = Array.isArray(firstResponse.data) ? [...firstResponse.data] : []
+
+    let currentPage = firstPage.page
+    let hasNext = firstPage.hasNext
+    let total = firstPage.total
+
+    // A caller that asks for an explicit page still receives only that page.
+    // Catalog consumers omit `page`, so they receive every deployed city record.
+    while (params.page === undefined && hasNext && combinedData.length < total) {
+      currentPage += 1
+      const nextResponse = await requestPage(currentPage)
+      const nextData = Array.isArray(nextResponse.data) ? nextResponse.data : []
+      const nextPage = isSmallCityApiRecordObject(nextResponse.page)
+        ? (nextResponse.page as SmallCityApiPage)
+        : null
+
+      combinedData.push(...nextData)
+      hasNext = Boolean(nextPage?.hasNext)
+      total = nextPage?.total ?? total
+
+      if (nextData.length === 0) {
+        break
+      }
+    }
 
     return adaptSmallCityApiResponse({
-      data: Array.isArray(response.data) ? response.data : [],
-      page: isSmallCityApiRecordObject(response.page)
-        ? (response.page as SmallCityApiPage)
-        : { page: 1, pageSize: defaultSmallCityApiPageSize, total: 0, hasNext: false },
+      data: combinedData,
+      page: params.page === undefined
+        ? {
+            page: 1,
+            pageSize: combinedData.length,
+            total,
+            hasNext: false,
+          }
+        : firstPage,
     })
   } catch (error) {
     log.error('CITY', `Failed to fetch small cities list from live api: ${error instanceof Error ? error.message : error}. Falling back to static catalog.`)

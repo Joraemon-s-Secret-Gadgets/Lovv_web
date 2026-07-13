@@ -30,8 +30,63 @@ type OnboardingPreferenceViewProps = {
   onCancelPreferenceEdit: () => void
   onSavePreferenceEdit: () => void
   onEnterMainWithPreference: () => void
+  onLogoHome?: () => void
   onPreviewTrayOpenChange: (isOpen: boolean) => void
   onSelectPreviewImage: (imageKey: string) => void
+}
+
+const themeColors: Record<
+  ThemeId,
+  {
+    selectedCard: string
+    hoverBg: string
+    badgeBgSelected: string
+    routeHintBgSelected: string
+    statusBarBg: string
+  }
+> = {
+  healing_rest: {
+    selectedCard: 'border-[#319795] bg-[#E6FFFA] shadow-[0_18px_40px_-28px_rgba(49,151,149,0.55)]',
+    hoverBg: 'hover:bg-[#E6FFFA]',
+    badgeBgSelected: 'bg-[#B2F5EA]',
+    routeHintBgSelected: 'bg-[#E6FFFA]/80 border border-[#B2F5EA]/50',
+    statusBarBg: 'bg-[#B2F5EA]',
+  },
+  sea_coast: {
+    selectedCard: 'border-[#3182CE] bg-[#EBF8FF] shadow-[0_18px_40px_-28px_rgba(49,130,206,0.55)]',
+    hoverBg: 'hover:bg-[#EBF8FF]',
+    badgeBgSelected: 'bg-[#BEE3F8]',
+    routeHintBgSelected: 'bg-[#EBF8FF]/80 border border-[#BEE3F8]/50',
+    statusBarBg: 'bg-[#BEE3F8]',
+  },
+  history_tradition: {
+    selectedCard: 'border-[#A92B10] bg-[#FFF0E4] shadow-[0_18px_40px_-28px_rgba(169,43,16,0.55)]',
+    hoverBg: 'hover:bg-[#FFF0E4]',
+    badgeBgSelected: 'bg-[#FFF0E4]',
+    routeHintBgSelected: 'bg-[#FFF8F6] border border-[#FFDAD3]',
+    statusBarBg: 'bg-[#FFF0E4]',
+  },
+  food_local: {
+    selectedCard: 'border-[#DD6B20] bg-[#FFFAF0] shadow-[0_18px_40px_-28px_rgba(221,107,32,0.55)]',
+    hoverBg: 'hover:bg-[#FFFAF0]',
+    badgeBgSelected: 'bg-[#FEEBC8]',
+    routeHintBgSelected: 'bg-[#FFFAF0]/80 border border-[#FEEBC8]/50',
+    statusBarBg: 'bg-[#FEEBC8]',
+  },
+  nature_trekking: {
+    selectedCard: 'border-[#38A169] bg-[#F0FFF4] shadow-[0_18px_40px_-28px_rgba(56,161,105,0.55)]',
+    hoverBg: 'hover:bg-[#F0FFF4]',
+    badgeBgSelected: 'bg-[#C6F6D5]',
+    routeHintBgSelected: 'bg-[#F0FFF4]/80 border border-[#C6F6D5]/50',
+    statusBarBg: 'bg-[#C6F6D5]',
+  },
+  art_sense: {
+    selectedCard: 'border-[#805AD5] bg-[#FAF5FF] shadow-[0_18px_40px_-28px_rgba(128,90,213,0.55)]',
+    hoverBg: 'hover:bg-[#FAF5FF]',
+    badgeBgSelected: 'bg-[#E9D8FD]',
+    routeHintBgSelected: 'bg-[#FAF5FF]/80 border border-[#E9D8FD]/50',
+    statusBarBg: 'bg-[#E9D8FD]',
+  },
 }
 
 export function OnboardingPreferenceView({
@@ -52,6 +107,7 @@ export function OnboardingPreferenceView({
   onCancelPreferenceEdit,
   onSavePreferenceEdit,
   onEnterMainWithPreference,
+  onLogoHome,
   onPreviewTrayOpenChange,
   onSelectPreviewImage,
 }: OnboardingPreferenceViewProps) {
@@ -65,11 +121,22 @@ export function OnboardingPreferenceView({
     <section
       id="onboarding"
       aria-labelledby="onboarding-title"
-      className="lovv-onboarding-liquid-shell mx-auto min-h-dvh max-w-[1440px] px-12 py-9 max-lg:px-8 max-sm:px-5"
+      className="lovv-onboarding-liquid-shell lovv-page-onboarding mx-auto min-h-dvh max-w-[1440px] px-12 py-9 max-lg:px-8 max-sm:px-5"
     >
       <div className="min-h-[calc(100dvh-72px)]">
         <div className="flex items-center justify-between gap-4">
-          <img src={logoImage} alt="Lovv" className="h-16 w-[116px] object-contain" />
+          {isPreferenceEditView && onLogoHome ? (
+            <button
+              type="button"
+              onClick={onLogoHome}
+              aria-label="홈으로 돌아가기"
+              className="inline-flex rounded-[14px] transition hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33271E]"
+            >
+              <img src={logoImage} alt="Lovv" className="h-16 w-[116px] object-contain" />
+            </button>
+          ) : (
+            <img src={logoImage} alt="Lovv" className="h-16 w-[116px] object-contain" />
+          )}
           <LanguageSelector />
         </div>
 
@@ -112,11 +179,12 @@ export function OnboardingPreferenceView({
 
               <div
                 data-testid="preference-card-grid"
-                className="mt-5 grid auto-rows-[212px] grid-cols-3 gap-4 max-lg:grid-cols-2 max-md:auto-rows-auto max-md:grid-cols-1"
+                className="mt-5 grid auto-rows-[212px] grid-cols-3 gap-4 max-lg:auto-rows-auto max-lg:grid-cols-2 max-md:grid-cols-1"
               >
                 {themeDefinitions.map((theme, index) => {
                   const isSelected = activeThemeIds.includes(theme.id)
                   const isMaxed = !isSelected && activeThemeIds.length >= 3
+                  const colors = themeColors[theme.id]
 
                   return (
                     <button
@@ -125,9 +193,9 @@ export function OnboardingPreferenceView({
                       aria-pressed={isSelected}
                       aria-disabled={isMaxed}
                       onClick={() => onToggleTheme(theme.id)}
-                      className={`flex h-full min-w-0 flex-col overflow-hidden rounded-[22px] border p-5 text-left transition hover:-translate-y-0.5 hover:bg-[#FFF0E4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:min-h-[212px] ${
+                      className={`flex h-full min-w-0 flex-col overflow-hidden rounded-[22px] border p-5 text-left transition hover:-translate-y-0.5 ${colors.hoverBg} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-lg:min-h-[196px] ${
                         isSelected
-                          ? 'lovv-onboarding-theme-card lovv-onboarding-theme-card-selected border-[#A92B10] bg-[#FFF0E4] shadow-[0_18px_40px_-28px_rgba(51,39,30,0.55)]'
+                          ? `lovv-onboarding-theme-card lovv-onboarding-theme-card-selected ${colors.selectedCard}`
                           : isMaxed
                             ? 'lovv-onboarding-theme-card border-transparent bg-[#fffffa] opacity-55'
                             : 'lovv-onboarding-theme-card border-transparent bg-[#fffffa] shadow-[0_10px_28px_-26px_rgba(51,39,30,0.24)]'
@@ -138,7 +206,9 @@ export function OnboardingPreferenceView({
                           NO. {String(index + 1).padStart(2, '0')}
                         </span>
                         <span
-                          className="inline-flex h-[30px] shrink-0 items-center rounded-full bg-[#FFF0E4] px-3 text-[12px] font-bold text-[#33271E]"
+                          className={`inline-flex h-[30px] shrink-0 items-center rounded-full px-3 text-[12px] font-bold text-[#33271E] ${
+                            isSelected ? colors.badgeBgSelected : 'bg-[#FFF0E4]'
+                          }`}
                         >
                           {t('themes.' + theme.id + '.shortLabel')}
                         </span>
@@ -147,11 +217,13 @@ export function OnboardingPreferenceView({
                         <span className="block break-keep text-[23px] font-bold leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7">
                           {t('themes.' + theme.id + '.label')}
                         </span>
-                        <span className="mt-2 block line-clamp-2 break-keep text-sm leading-6 text-[#33271E]">
+                        <span className="mt-2 block line-clamp-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-5">
                           {t('themes.' + theme.id + '.description')}
                         </span>
                       </span>
-                      <span className="mt-auto block w-full shrink-0 rounded-[12px] bg-[#FFF8F6] px-3 py-2 line-clamp-2 break-keep text-[12px] font-semibold leading-5 text-[#33271E]">
+                      <span className={`mt-auto block w-full shrink-0 rounded-[12px] px-3 py-2 line-clamp-2 break-keep text-[12px] font-semibold leading-5 text-[#33271E] ${
+                        isSelected ? colors.routeHintBgSelected : 'bg-[#FFF8F6]'
+                      }`}>
                         {t('preferences.' + theme.id + '.routeHint')}
                       </span>
                     </button>
@@ -165,14 +237,17 @@ export function OnboardingPreferenceView({
               >
                 <div className="flex flex-wrap gap-2">
                   {activeThemeIds.length > 0 ? (
-                    activeThemeIds.map((themeId) => (
-                      <span
-                        key={themeId}
-                        className="inline-flex h-auto min-h-[32px] max-w-full items-center justify-center rounded-full bg-[#FFF0E4] px-4 py-1 text-center text-[12px] font-semibold leading-5 text-[#33271E]"
-                      >
-                        #{t('themes.' + themeId + '.shortLabel')}
-                      </span>
-                    ))
+                    activeThemeIds.map((themeId) => {
+                      const colors = themeColors[themeId]
+                      return (
+                        <span
+                          key={themeId}
+                          className={`inline-flex h-auto min-h-[32px] max-w-full items-center justify-center rounded-full px-4 py-1 text-center text-[12px] font-semibold leading-5 text-[#33271E] ${colors.statusBarBg}`}
+                        >
+                          #{t('themes.' + themeId + '.shortLabel')}
+                        </span>
+                      )
+                    })
                   ) : (
                     <span className="inline-flex h-auto min-h-[32px] max-w-full items-center justify-center rounded-full bg-[#FFF8F6] px-4 py-1 text-center text-[12px] font-semibold leading-5 text-[#33271E]">
                       {t('onboarding.action_notice')}
@@ -214,7 +289,7 @@ export function OnboardingPreferenceView({
           {hasSelectedCover ? (
             <aside
               data-testid="preference-preview-card"
-              className="lovv-onboarding-preview-card lovv-liquid-panel sticky top-[220px] h-fit rounded-[28px] border border-white/60 p-5 shadow-[0_24px_70px_-42px_rgba(51,39,30,0.45)] max-xl:static"
+              className="lovv-onboarding-preview-card lovv-liquid-panel sticky top-[220px] h-fit rounded-[28px] border border-white/60 p-5 shadow-[0_24px_70px_-42px_rgba(51,39,30,0.45)] max-xl:static max-sm:p-4"
             >
               <div className="lovv-onboarding-preview-media group relative overflow-hidden rounded-[24px] border border-white/50">
                 <div className="absolute left-5 right-5 top-5 z-10 flex items-center justify-between gap-3">
@@ -228,7 +303,7 @@ export function OnboardingPreferenceView({
                 <img
                   src={selectedPreviewPrimaryImage.image}
                   alt={t('onboarding.featured_label', { city: selectedPreviewPrimaryImage.city })}
-                  className="h-[360px] w-full object-cover max-sm:h-[260px]"
+                  className="h-[360px] w-full object-cover max-lg:h-[260px] max-sm:h-[200px]"
                 />
                 <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-[#33271E]/80 via-[#33271E]/24 to-transparent p-5">
                   <span className="min-w-0 rounded-full bg-[#fffffa]/95 px-4 py-2 text-[12px] font-bold text-[#33271E] shadow-[0_10px_30px_-22px_rgba(0,0,0,0.5)]">
@@ -318,4 +393,3 @@ export function OnboardingPreferenceView({
     </section>
   )
 }
-

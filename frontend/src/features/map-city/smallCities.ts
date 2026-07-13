@@ -48,6 +48,7 @@ export type SmallCityPlaceCategory = (typeof smallCityPlaceCategories)[number]
 
 export type SmallCityPlace = {
   id: string
+  contentId?: string
   cityId: string
   category: SmallCityPlaceCategory
   categoryCode?: string
@@ -117,6 +118,11 @@ export type PlannerCityContext = {
   hasFestivalContent: boolean
 }
 
+const knownSmallCityDisplayNameById: Record<string, string> = {
+  'kr-gangneung': '강릉',
+  'kr-donghae': '동해시',
+}
+
 type CitySeed = {
   region: string
   nameKo: string
@@ -145,7 +151,7 @@ export const smallCityCountryOptions: {
   {
     country: 'KR',
     label: '한국',
-    description: '한국 소도시 40곳을 전체 지도에 표시합니다.',
+    description: '한국 소도시 120곳을 전체 지도에 표시합니다.',
   },
   {
     country: 'JP',
@@ -757,6 +763,39 @@ export const createSmallCityMapMarker = (city: SmallCity): SmallCityMapMarker =>
 
 export const createSmallCityMapMarkers = (cities: SmallCity[]) =>
   cities.map(createSmallCityMapMarker)
+
+export const resolveSmallCityDisplayName = (...values: Array<string | null | undefined>) => {
+  for (const value of values) {
+    const normalizedValue = value?.trim()
+
+    if (!normalizedValue) {
+      continue
+    }
+
+    const normalizedKey = normalizedValue.toLowerCase()
+    const matchedStaticCity = smallCities.find((city) =>
+      [city.id, city.agentCoreId, city.nameKo, city.nameLocal]
+        .filter((candidate): candidate is string => Boolean(candidate))
+        .some((candidate) => candidate.toLowerCase() === normalizedKey),
+    )
+
+    if (matchedStaticCity) {
+      return matchedStaticCity.nameKo
+    }
+
+    const knownDisplayName = knownSmallCityDisplayNameById[normalizedKey]
+
+    if (knownDisplayName) {
+      return knownDisplayName
+    }
+
+    if (!/^[a-z]{2}-[a-z0-9-]+$/i.test(normalizedValue)) {
+      return normalizedValue
+    }
+  }
+
+  return null
+}
 
 const getSmallCityFestivals = (city: SmallCity, detail?: SmallCityDetail | null) =>
   detail?.festivals ?? city.festivals ?? []

@@ -51,20 +51,33 @@ export type SavedPlanApiRecord = {
   itinerary?: {
     days?: PlanDay[]
     selectedRestaurants?: SelectedMealPlace[]
+    selected_restaurants?: SelectedMealPlace[]
+    alternativeItinerary?: unknown
+    links?: Record<string, string | undefined>
   }
+  alternativeItinerary?: unknown
+  links?: Record<string, string | undefined>
   days?: PlanDay[]
   stops?: PlanStop[]
   selectedRestaurants?: SelectedMealPlace[]
+  selected_restaurants?: SelectedMealPlace[]
   isLiked?: boolean
   is_liked?: boolean | 0 | 1
   isPublic?: boolean
   is_public?: boolean | 0 | 1
   copiedFromItineraryId?: string
   copied_from_itinerary_id?: string
+  likeCount?: number
+  like_count?: number
   createdAt?: string
   created_at?: string
   savedAt?: string
   saved_at?: string
+}
+
+type SavedPlanApiShareResponse = SavedPlanApiRecord & {
+  data?: SavedPlanApiRecord
+  item?: SavedPlanApiRecord
 }
 
 export type SavedPlanApiListResponse = {
@@ -122,8 +135,11 @@ export type SavedPlanApiCreatePayload = {
   itinerary: {
     days: PlanDay[]
     selectedRestaurants?: SelectedMealPlace[]
+    alternativeItinerary?: unknown
+    links?: Record<string, string | undefined>
   }
   alternativeItinerary?: unknown
+  links?: Record<string, string | undefined>
 }
 
 export type SavedPlanApiCreateResponse = {
@@ -398,8 +414,9 @@ export const requestUpdateSavedPlanShareStatus = async (
   itineraryId: string,
   isPublic: boolean,
   options: SavedPlansApiRequestOptions = {},
+  fallbackPlan?: SavedPlan,
 ) => {
-  const response = await requestSavedPlansApiJson<SavedPlanApiRecord>(
+  const response = await requestSavedPlansApiJson<SavedPlanApiShareResponse>(
     savedPlansApiEndpoints.share(itineraryId),
     {
       method: 'PATCH',
@@ -408,9 +425,25 @@ export const requestUpdateSavedPlanShareStatus = async (
     },
     options,
   )
-  const savedPlan = adaptSavedPlanApiRecord(response)
+  const record = response.data ?? response.item ?? response
+  const savedPlan = adaptSavedPlanApiRecord(record)
 
   if (!savedPlan) {
+    if (fallbackPlan) {
+      const nextIsPublic = typeof record.isPublic === 'boolean'
+        ? record.isPublic
+        : typeof record.is_public === 'boolean'
+          ? record.is_public
+          : record.is_public === 1
+            ? true
+            : isPublic
+
+      return {
+        ...fallbackPlan,
+        isPublic: nextIsPublic,
+      }
+    }
+
     throw new SavedPlansApiRequestError(
       200,
       'INVALID_SAVED_PLAN_SHARE_RESPONSE',
@@ -507,11 +540,18 @@ export const adaptSavedPlanApiRecord = (record: SavedPlanApiRecord): SavedPlan |
       ? record.selectedRestaurants
       : Array.isArray(record.itinerary?.selectedRestaurants)
       ? record.itinerary.selectedRestaurants
+      : Array.isArray(record.selected_restaurants)
+      ? record.selected_restaurants
+      : Array.isArray(record.itinerary?.selected_restaurants)
+      ? record.itinerary.selected_restaurants
       : [],
     destinationId: destinationId || undefined,
+    links: record.links ?? record.itinerary?.links,
+    alternativeItinerary: record.alternativeItinerary ?? record.itinerary?.alternativeItinerary,
     isLiked: readIsLiked(record),
     isPublic: typeof record.isPublic === 'boolean' ? record.isPublic : (typeof record.is_public === 'boolean' ? record.is_public : record.is_public === 1),
     copiedFromItineraryId: readString(record.copiedFromItineraryId, record.copied_from_itinerary_id),
+    likeCount: typeof record.likeCount === 'number' ? record.likeCount : (typeof record.like_count === 'number' ? record.like_count : 0),
     createdAt: readString(record.createdAt, record.created_at),
     savedAt: readString(record.savedAt, record.saved_at),
   }

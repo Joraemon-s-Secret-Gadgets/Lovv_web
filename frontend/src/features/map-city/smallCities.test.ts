@@ -4,6 +4,7 @@ import {
   koreanSmallCities,
   japaneseSmallCities,
   smallCityMapBounds,
+  resolveSmallCityDisplayName,
 } from './smallCities'
 
 describe('small-city catalog data validation', () => {
@@ -54,5 +55,12 @@ describe('small-city catalog data validation', () => {
       expect(city.nameKo).not.toContain('·')
       expect(city.nameKo).not.toContain(' ')
     })
+  })
+
+  it('resolves backend destination identifiers to display city names', () => {
+    expect(resolveSmallCityDisplayName('KR-Gangneung')).toBe('강릉')
+    expect(resolveSmallCityDisplayName('KR-Donghae')).toBe('동해시')
+    expect(resolveSmallCityDisplayName(undefined, 'KR-Donghae')).toBe('동해시')
+    expect(resolveSmallCityDisplayName('동해시')).toBe('동해시')
   })
 })

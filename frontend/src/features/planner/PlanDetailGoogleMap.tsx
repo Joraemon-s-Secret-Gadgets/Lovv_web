@@ -32,6 +32,14 @@ type GoogleMapMarkerInstance = {
   addListener?: (eventName: 'click', handler: () => void) => void
 }
 
+type GoogleMapAdvancedMarkerInstance = {
+  addEventListener?: (eventName: 'gmp-click', handler: () => void) => void
+  addListener?: (eventName: 'click', handler: () => void) => void
+  map: GoogleMapInstance | null
+}
+
+type GoogleMapMarkerOverlay = GoogleMapMarkerInstance | GoogleMapAdvancedMarkerInstance
+
 type GooglePolylineInstance = {
   setMap: (map: GoogleMapInstance | null) => void
 }
@@ -48,6 +56,9 @@ type GoogleLatLngLiteral = {
 type GoogleMapsNamespace = {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance
   Marker?: new (options: Record<string, unknown>) => GoogleMapMarkerInstance
+  marker?: {
+    AdvancedMarkerElement?: new (options: Record<string, unknown>) => GoogleMapAdvancedMarkerInstance
+  }
   Polyline?: new (options: Record<string, unknown>) => GooglePolylineInstance
   LatLngBounds: new () => GoogleLatLngBoundsInstance
   SymbolPath?: {
@@ -62,6 +73,52 @@ const defaultGoogleMapsMapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() ?
 let googleMapsRuntimePromise: Promise<GoogleMapsNamespace> | null = null
 
 const getLoadedGoogleMaps = () => window.google?.maps?.Map ? window.google.maps : null
+
+const clearMarkerOverlay = (marker: GoogleMapMarkerOverlay) => {
+  if ('setMap' in marker) {
+    marker.setMap(null)
+    return
+  }
+
+  marker.map = null
+}
+
+const createNumberedMarkerContent = (label: string, isSelected: boolean) => {
+  const marker = document.createElement('button')
+  marker.type = 'button'
+  marker.className = [
+    'lovv-plan-map-marker',
+    'grid',
+    'place-items-center',
+    'rounded-full',
+    'border-2',
+    'font-black',
+    'shadow-[0_14px_24px_-16px_rgba(51,39,30,0.55)]',
+    isSelected ? 'size-9 border-[#33271E] bg-[#F36B12] text-[#33271E]' : 'size-8 border-white bg-[#A92B10] text-white',
+  ].join(' ')
+  marker.textContent = label
+
+  return marker
+}
+
+const createRestaurantMarkerContent = () => {
+  const marker = document.createElement('span')
+  marker.className = [
+    'lovv-plan-map-restaurant-marker',
+    'grid',
+    'size-8',
+    'place-items-center',
+    'rounded-full',
+    'border-2',
+    'border-white',
+    'bg-[#10B981]',
+    'text-[13px]',
+    'shadow-[0_14px_24px_-16px_rgba(51,39,30,0.55)]',
+  ].join(' ')
+  marker.textContent = '식'
+
+  return marker
+}
 
 const getCountryCenter = (country: SmallCityCountry): GoogleLatLngLiteral => {
   const bounds = smallCityMapBounds[country] || smallCityMapBounds.KR
@@ -125,7 +182,7 @@ const loadGoogleMapsRuntime = (apiKey: string) => {
     script.id = googleMapsScriptId
     script.async = true
     script.defer = true
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&callback=${googleMapsCallbackName}`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&libraries=marker&callback=${googleMapsCallbackName}`
     script.addEventListener('error', () => {
       window.clearTimeout(timeoutId)
       googleMapsRuntimePromise = null
@@ -155,7 +212,7 @@ export function PlanDetailGoogleMap({
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<GoogleMapInstance | null>(null)
   const mapsRef = useRef<GoogleMapsNamespace | null>(null)
-  const markerInstancesRef = useRef<GoogleMapMarkerInstance[]>([])
+  const markerInstancesRef = useRef<GoogleMapMarkerOverlay[]>([])
   const polylineInstanceRef = useRef<GooglePolylineInstance | null>(null)
 
   const [runtimeStatus, setRuntimeStatus] = useState<'loading' | 'ready' | 'fallback'>(
@@ -259,10 +316,11 @@ export function PlanDetailGoogleMap({
     const map = mapRef.current
     const maps = mapsRef.current
     const GoogleMarker = maps?.Marker
+    const GoogleAdvancedMarker = googleMapsMapId ? maps?.marker?.AdvancedMarkerElement : undefined
     const GooglePolyline = maps?.Polyline
 
     // 1. Clear existing markers
-    markerInstancesRef.current.forEach((marker) => marker.setMap(null))
+    markerInstancesRef.current.forEach(clearMarkerOverlay)
     markerInstancesRef.current = []
 
     // 2. Clear existing polyline
@@ -271,11 +329,33 @@ export function PlanDetailGoogleMap({
       polylineInstanceRef.current = null
     }
 
-    if (!map || !maps || !GoogleMarker) return
+    if (!map || !maps || (!GoogleAdvancedMarker && !GoogleMarker)) return
 
     // 3. Render numbered markers
     const stopMarkers = validPoints.map((pt) => {
       const isSelected = activeStopIndex === pt.index
+      if (GoogleAdvancedMarker) {
+        const marker = new GoogleAdvancedMarker({
+          content: createNumberedMarkerContent(String(pt.index + 1), isSelected),
+          gmpClickable: Boolean(onSelectStopIndex),
+          map,
+          position: pt.coords,
+          title: pt.stop.title,
+        })
+
+        if (onSelectStopIndex) {
+          marker.addEventListener?.('gmp-click', () => {
+            onSelectStopIndex(pt.index)
+          })
+        }
+
+        return marker
+      }
+
+      if (!GoogleMarker) {
+        throw new Error('Google Maps marker runtime unavailable.')
+      }
+
       const marker = new GoogleMarker({
         position: pt.coords,
         map,
@@ -312,6 +392,19 @@ export function PlanDetailGoogleMap({
         if (restaurant.lat == null || restaurant.lng == null) {
           return null
         }
+        if (GoogleAdvancedMarker) {
+          return new GoogleAdvancedMarker({
+            content: createRestaurantMarkerContent(),
+            map,
+            position: { lat: restaurant.lat, lng: restaurant.lng },
+            title: restaurant.placeName,
+          })
+        }
+
+        if (!GoogleMarker) {
+          throw new Error('Google Maps marker runtime unavailable.')
+        }
+
         const marker = new GoogleMarker({
           position: { lat: restaurant.lat, lng: restaurant.lng },
           map,
@@ -332,7 +425,7 @@ export function PlanDetailGoogleMap({
         })
         return marker
       })
-      .filter((m): m is GoogleMapMarkerInstance => m !== null)
+      .filter((m): m is GoogleMapMarkerOverlay => m !== null)
 
     markerInstancesRef.current = [...stopMarkers, ...wishlistMarkers]
 

@@ -5,7 +5,7 @@
  */
 
 import { useUiToggleStore } from '../store/uiToggleStore'
-import { FileText, ShieldCheck, Mail, Heart } from 'lucide-react'
+import { FileText, ShieldCheck, Mail } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -22,7 +22,6 @@ export function Footer() {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-xl font-black tracking-wider text-[#33271E]">Lovv</span>
-            <Heart className="size-3.5 fill-[#A92B10] text-[#A92B10]" />
           </div>
           <p className="mt-2.5 break-keep text-[11px] font-semibold leading-5 text-[#33271E]/60">
             {t('common.copyright')} {t('common.tagline')}
@@ -61,4 +60,3 @@ export function Footer() {
 }
 
 // EOF: Footer.tsx
-

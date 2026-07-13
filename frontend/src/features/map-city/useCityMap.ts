@@ -22,6 +22,7 @@ import {
   defaultSmallCityApiPageSize,
   requestListSmallCities,
   requestGetSmallCityDetail,
+  requestGetSmallCityPlaces,
   createSmallCityApiQuery,
 } from '../../shared/api/smallCityApi'
 
@@ -87,17 +88,43 @@ export function useCityMap() {
     enabled: Boolean(selectedSmallCityId),
   })
 
+  // Selected city places query (fetches dynamic places and attractions from backend)
+  const smallCityPlacesQuery = useQuery({
+    queryKey: ['smallCityPlaces', selectedSmallCityId],
+    queryFn: () => requestGetSmallCityPlaces(selectedSmallCityId),
+    enabled: Boolean(selectedSmallCityId) && cityMapPanelMode === 'detail',
+  })
+
   // Compute selected city detailed state (attractions, stats, and related elements)
   const selectedSmallCityDetailState = useMemo(() => {
     if (!selectedSmallCityId) {
       return createSmallCityDetailEmptyState(selectedSmallCityId)
     }
 
-    return createSmallCityDetailStateFromQueryResult(
+    const state = createSmallCityDetailStateFromQueryResult(
       smallCityDetailQuery,
       selectedSmallCityId,
     )
-  }, [smallCityDetailQuery, selectedSmallCityId])
+
+    if (state.status === 'success' && state.detail && smallCityPlacesQuery.data) {
+      const placesResult = smallCityPlacesQuery.data
+      const hasAttractions = placesResult.placesByCategory?.['관광지'] && placesResult.placesByCategory['관광지'].length > 0
+      
+      if (hasAttractions) {
+        state.detail.placesByCategory = placesResult.placesByCategory
+      }
+      if (placesResult.festivals && placesResult.festivals.length > 0) {
+        state.detail.festivals = placesResult.festivals
+        state.detail.festivalCount = placesResult.festivalCount
+        if (state.detail.city) {
+          state.detail.city.festivals = placesResult.festivals
+          state.detail.city.festivalCount = placesResult.festivalCount
+        }
+      }
+    }
+
+    return state
+  }, [smallCityDetailQuery, smallCityPlacesQuery.data, selectedSmallCityId])
 
   // Map markers selection callback
   const selectSmallCityMapMarker = (marker: SmallCityMapMarker) => {

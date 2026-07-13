@@ -1,4 +1,14 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard-subset.css");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
+
+@font-face {
+  font-family: "SUIT";
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  src: url("https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/variable/woff2/SUIT-Variable.woff2") format("woff2");
+}
 
 @theme {
   --color-lovv-primary: #ff7017;
@@ -6,7 +16,7 @@
   --color-lovv-surface-container: #fff1eb;
   --color-lovv-mountain: #2D5A27;
   --color-lovv-sea: #1E4D8C;
-  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --font-sans: "Pretendard", "Plus Jakarta Sans", sans-serif;
 }
 
 :root {
@@ -21,7 +31,10 @@
   --lovv-color-theme-mountain: #2D5A27;
   --lovv-color-theme-sea: #1E4D8C;
   --lovv-gradient-theme-festival: linear-gradient(to right, #FF7017, #FFD700, #4CAF50, #2196F3);
-  --lovv-font-sans: "Plus Jakarta Sans", sans-serif;
+  --lovv-font-pretendard: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --lovv-font-suit: "SUIT", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --lovv-font-numeric: "Manrope", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --lovv-font-sans: var(--lovv-font-pretendard);
   --lovv-color-text: #33271E;
   --lovv-focus-ring: 0 0 0 4px rgb(var(--lovv-rgb-primary) / 0.2);
   --lovv-duration-standard: 220ms;
@@ -62,6 +75,30 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.lovv-font-pretendard,
+.lovv-page-landing,
+.lovv-page-home {
+  font-family: var(--lovv-font-pretendard);
+}
+
+.lovv-font-suit,
+.lovv-page-onboarding,
+.lovv-page-chat {
+  font-family: var(--lovv-font-suit);
+}
+
+.lovv-font-numeric,
+.lovv-page-map,
+.lovv-page-mypage {
+  font-family: var(--lovv-font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+.lovv-numeric {
+  font-family: var(--lovv-font-numeric);
+  font-variant-numeric: tabular-nums;
 }
 
 .lovv-bg-primary {
@@ -141,6 +178,52 @@ body {
   background:
     linear-gradient(135deg, rgb(255 255 255 / 0.52) 0%, transparent 35% 100%),
     linear-gradient(180deg, rgb(255 248 238 / 0.92), rgb(238 247 242 / 0.88) 58%, rgb(238 245 255 / 0.72));
+}
+
+.lovv-landing-page {
+  background:
+    radial-gradient(circle at 12% 18%, rgb(255 107 26 / 0.08), transparent 28%),
+    radial-gradient(circle at 86% 8%, rgb(45 90 61 / 0.07), transparent 24%),
+    linear-gradient(180deg, #fffdf5 0%, #fff8ee 46%, #f7f7ee 100%) !important;
+}
+
+.lovv-landing-section {
+  background: transparent;
+  position: relative;
+}
+
+.lovv-landing-hero::before {
+  background:
+    linear-gradient(90deg, transparent 0 8%, rgb(232 228 220 / 0.72) 8% 92%, transparent 92% 100%),
+    linear-gradient(180deg, transparent 0%, rgb(255 255 255 / 0.32) 100%);
+  bottom: 0;
+  content: "";
+  height: 1px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
+.lovv-landing-surface,
+.step-card {
+  background:
+    linear-gradient(180deg, rgb(255 255 250 / 0.94), rgb(255 250 244 / 0.88)),
+    linear-gradient(135deg, rgb(255 255 255 / 0.64), transparent 54%);
+  border-color: rgb(232 228 220 / 0.86);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.72),
+    0 22px 60px -46px rgb(51 39 30 / 0.34);
+}
+
+.lovv-landing-cta {
+  background:
+    linear-gradient(135deg, rgb(255 107 26 / 0.045), transparent 34%),
+    linear-gradient(225deg, rgb(45 90 61 / 0.048), transparent 38%);
+}
+
+.lovv-landing-footer {
+  background: rgb(255 255 250 / 0.64);
 }
 
 .lovv-liquid-panel {
@@ -532,6 +615,156 @@ body {
 
 .lovv-city-map-surface {
   background-color: rgb(233 223 214 / 0.15);
+}
+
+.lovv-planner-page,
+.lovv-map-page {
+  position: relative;
+}
+
+.lovv-planner-page::before,
+.lovv-map-page::before {
+  background:
+    radial-gradient(circle at 10% 8%, rgb(255 224 202 / 0.2), transparent 30%),
+    radial-gradient(circle at 92% 14%, rgb(238 247 242 / 0.34), transparent 32%),
+    linear-gradient(180deg, rgb(255 255 250 / 0.12), transparent 58%);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.lovv-planner-page > *,
+.lovv-map-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+.lovv-planner-brief {
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.78), rgb(255 248 246 / 0.5) 44%, rgb(238 247 242 / 0.46)),
+    linear-gradient(180deg, rgb(255 255 250 / 0.56), rgb(255 240 228 / 0.28));
+}
+
+@keyframes lovv-planner-step-wave {
+  0% {
+    transform: translateX(-120%) skewX(-16deg);
+  }
+
+  100% {
+    transform: translateX(120%) skewX(-16deg);
+  }
+}
+
+.lovv-planner-step-active {
+  background:
+    linear-gradient(135deg, rgb(var(--lovv-step-rgb) / 0.2), rgb(255 255 250 / 0.56)),
+    rgb(255 255 250 / 0.52);
+  overflow: hidden;
+  position: relative;
+}
+
+.lovv-planner-step-active::before {
+  animation: lovv-planner-step-wave 3.2s var(--lovv-ease-standard) infinite;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(255 255 250 / 0.16) 34%,
+    rgb(255 255 250 / 0.7) 50%,
+    rgb(255 255 250 / 0.16) 66%,
+    transparent 100%
+  );
+  content: "";
+  inset: -45% -20%;
+  pointer-events: none;
+  position: absolute;
+}
+
+.lovv-planner-step-active > * {
+  position: relative;
+  z-index: 1;
+}
+
+.lovv-planner-step-tone-orange {
+  --lovv-step-rgb: 243 107 18;
+}
+
+.lovv-planner-step-tone-green {
+  --lovv-step-rgb: 79 124 91;
+}
+
+.lovv-planner-step-tone-brown {
+  --lovv-step-rgb: 156 106 67;
+}
+
+.lovv-planner-step-tone-teal {
+  --lovv-step-rgb: 13 148 136;
+}
+
+.lovv-planner-step-tone-blue {
+  --lovv-step-rgb: 37 99 235;
+}
+
+.lovv-planner-step-tone-purple {
+  --lovv-step-rgb: 124 58 237;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lovv-planner-step-active::before {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.lovv-chat-panel,
+.lovv-itinerary-panel,
+.lovv-map-shell,
+.lovv-map-side-panel {
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.82), rgb(255 248 246 / 0.56) 48%, rgb(238 247 242 / 0.5)),
+    linear-gradient(180deg, rgb(255 255 250 / 0.62), rgb(255 240 228 / 0.26));
+  backdrop-filter: blur(22px) saturate(136%);
+  -webkit-backdrop-filter: blur(22px) saturate(136%);
+}
+
+.lovv-chat-scroll {
+  background:
+    linear-gradient(180deg, rgb(255 255 250 / 0.34), rgb(255 248 246 / 0.22)),
+    repeating-linear-gradient(0deg, rgb(51 39 30 / 0.018) 0 1px, transparent 1px 92px);
+}
+
+.lovv-chat-bubble-assistant,
+.lovv-chat-bubble-user {
+  position: relative;
+}
+
+.lovv-chat-bubble-assistant::before,
+.lovv-chat-bubble-user::before {
+  background: inherit;
+  border: inherit;
+  content: "";
+  height: 14px;
+  position: absolute;
+  pointer-events: none;
+  top: 14px;
+  transform: rotate(45deg);
+  width: 14px;
+  z-index: 0;
+}
+
+.lovv-chat-bubble-assistant::before {
+  left: -6px;
+}
+
+.lovv-chat-bubble-user::before {
+  right: -6px;
+}
+
+.lovv-map-shell {
+  background:
+    linear-gradient(135deg, rgb(255 255 250 / 0.82), rgb(255 248 238 / 0.58) 42%, rgb(238 247 242 / 0.62)),
+    linear-gradient(180deg, rgb(255 255 250 / 0.64), rgb(255 240 228 / 0.28));
 }
 
 .lovv-city-map-overlay {
@@ -928,20 +1161,29 @@ body {
 
 .step-card {
   position: relative;
-  background: white;
   border-radius: 20px;
-  border: 1px solid #E8E4DC;
   transition: all 0.3s ease;
 }
 .step-card:hover {
   border-color: #FF6B1A;
   box-shadow: 0 12px 32px rgba(255, 107, 26, 0.08);
 }
+.step-card-orange:hover {
+  border-color: #FF6B1A;
+  box-shadow: 0 12px 32px rgba(255, 107, 26, 0.08);
+}
+.step-card-green:hover {
+  border-color: #8FAE8B;
+  box-shadow: 0 12px 32px rgba(45, 90, 61, 0.08);
+}
+.step-card-brown:hover {
+  border-color: #C79A6F;
+  box-shadow: 0 12px 32px rgba(122, 77, 42, 0.08);
+}
 
 .step-number {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #FF6B1A, #FF8C42);
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -949,8 +1191,19 @@ body {
   color: white;
   font-weight: 800;
   font-size: 1.1rem;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--lovv-font-numeric);
+}
+.step-number-orange {
+  background: linear-gradient(135deg, #FF6B1A, #FF8C42);
   box-shadow: 0 4px 12px rgba(255, 107, 26, 0.3);
+}
+.step-number-green {
+  background: linear-gradient(135deg, #2D5A3D, #8FAE8B);
+  box-shadow: 0 4px 12px rgba(45, 90, 61, 0.22);
+}
+.step-number-brown {
+  background: linear-gradient(135deg, #7A4D2A, #C79A6F);
+  box-shadow: 0 4px 12px rgba(122, 77, 42, 0.2);
 }
 
 .tag-pill {
@@ -1059,10 +1312,10 @@ body {
   transition: all 0.3s ease !important;
 }
 .nav-scrolled {
-  background: rgba(255, 253, 245, 0.9) !important;
+  background: rgba(255, 253, 245, 0.82) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.05) !important;
+  box-shadow: 0 1px 0 rgba(51, 39, 30, 0.08) !important;
 }
 .btn-shine {
   position: relative;
@@ -1082,7 +1335,7 @@ body {
 }
 .divider {
   width: 48px;
-  height: 4px;
-  background: linear-gradient(90deg, #FF6B1A, #FF8C42);
-  border-radius: 2px;
+  height: 3px;
+  background: linear-gradient(90deg, #FF6B1A, #C79A6F);
+  border-radius: 999px;
 }

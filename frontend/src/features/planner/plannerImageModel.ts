@@ -20,6 +20,7 @@ const CODA = [
 
 const HANGUL_START = 0xAC00
 const HANGUL_END = 0xD7A3
+export const DEFAULT_IMAGE_CDN_BASE_URL = 'https://lovv-pipeline-images-dev-925273580929.s3.amazonaws.com'
 
 export const romanizeKorean = (text: string): string => {
   let result = ''
@@ -61,7 +62,7 @@ export const buildAttractionImageKey = (
   country = 'KR',
 ): string => {
   const normalizedCountry = country.trim().toUpperCase()
-  const normalizedCity = cityEnglishName.trim()
+  const normalizedCity = cityEnglishName.trim().toUpperCase()
   const romanizedTitle = romanizeAttractionTitle(title)
 
   if (!normalizedCountry || !normalizedCity || !romanizedTitle) return ''

@@ -71,6 +71,9 @@ describe('PlanDetailGoogleMap', () => {
       maps: {
         Map: FakeMap,
         Marker: FakeMarker,
+        marker: {
+          AdvancedMarkerElement: FakeMarker,
+        },
         Polyline: FakePolyline,
         LatLngBounds: FakeLatLngBounds,
       },
@@ -83,6 +86,7 @@ describe('PlanDetailGoogleMap', () => {
         countryCode="KR"
         activeStopIndex={null}
         googleMapsApiKey="test-google-key"
+        googleMapsMapId="test-map-id"
         routePath={routePath}
       />,
     )
@@ -155,6 +159,9 @@ describe('PlanDetailGoogleMap', () => {
       maps: {
         Map: FakeMap,
         Marker: FakeMarker,
+        marker: {
+          AdvancedMarkerElement: FakeMarker,
+        },
         Polyline: FakePolyline,
         LatLngBounds: FakeLatLngBounds,
       },
@@ -177,6 +184,7 @@ describe('PlanDetailGoogleMap', () => {
         countryCode="KR"
         activeStopIndex={null}
         googleMapsApiKey="test-google-key"
+        googleMapsMapId="test-map-id"
       />,
     )
 

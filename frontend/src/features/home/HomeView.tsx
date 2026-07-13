@@ -7,6 +7,7 @@
 
 import type { MouseEvent } from 'react'
 import type { HeroTheme, MonthlyRecommendation, PreferenceProfile, LovvUser } from '../../shared/types/app'
+import type { SmallCity } from '../map-city/smallCities'
 import { HomeHeroSection } from './HomeHeroSection'
 import {
   HomeRecommendationSlider,
@@ -35,7 +36,10 @@ type HomeViewProps = {
   onScrollToTop: () => void
   savedPlansCount?: number
   likedPlansCount?: number
+  personalizedRecommendations?: MonthlyRecommendation[]
+  isPersonalizedRecommendationsLoading?: boolean
   currentUser?: LovvUser | null
+  monthlyCandidateCities?: SmallCity[]
 }
 
 export function HomeView({
@@ -50,10 +54,13 @@ export function HomeView({
   onScrollToTop,
   savedPlansCount = 0,
   likedPlansCount = 0,
+  personalizedRecommendations = [],
+  isPersonalizedRecommendationsLoading = false,
   currentUser = null,
+  monthlyCandidateCities,
 }: HomeViewProps) {
   return (
-    <>
+    <div className="lovv-page-home">
       <HomeHeroSection
         currentHeroTheme={currentHeroTheme}
         selectedThemeHashtags={selectedThemeHashtags}
@@ -68,24 +75,20 @@ export function HomeView({
         >
           <div>
             <h2 className="break-keep text-[22px] font-bold leading-7 text-[#33271E] max-sm:text-xl">
-              붐비는 유명지 대신, 취향에 맞는 소도시
+              선택한 취향에 맞는 소도시
             </h2>
             <p className="mt-2 break-keep text-sm leading-5 text-[#33271E]">
-              어디로 갈지 못정했어도 괜찮아요 - 시기만 정하면 조건에 맞는 소도시를 골라드려요.
+              여행 기간을 정하면 조건에 맞는 후보를 먼저 보여드려요.
             </p>
           </div>
           <ul
             aria-label="추천 근거 해시태그"
             className="flex max-w-[560px] flex-wrap justify-end gap-2 max-lg:justify-start"
           >
-            {recommendationBasisHashtags.map((tag, index) => (
+            {recommendationBasisHashtags.map((tag) => (
               <li key={tag}>
                 <span
-                  className={`inline-flex min-h-[34px] items-center rounded-[5px] border px-3 py-1 text-[12px] font-bold leading-4 text-[#33271E] shadow-sm transition hover:scale-[1.01] ${
-                    index === 0
-                      ? 'border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A]'
-                      : 'border-white/60 bg-[#fffffa]/60 hover:bg-[#FFE0CA]'
-                  }`}
+                  className="inline-flex min-h-[30px] items-center rounded-[999px] border border-[#E8DED4]/80 bg-transparent px-2.5 py-1 text-[12px] font-semibold leading-4 text-[#6E5A50]"
                 >
                   {tag}
                 </span>
@@ -99,6 +102,9 @@ export function HomeView({
         currentUser={currentUser}
         savedPlansCount={savedPlansCount}
         likedPlansCount={likedPlansCount}
+        personalizedRecommendations={personalizedRecommendations}
+        isPersonalizedRecommendationsLoading={isPersonalizedRecommendationsLoading}
+        monthlyCandidateCities={monthlyCandidateCities}
         selectedPreferenceProfile={selectedPreferenceProfile}
         onOpenMonthlyRecommendationDetail={onOpenMonthlyRecommendationDetail}
       />
@@ -107,6 +113,6 @@ export function HomeView({
         onOpenChatFromQuickAction={onOpenChatFromQuickAction}
         onScrollToTop={onScrollToTop}
       />
-    </>
+    </div>
   )
 }

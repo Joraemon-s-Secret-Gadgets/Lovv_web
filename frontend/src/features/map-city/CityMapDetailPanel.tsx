@@ -4,10 +4,11 @@
  * @lastModified 2026-06-23
  */
 
+import { useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { getThemeLabels } from '../onboarding/preferenceModel'
 import { getVisibleMapThemes } from './mapCityFilters'
 import {
-  smallCityPlaceCategories,
   type SmallCity,
   type SmallCityFestival,
 } from './smallCities'
@@ -56,6 +57,7 @@ export function CityMapDetailPanel({
   onSetPanelMode,
   onOpenPlanner,
 }: CityMapDetailPanelProps) {
+  const [expandedPlaceGroups, setExpandedPlaceGroups] = useState<Set<string>>(() => new Set())
   const selectedSmallCityDetail =
     selectedSmallCityDetailState.status === 'success' ? selectedSmallCityDetailState.detail : null
 
@@ -91,7 +93,7 @@ export function CityMapDetailPanel({
 
     if (detailStatusMessage || !selectedSmallCityDetail) {
       return (
-        <div data-testid={testId} className="mt-5 rounded-[12px] border border-white/45 bg-[#fffffa]/80 p-4 shadow-sm backdrop-blur-sm">
+        <div data-testid={testId} className="mt-5 rounded-[18px] border border-white/70 bg-[#fffffa]/86 p-4 shadow-[0_14px_30px_-26px_rgba(51,39,30,0.2)] backdrop-blur-sm">
           <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
             장소 정보
           </p>
@@ -108,21 +110,24 @@ export function CityMapDetailPanel({
     const selectedCityFestivals = selectedSmallCityDetail.festivals
 
     return (
-      <div data-testid={testId} className="mt-5 rounded-[12px] border border-white/45 bg-[#fffffa]/80 p-4 shadow-sm backdrop-blur-sm">
+      <div data-testid={testId} className="mt-5 rounded-[18px] border border-white/70 bg-[#fffffa]/86 p-4 shadow-[0_14px_30px_-26px_rgba(51,39,30,0.2)] backdrop-blur-sm">
         <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
           장소 정보
         </p>
         <div className="mt-3 grid gap-3">
-          {smallCityPlaceCategories.map((category) => {
+          {(['관광지'] as const).map((category) => {
             const places = selectedSmallCityDetail.placesByCategory[category].filter(
               (place) => place.categoryName !== '축제',
             )
+            const placeGroupKey = `${selectedSmallCityDetail.city.id}-${testId}-${category}`
+            const isExpanded = expandedPlaceGroups.has(placeGroupKey)
+            const visiblePlaces = isExpanded ? places : places.slice(0, 5)
 
             return (
               <section
                 key={`${selectedSmallCityDetail.city.id}-${testId}-${category}`}
                 aria-label={`${category} 장소 후보`}
-                className="rounded-[8px] border border-white/50 bg-[#fffffa]/80 p-3 shadow-sm"
+                className="rounded-[14px] border border-white/70 bg-white/78 p-3 shadow-sm"
               >
                 <div className="flex items-center justify-between gap-3">
                   <h4 className="break-keep text-[13px] font-black leading-5 text-[#33271E]">
@@ -134,10 +139,9 @@ export function CityMapDetailPanel({
                 </div>
                 {places.length > 0 ? (
                   <ul className="mt-2 grid gap-2">
-                    {places.map((place) => (
+                    {visiblePlaces.map((place) => (
                       <li key={`${testId}-${place.id}`} className="break-keep text-[12px] leading-5 text-[#33271E]">
                         <p className="font-black">{place.name}</p>
-                        <p className="mt-1 font-semibold text-[#6E5A50]">{place.summary}</p>
                         {place.addressName ? (
                           <p className="mt-1 font-bold text-[#8A7467]">{place.addressName}</p>
                         ) : null}
@@ -160,6 +164,38 @@ export function CityMapDetailPanel({
                         </div>
                       </li>
                     ))}
+                    {places.length > 5 ? (
+                      <li className="mt-1">
+                        <button
+                          type="button"
+                          aria-expanded={isExpanded}
+                          onClick={() => {
+                            setExpandedPlaceGroups((currentGroups) => {
+                              const nextGroups = new Set(currentGroups)
+
+                              if (nextGroups.has(placeGroupKey)) {
+                                nextGroups.delete(placeGroupKey)
+                              } else {
+                                nextGroups.add(placeGroupKey)
+                              }
+
+                              return nextGroups
+                            })
+                          }}
+                          className="inline-flex min-h-9 w-full items-center justify-center gap-1 rounded-[6px] border border-[#F3B489] bg-[#fffffa] px-3 text-[11px] font-black text-[#A92B10] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                        >
+                          {isExpanded ? (
+                            <>
+                              접기 <ChevronUp aria-hidden="true" size={14} />
+                            </>
+                          ) : (
+                            <>
+                              {places.length - 5}곳 더 보기 <ChevronDown aria-hidden="true" size={14} />
+                            </>
+                          )}
+                        </button>
+                      </li>
+                    ) : null}
                   </ul>
                 ) : (
                   <p className="mt-2 break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
@@ -173,7 +209,7 @@ export function CityMapDetailPanel({
         {selectedCityFestivals.length > 0 ? (
           <section
             aria-label="축제 정보"
-            className="mt-4 rounded-[8px] border border-white/50 bg-[#fffffa]/80 p-3 shadow-sm"
+            className="mt-4 rounded-[14px] border border-white/70 bg-white/78 p-3 shadow-sm"
           >
             <div className="flex items-center justify-between gap-3">
               <h4 className="break-keep text-[13px] font-black leading-5 text-[#33271E]">
@@ -193,21 +229,8 @@ export function CityMapDetailPanel({
                     className="break-keep text-[12px] leading-5 text-[#33271E]"
                   >
                     <p className="font-black">{festival.name}</p>
-                    <p className="mt-1 font-semibold text-[#6E5A50]">{festival.summary}</p>
                     {festivalPeriod ? (
                       <p className="mt-1 font-bold text-[#8A7467]">{festivalPeriod}</p>
-                    ) : null}
-                    {festival.themeTags && festival.themeTags.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {festival.themeTags.map((tag) => (
-                          <span
-                            key={`${testId}-${festival.id}-${tag}`}
-                            className="rounded-[5px] bg-[#FFF8F6] px-2 py-1 text-[11px] font-black text-[#6E5A50]"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
                     ) : null}
                   </li>
                 )
@@ -221,14 +244,25 @@ export function CityMapDetailPanel({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => onSetPanelMode('list')}
-        className="inline-flex min-h-10 items-center justify-center rounded-full border border-white/60 bg-[#fffffa]/80 px-4 text-sm font-black text-[#33271E] shadow-sm transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
-      >
-        ← 목록으로
-      </button>
-      <div className="mt-4 rounded-[20px] border border-white/50 bg-white/45 p-5 backdrop-blur-sm">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2">
+        <button
+          type="button"
+          onClick={() => onSetPanelMode('list')}
+          aria-label="← 목록으로"
+          className="inline-flex min-h-10 items-center justify-center rounded-full border border-white/70 bg-[#fffffa]/88 px-4 text-sm font-black text-[#33271E] shadow-sm transition hover:-translate-y-0.5 hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+        >
+          ← 목록
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpenPlanner(selectedSmallCity)}
+          aria-label="이 소도시로 AI 일정 짜기"
+          className="inline-flex min-h-10 items-center justify-center rounded-full border border-white/50 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-4 text-sm font-black text-[#33271E] shadow-sm transition hover:scale-[1.01] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+        >
+          AI 일정 짜기
+        </button>
+      </div>
+      <div className="mt-4 rounded-[24px] border border-white/70 bg-white/68 p-5 shadow-[0_16px_34px_-28px_rgba(51,39,30,0.24)] backdrop-blur-sm">
         <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
           Selected city
         </p>
@@ -246,7 +280,7 @@ export function CityMapDetailPanel({
           {selectedSmallCityVisibleThemes.map((theme) => (
             <span
               key={`${selectedSmallCity.id}-${theme}`}
-              className="rounded-full border border-white/60 bg-[#fffffa]/70 px-3 py-1 text-[12px] font-black text-[#33271E] shadow-sm"
+              className="rounded-full border border-white/70 bg-[#fffffa]/84 px-3 py-1 text-[12px] font-black text-[#33271E] shadow-sm"
             >
               #{theme}
             </span>
@@ -259,7 +293,7 @@ export function CityMapDetailPanel({
       <p className="mt-3 break-keep text-sm leading-6 text-[#33271E]">
         {selectedSmallCity.detail}
       </p>
-      <div className="mt-5 rounded-[12px] border border-white/40 bg-white/50 p-4 shadow-sm backdrop-blur-sm">
+      <div className="mt-5 rounded-[18px] border border-white/70 bg-white/64 p-4 shadow-[0_14px_30px_-26px_rgba(51,39,30,0.18)] backdrop-blur-sm">
         <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
           추천 근거
         </p>
@@ -269,7 +303,7 @@ export function CityMapDetailPanel({
             : `${selectedCityFallbackThemeText}가 뚜렷해서 새로운 후보로 비교하기 좋습니다.`}
         </p>
       </div>
-      <div className="mt-5 rounded-[12px] border border-white/40 bg-white/50 p-4 shadow-sm backdrop-blur-sm">
+      <div className="mt-5 rounded-[18px] border border-white/70 bg-white/64 p-4 shadow-[0_14px_30px_-26px_rgba(51,39,30,0.18)] backdrop-blur-sm">
         <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
           First route note
         </p>
@@ -284,20 +318,13 @@ export function CityMapDetailPanel({
           {selectedSmallCity.highlights.slice(0, 4).map((highlight) => (
             <li
               key={`${selectedSmallCity.id}-${highlight}`}
-              className="break-keep rounded-[5px] border border-white/40 bg-[#fffffa]/80 px-3 py-2 text-[12px] font-bold leading-5 text-[#33271E] shadow-sm"
+              className="break-keep rounded-[10px] border border-white/70 bg-[#fffffa]/86 px-3 py-2 text-[12px] font-bold leading-5 text-[#33271E] shadow-sm"
             >
               {highlight}
             </li>
           ))}
         </ul>
       </div>
-      <button
-        type="button"
-        onClick={() => onOpenPlanner(selectedSmallCity)}
-        className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-[12px] border border-white/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] px-5 text-sm font-black text-[#33271E] shadow-sm transition hover:scale-[1.01] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
-      >
-        이 소도시로 AI 일정 짜기
-      </button>
     </>
   )
 }
