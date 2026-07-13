@@ -9,6 +9,7 @@ import {
 } from './recommendationsApi'
 import type {
   RecommendationApiResponse,
+  RecommendationCreateRequestPayload,
   RecommendationItinerary,
   RecommendationRequestPayload,
 } from './recommendationsApi'
@@ -153,7 +154,7 @@ describe('requestCreateRecommendation', () => {
           rawModifyQuery: '1일차 아침 일정 바꿔줘',
           currentOrder: [],
         },
-        { fetchImpl },
+        { fetchImpl, retryDelayMs: 0 },
       ),
     ).rejects.toMatchObject({
       name: 'RecommendationApiRequestError',
@@ -172,9 +173,47 @@ describe('requestCreateRecommendation', () => {
           rawModifyQuery: '1일차 아침 일정 바꿔줘',
           currentOrder: [],
         },
-        { fetchImpl },
+        { fetchImpl, retryDelayMs: 0 },
       ),
     ).rejects.toBeInstanceOf(RecommendationApiRequestError)
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries a transient AgentCore failure once with the same session payload', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: async () => ({ code: 'AGENTCORE_UNAVAILABLE' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => makeResponse([makeDay(1, [makeItem()])]),
+      })
+    const payload: RecommendationCreateRequestPayload = {
+      entryType: 'create',
+      requestId: 'req-retry-001',
+      sessionId: 'session-stable-retry-001',
+      rawQuery: '바다 일정',
+      country: 'KR',
+      travelMonth: 7,
+      travelYear: 2026,
+      tripType: 'daytrip',
+      themes: ['sea_coast'],
+      activeRequiredThemes: ['바다·해안'],
+      includeFestivals: false,
+      destinationId: null,
+      executionMode: 'city_discovery',
+      userLocation: null,
+    }
+
+    await requestCreateRecommendation(payload, { fetchImpl, retryDelayMs: 0 })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(fetchImpl.mock.calls[0]).toEqual(fetchImpl.mock.calls[1])
+    expect(fetchImpl.mock.calls[1]?.[1]?.body).toBe(JSON.stringify(payload))
   })
 
   it('reads the backend nested error envelope', async () => {

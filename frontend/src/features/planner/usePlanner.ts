@@ -86,11 +86,14 @@ const createRecommendationRequestId = () => {
   return `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+const createRecommendationSessionId = () => `session-${createRecommendationRequestId()}`
+
 const toRecommendationThemeLabels = (themeIds: ThemeId[]): RecommendationThemeLabel[] =>
   getThemeLabels(themeIds) as RecommendationThemeLabel[]
 
 const createRecommendationRequestPayload = ({
   rawQuery,
+  sessionId,
   country,
   tripType,
   activeThemeIds,
@@ -100,6 +103,7 @@ const createRecommendationRequestPayload = ({
   travelMonth,
 }: {
   rawQuery: string
+  sessionId: string
   country: RecommendationCreateRequestPayload['country']
   tripType: RecommendationCreateRequestPayload['tripType']
   activeThemeIds: ThemeId[]
@@ -110,6 +114,7 @@ const createRecommendationRequestPayload = ({
 }): RecommendationCreateRequestPayload => ({
   entryType: 'create',
   requestId: createRecommendationRequestId(),
+  sessionId,
   rawQuery,
   country,
   travelMonth,
@@ -260,6 +265,7 @@ export function usePlanner({
   const [generatedPlanDestinationId, setGeneratedPlanDestinationId] = useState<string | null>(null)
   const [generatedRecommendationThreadId, setGeneratedRecommendationThreadId] = useState<string | null>(null)
   const [generatedRecommendationSessionId, setGeneratedRecommendationSessionId] = useState<string | null>(null)
+  const [plannerRecommendationSessionId, setPlannerRecommendationSessionId] = useState(createRecommendationSessionId)
   const [generatedRecommendationId, setGeneratedRecommendationId] = useState<string | null>(null)
   const [isPlannerLoading, setIsPlannerLoading] = useState(false)
   const [isSavingPlan, setIsSavingPlan] = useState(false)
@@ -464,6 +470,7 @@ export function usePlanner({
     setGeneratedPlanDestinationId(null)
     setGeneratedRecommendationThreadId(null)
     setGeneratedRecommendationSessionId(null)
+    setPlannerRecommendationSessionId(createRecommendationSessionId())
     setGeneratedRecommendationId(null)
   }, [
     plannerCityContext,
@@ -1034,7 +1041,7 @@ export function usePlanner({
       return null
     }
 
-    const threadId = generatedRecommendationThreadId ?? generatedRecommendationSessionId ?? currentPlanId
+    const threadId = generatedRecommendationThreadId ?? generatedRecommendationSessionId ?? plannerRecommendationSessionId
     const sessionId = generatedRecommendationSessionId ?? threadId
     const activeThemeIds = getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext)
     const travelMonth = selectedTravelMonth ?? new Date().getMonth() + 1
@@ -1079,7 +1086,6 @@ export function usePlanner({
     return targetDay?.stops[scope.stopIndex] ?? null
   }, [
     createRecommendationMutation,
-    currentPlanId,
     currentUser?.id,
     generatedPlanDestinationId,
     generatedRecommendationId,
@@ -1089,6 +1095,7 @@ export function usePlanner({
     planDraft,
     plannerCityContext?.cityId,
     plannerCityContext,
+    plannerRecommendationSessionId,
     plannerPreferenceProfile,
     rememberRecommendationSession,
     selectedDurationLabel,
@@ -1184,6 +1191,7 @@ export function usePlanner({
           const response = (await createRecommendationMutation.mutateAsync(
             createRecommendationRequestPayload({
               rawQuery: `${nextSelectedDurationLabel} ${plannerContextText}`.trim(),
+              sessionId: plannerRecommendationSessionId,
               country: plannerCityContext.country || 'KR',
               tripType: getRecommendationTripType(nextSelectedDurationLabel),
               activeThemeIds: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
@@ -1348,6 +1356,7 @@ export function usePlanner({
       const response = (await createRecommendationMutation.mutateAsync(
         createRecommendationRequestPayload({
           rawQuery: trimmedMessage,
+          sessionId: plannerRecommendationSessionId,
           country: plannerCityContext?.country || 'KR',
           tripType: getRecommendationTripType(selectedDurationLabel),
           activeThemeIds: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),

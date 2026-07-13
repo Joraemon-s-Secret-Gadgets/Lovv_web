@@ -22,6 +22,7 @@ export type RecommendationThemeLabel =
 export type RecommendationCreateRequestPayload = {
   entryType: 'create'
   requestId: string
+  sessionId?: string
   rawQuery: string
   country: 'KR' | 'JP'
   travelMonth: number
@@ -331,6 +332,7 @@ type RecommendationsApiRequestOptions = {
   baseUrl?: string
   accessToken?: string | null
   fetchImpl?: RecommendationsApiFetch
+  retryDelayMs?: number
 }
 
 export class RecommendationApiRequestError extends Error {
@@ -430,12 +432,23 @@ export const requestCreateRecommendation = async (
     options.baseUrl ?? defaultRecommendationCreateApiBaseUrl,
   )
 
-  const response = await fetchImpl(url, {
+  const requestInit: RequestInit = {
     method: 'POST',
     headers: createRecommendationsHeaders(options, true),
     body: JSON.stringify(payload),
     credentials: 'include',
-  })
+  }
+  let response = await fetchImpl(url, requestInit)
+
+  if (payload.entryType === 'create' && !response.ok && [502, 503, 504].includes(response.status)) {
+    const retryDelayMs = options.retryDelayMs ?? 1_000
+
+    if (retryDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+    }
+
+    response = await fetchImpl(url, requestInit)
+  }
 
   if (!response.ok) {
     throw await createRecommendationApiRequestError(response)
