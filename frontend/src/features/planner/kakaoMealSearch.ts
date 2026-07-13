@@ -46,6 +46,7 @@ const defaultKakaoMapsJavascriptKey =
   (import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY as string | undefined)?.trim() ||
   ''
 let kakaoSdkPromise: Promise<KakaoMapsNamespace> | null = null
+const kakaoMealSearchCache = new Map<string, KakaoMealSearchResult>()
 
 const getLoadedKakaoMaps = () =>
   window.kakao?.maps?.services?.Places ? window.kakao.maps : null
@@ -123,6 +124,12 @@ export const searchKakaoMealPlaces = async (
     return { status: 'missing-key', places: [] }
   }
 
+  const cacheKey = trimmedQuery.toLowerCase()
+  const cachedResult = kakaoMealSearchCache.get(cacheKey)
+  if (cachedResult) {
+    return cachedResult
+  }
+
   try {
     const kakaoMaps = await loadKakaoMapsSdk(javascriptKey)
     const Places = kakaoMaps.services?.Places
@@ -136,20 +143,24 @@ export const searchKakaoMealPlaces = async (
     return await new Promise<KakaoMealSearchResult>((resolve) => {
       places.keywordSearch(trimmedQuery, (results, status) => {
         if (status === 'OK') {
-          resolve({
+          const readyResult: KakaoMealSearchResult = {
             status: 'ready',
             places: results
               .map(adaptKakaoMealPlace)
               .filter((place): place is SelectedMealPlace => Boolean(place))
               .slice(0, 5),
-          })
+          }
+          kakaoMealSearchCache.set(cacheKey, readyResult)
+          resolve(readyResult)
           return
         }
 
-        resolve({
+        const emptyResult: KakaoMealSearchResult = {
           status: status === 'ZERO_RESULT' ? 'zero-result' : 'unavailable',
           places: [],
-        })
+        }
+        kakaoMealSearchCache.set(cacheKey, emptyResult)
+        resolve(emptyResult)
       })
     })
   } catch {

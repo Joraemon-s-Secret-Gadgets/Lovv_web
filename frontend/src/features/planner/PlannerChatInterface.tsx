@@ -104,7 +104,13 @@ type PlannerChatInterfaceProps = {
   chatMessages: ChatMessage[]
   shouldShowFestivalPrompt: boolean
   festivalThemeChoice: FestivalThemeChoice
+  selectedDurationLabel: string | null
   submitChatMessage: (message: string) => void
+  submitGuidedPlannerChoices: (choices: {
+    durationLabel: string
+    travelMonth: number
+    festivalChoice: Exclude<FestivalThemeChoice, 'undecided'>
+  }) => void
   shouldShowDurationPrompt: boolean
   shouldShowTravelMonthPrompt: boolean
   selectedTravelMonth: number | null
@@ -126,7 +132,9 @@ export function PlannerChatInterface({
   chatMessages,
   shouldShowFestivalPrompt,
   festivalThemeChoice,
+  selectedDurationLabel,
   submitChatMessage,
+  submitGuidedPlannerChoices,
   shouldShowDurationPrompt,
   shouldShowTravelMonthPrompt,
   selectedTravelMonth,
@@ -142,79 +150,179 @@ export function PlannerChatInterface({
   shouldAskFestivalTheme,
   onSelectClarificationOption,
 }: PlannerChatInterfaceProps) {
-  
-  const renderAssistantOptionGroup = (
-    promptText: string,
-    options: {
-      key: string
-      label: string
-      selected?: boolean
-      onClick: () => void
-    }[],
-    optionsClassName = 'flex flex-wrap gap-2',
-  ) => (
-    <div className="flex max-w-[760px] items-start gap-3 animate-[lovv-chip-in_0.3s_ease-out_both]">
-      <span
-        className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#F3B489]/50 bg-[#FFF0E4] shadow-[0_8px_18px_-10px_rgba(51,39,30,0.35)]"
-        aria-hidden="true"
-      >
-        <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
-      </span>
-      <div className="min-w-0 rounded-[22px] border border-white/60 bg-[#fffffa]/70 p-3 shadow-[0_18px_38px_-30px_rgba(51,39,30,0.22)] backdrop-blur-md">
-        <p className="mb-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#315B3E]">
-          Lovv Planner
-        </p>
-        <div className="inline-flex max-w-full rounded-[16px] border border-[#F3B489]/20 bg-white px-5 py-4 text-sm font-bold leading-6 text-[#33271E] shadow-sm max-sm:text-[13px] max-sm:leading-6">
-          {promptText}
-        </div>
-        <div className={`mt-3 ${optionsClassName}`}>
-          {options.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              aria-pressed={option.selected}
-              onClick={option.onClick}
-              className={`inline-flex min-h-[38px] items-center rounded-full border px-4 py-1 text-[12px] font-bold leading-4 text-[#33271E] transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
-                option.selected
-                  ? 'border-[#F36B12]/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] text-[#33271E] shadow-[0_8px_16px_-6px_rgba(243,107,18,0.3)] scale-[1.02] font-black'
-                  : 'border-white/70 bg-white/70 shadow-sm hover:border-[#F36B12]/40 hover:bg-[#FFF0E4] hover:translate-y-[-1px] hover:shadow-[0_8px_16px_-8px_rgba(243,107,18,0.25)]'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
+  const [draftDurationLabel, setDraftDurationLabel] = useState<string | null>(selectedDurationLabel)
+  const [draftTravelMonth, setDraftTravelMonth] = useState<number | null>(selectedTravelMonth)
+  const [draftFestivalChoice, setDraftFestivalChoice] = useState<Exclude<FestivalThemeChoice, 'undecided'> | null>(
+    hasGuidedPlannerChoices && festivalThemeChoice !== 'undecided' ? festivalThemeChoice : null,
+  )
+
+  useEffect(() => {
+    if (hasGuidedPlannerChoices) return
+    setDraftDurationLabel(selectedDurationLabel)
+  }, [hasGuidedPlannerChoices, selectedDurationLabel])
+
+  useEffect(() => {
+    if (hasGuidedPlannerChoices) return
+    setDraftTravelMonth(selectedTravelMonth)
+  }, [hasGuidedPlannerChoices, selectedTravelMonth])
+
+  useEffect(() => {
+    if (hasGuidedPlannerChoices) return
+    setDraftFestivalChoice(null)
+  }, [hasGuidedPlannerChoices])
+
+  const maybeSubmitGuidedPlannerChoices = ({
+    durationLabel = draftDurationLabel,
+    travelMonth = draftTravelMonth,
+    festivalChoice = draftFestivalChoice,
+  }: {
+    durationLabel?: string | null
+    travelMonth?: number | null
+    festivalChoice?: Exclude<FestivalThemeChoice, 'undecided'> | null
+  }) => {
+    const effectiveFestivalChoice = shouldAskFestivalTheme ? festivalChoice : 'exclude'
+
+    if (!durationLabel || !travelMonth || !effectiveFestivalChoice || hasGuidedPlannerChoices || isPlannerLoading) {
+      return
+    }
+
+    submitGuidedPlannerChoices({ durationLabel, travelMonth, festivalChoice: effectiveFestivalChoice })
+  }
+
+  const renderGuidedPlannerChoiceCard = () => {
+    const shouldShowGuidedChoiceCard =
+      !hasGuidedPlannerChoices &&
+      (shouldShowDurationPrompt || shouldShowTravelMonthPrompt || shouldShowFestivalPrompt)
+
+    if (!shouldShowGuidedChoiceCard) {
+      return null
+    }
+
+    return (
+      <div className="flex max-w-[820px] items-start gap-3 animate-[lovv-chip-in_0.3s_ease-out_both]">
+        <span
+          className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#F3B489]/50 bg-[#FFF0E4] shadow-[0_8px_18px_-10px_rgba(51,39,30,0.35)]"
+          aria-hidden="true"
+        >
+          <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
+        </span>
+        <div className="min-w-0 rounded-[22px] border border-white/60 bg-[#fffffa]/70 p-4 shadow-[0_18px_38px_-30px_rgba(51,39,30,0.22)] backdrop-blur-md">
+          <p className="mb-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#315B3E]">
+            Lovv Planner
+          </p>
+          <div className="rounded-[16px] border border-[#F3B489]/20 bg-white px-5 py-4 text-sm font-bold leading-6 text-[#33271E] shadow-sm max-sm:text-[13px] max-sm:leading-6">
+            {shouldAskFestivalTheme
+              ? '여행 기간, 희망 월, 축제 포함 여부를 한 번에 골라주세요.'
+              : '여행 기간과 희망 월을 한 번에 골라주세요.'}
+          </div>
+
+          <div className="mt-4 grid gap-4">
+            <div>
+              <p className="text-[12px] font-black text-[#A92B10]">일정 기간</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {durationGuidePrompts.map((durationLabel) => (
+                  <button
+                    key={durationLabel}
+                    type="button"
+                    aria-pressed={draftDurationLabel === durationLabel}
+                    onClick={() => {
+                      setDraftDurationLabel(durationLabel)
+                      maybeSubmitGuidedPlannerChoices({ durationLabel })
+                    }}
+                    className={`inline-flex min-h-[38px] items-center rounded-full border px-4 py-1 text-[12px] font-bold leading-4 text-[#33271E] transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                      draftDurationLabel === durationLabel
+                        ? 'border-[#F36B12]/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] font-black shadow-[0_8px_16px_-6px_rgba(243,107,18,0.3)]'
+                        : 'border-white/70 bg-white/70 shadow-sm hover:-translate-y-0.5 hover:border-[#F36B12]/40 hover:bg-[#FFF0E4]'
+                    }`}
+                  >
+                    {durationLabel}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[12px] font-black text-[#A92B10]">희망 월</p>
+              <div className="mt-2 grid grid-cols-6 gap-2 max-sm:grid-cols-4">
+                {travelMonthPrompts.map((month) => (
+                  <button
+                    key={month}
+                    type="button"
+                    aria-pressed={draftTravelMonth === month}
+                    onClick={() => {
+                      setDraftTravelMonth(month)
+                      maybeSubmitGuidedPlannerChoices({ travelMonth: month })
+                    }}
+                    className={`inline-flex min-h-[36px] items-center justify-center rounded-full border px-3 py-1 text-[12px] font-bold leading-4 text-[#33271E] transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                      draftTravelMonth === month
+                        ? 'border-[#F36B12]/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] font-black shadow-[0_8px_16px_-6px_rgba(243,107,18,0.3)]'
+                        : 'border-white/70 bg-white/70 shadow-sm hover:-translate-y-0.5 hover:border-[#F36B12]/40 hover:bg-[#FFF0E4]'
+                    }`}
+                  >
+                    {getTravelMonthLabel(month)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {shouldAskFestivalTheme ? (
+              <div>
+                <p className="text-[12px] font-black text-[#A92B10]">축제 포함 여부</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {festivalThemePrompts.map((prompt) => (
+                    <button
+                      key={prompt.choice}
+                      type="button"
+                      aria-pressed={draftFestivalChoice === prompt.choice}
+                      onClick={() => {
+                        if (prompt.choice === 'undecided') return
+                        setDraftFestivalChoice(prompt.choice)
+                        maybeSubmitGuidedPlannerChoices({ festivalChoice: prompt.choice })
+                      }}
+                      className={`inline-flex min-h-[38px] items-center rounded-full border px-4 py-1 text-[12px] font-bold leading-4 text-[#33271E] transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] ${
+                        draftFestivalChoice === prompt.choice
+                          ? 'border-[#F36B12]/40 bg-gradient-to-tr from-[#F36B12] to-[#FF8A2A] font-black shadow-[0_8px_16px_-6px_rgba(243,107,18,0.3)]'
+                          : 'border-white/70 bg-white/70 shadow-sm hover:-translate-y-0.5 hover:border-[#F36B12]/40 hover:bg-[#FFF0E4]'
+                      }`}
+                    >
+                      {prompt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <section
       aria-label="여행 조건을 대화로 정리하기"
       data-testid="chat-conversation-panel"
-      className="lovv-chat-panel flex h-full min-h-[680px] min-w-0 flex-col overflow-hidden rounded-[26px] border border-white/70 shadow-[0_28px_64px_-40px_rgba(51,39,30,0.34)] xl:min-h-0"
+      className="lovv-chat-panel flex h-full min-h-[680px] min-w-0 flex-col overflow-hidden rounded-[26px] border border-white/70 shadow-[0_28px_64px_-40px_rgba(51,39,30,0.34)] xl:min-h-0 max-xl:h-[600px] max-sm:h-[480px] max-sm:min-h-0"
     >
-      <header className="border-b border-white/60 bg-[#FFF8F6]/76 px-6 py-5 backdrop-blur-sm">
-        <div className="flex items-start justify-between gap-5">
+      <header className="border-b border-white/60 bg-[#FFF8F6]/76 px-6 py-4 backdrop-blur-sm max-sm:px-4 max-sm:py-3">
+        <div className="flex items-center justify-between gap-5">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#A92B10]">
-              Conversation
-            </p>
-            <h3 className="mt-2 break-keep text-2xl font-black leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7">
-              여행 조건을 대화로 정리하기
+            <h3
+              aria-label="여행 조건을 대화로 정리하기"
+              className="break-keep text-xl font-black leading-7 text-[#33271E] max-sm:text-xl max-sm:leading-7"
+            >
+              AI 일정 대화
             </h3>
-            <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#6E5A50] max-sm:text-[13px]">
+            <p className="sr-only">
               대화에서 조건을 좁히고, 옆 요약 패널에서 일정 초안을 바로 확인합니다.
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-full border border-white/70 bg-[#fffffa]/85 px-3 py-2 shadow-sm backdrop-blur-sm">
+          <div aria-label="Lovv Planner" className="flex shrink-0 items-center rounded-full border border-white/70 bg-[#fffffa]/85 p-1 shadow-sm backdrop-blur-sm">
             <span
               className="flex size-9 items-center justify-center overflow-hidden rounded-full border border-[#F3B489]/50 bg-[#FFF0E4]"
               aria-hidden="true"
             >
               <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
             </span>
-            <span className="text-[12px] font-black text-[#33271E] max-sm:hidden">대화 우선</span>
           </div>
         </div>
       </header>
@@ -223,7 +331,7 @@ export function PlannerChatInterface({
         ref={chatScrollRef}
         role="log"
         aria-label="AI 일정 대화"
-        className="lovv-chat-scroll flex-1 space-y-5 overflow-y-auto px-6 py-6"
+        className="lovv-chat-scroll flex-1 space-y-5 overflow-y-auto px-6 py-6 max-sm:px-4 max-sm:py-4"
       >
         {chatMessages.map((message) => {
           const isAssistant = message.role === 'assistant'
@@ -236,7 +344,7 @@ export function PlannerChatInterface({
             >
               {isAssistant ? (
                 <span
-                  className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#F3B489]/50 bg-[#FFF0E4] shadow-[0_8px_18px_-10px_rgba(51,39,30,0.35)]"
+                  className="mt-6 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#F3B489]/50 bg-[#FFF0E4] shadow-[0_8px_18px_-10px_rgba(51,39,30,0.35)] max-sm:mt-4 max-sm:size-8"
                   aria-hidden="true"
                 >
                   <img src={foxFaceImage} alt="" className="h-full w-full object-cover" />
@@ -244,18 +352,14 @@ export function PlannerChatInterface({
               ) : null}
               <div
                 className={`min-w-0 ${
-                  isAssistant ? 'max-w-[min(720px,82%)]' : 'max-w-[min(600px,76%)] items-end text-right'
+                  isAssistant ? 'max-w-[min(720px,82%)] max-sm:max-w-[88%]' : 'max-w-[min(600px,76%)] max-sm:max-w-[84%] items-end text-right'
                 }`}
               >
-                <p
-                  className={`mb-1 text-[11px] font-black uppercase tracking-[0.12em] ${
-                    isAssistant ? 'text-[#315B3E]' : 'text-[#A92B10]'
-                  }`}
-                >
+                <p className="sr-only">
                   {isAssistant ? 'Lovv Planner' : '내 조건'}
                 </p>
                 <div
-                  className={`break-keep whitespace-pre-wrap rounded-[22px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-sm max-sm:text-[13px] max-sm:leading-6 ${
+                  className={`break-keep whitespace-pre-wrap rounded-[22px] border px-5 py-4 text-sm leading-6 text-[#33271E] shadow-sm max-sm:rounded-[18px] max-sm:px-4 max-sm:py-3 max-sm:text-[13px] max-sm:leading-5 ${
                     isAssistant
                       ? 'lovv-chat-bubble-assistant border-white/70 bg-white/78 backdrop-blur-sm shadow-[0_12px_26px_-22px_rgba(51,39,30,0.3)]'
                       : 'lovv-chat-bubble-user ml-auto border-[#E65E12]/25 bg-[#F36B12] text-[#33271E] font-bold shadow-[0_12px_24px_-10px_rgba(243,107,18,0.35)] transition-all duration-200 hover:scale-[1.01]'
@@ -271,9 +375,9 @@ export function PlannerChatInterface({
                   <div
                     role="group"
                     aria-label="추가 확인 선택지"
-                    className="mt-3 rounded-[20px] border border-[#F3B489]/25 bg-[#FFF8F6]/88 p-4 shadow-[0_12px_28px_-24px_rgba(51,39,30,0.24)] backdrop-blur-sm"
+                    className="mt-3 rounded-[20px] border border-[#F3B489]/25 bg-[#FFF8F6]/88 p-4 shadow-[0_12px_28px_-24px_rgba(51,39,30,0.24)] backdrop-blur-sm max-sm:p-3"
                   >
-                    <p className="break-keep text-sm font-black leading-6 text-[#33271E]">
+                    <p className="break-keep text-sm font-black leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-5">
                       {message.clarification.prompt}
                     </p>
                     <div className="mt-3 grid gap-2">
@@ -294,12 +398,12 @@ export function PlannerChatInterface({
                                 : 'border-white/70 bg-white/84 hover:border-[#F36B12]/40 hover:bg-white hover:shadow-[0_10px_18px_-15px_rgba(243,107,18,0.34)] disabled:opacity-60'
                             }`}
                           >
-                            <span className="block break-keep text-sm font-black leading-5 text-[#33271E]">
+                            <span className="block break-keep text-sm font-black leading-5 text-[#33271E] max-sm:text-[13px] max-sm:leading-4">
                               {option.label}
                             </span>
-                            {option.description ? (
-                              <span className="mt-1 block break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
-                                {option.description}
+                            {option.description || option.helperText ? (
+                              <span className="mt-1 block break-keep text-[12px] font-semibold leading-5 text-[#6E5A50] max-sm:text-[11px] max-sm:leading-4">
+                                {option.description || option.helperText}
                               </span>
                             ) : null}
                           </button>
@@ -313,65 +417,26 @@ export function PlannerChatInterface({
           )
         })}
 
-        {shouldShowFestivalPrompt
-          ? renderAssistantOptionGroup(
-              '축제 테마를 일정에 포함할까요?',
-              festivalThemePrompts.map((prompt) => ({
-                key: prompt.choice,
-                label: prompt.label,
-                selected: festivalThemeChoice === prompt.choice,
-                onClick: () => submitChatMessage(prompt.label),
-              })),
-            )
-          : null}
+        {renderGuidedPlannerChoiceCard()}
 
-        {shouldShowDurationPrompt
-          ? renderAssistantOptionGroup(
-              '일정 기간을 먼저 골라주세요',
-              durationGuidePrompts.map((prompt) => ({
-                key: prompt,
-                label: prompt,
-                onClick: () => submitChatMessage(prompt),
-              })),
-            )
-          : null}
-
-        {shouldShowTravelMonthPrompt
-          ? renderAssistantOptionGroup(
-              '여행 예정 월을 골라주세요',
-              travelMonthPrompts.map((month) => ({
-                key: String(month),
-                label: getTravelMonthLabel(month),
-                selected: selectedTravelMonth === month,
-                onClick: () => submitChatMessage(getTravelMonthLabel(month)),
-              })),
-              'grid grid-cols-6 gap-2',
-            )
-          : null}
-
-        {isPlannerReady ? (
-          <div aria-label="조건 해석 결과" className="rounded-[20px] border border-white/60 bg-[#FFF8F6]/84 p-5 shadow-[0_14px_30px_-26px_rgba(51,39,30,0.18)] backdrop-blur-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-[5px] border border-white/65 bg-[#fffffa]/90 px-3 py-1 text-[12px] font-bold text-[#33271E] shadow-sm">
-                일정 초안
-              </span>
-              <span className="rounded-[5px] border border-white/65 bg-[#FFF0E4]/90 px-3 py-1 text-[12px] font-bold text-[#33271E] shadow-sm">
+        {isPlannerReady &&
+        (plannerConditionExtraction?.softPreferences.length || plannerConditionExtraction?.unsupportedConditions.length) ? (
+          <div aria-label="조건 해석 결과" className="rounded-[16px] border border-white/60 bg-[#FFF8F6]/84 px-4 py-3 shadow-sm backdrop-blur-sm">
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              <span className="rounded-[5px] bg-white/80 px-2.5 py-1 text-[11px] font-bold text-[#33271E]">
                 {planDraft.durationLabel}
               </span>
               {plannerConditionExtraction?.activeRequiredThemes.map((themeId) => (
                 <span
                   key={`active-theme-${themeId}`}
-                  className="rounded-[5px] border border-white/65 bg-[#fffffa]/90 px-3 py-1 text-[12px] font-bold text-[#33271E] shadow-sm"
+                  className="rounded-[5px] bg-white/80 px-2.5 py-1 text-[11px] font-bold text-[#33271E]"
                 >
                   {getThemeDefinition(themeId).label}
                 </span>
               ))}
             </div>
-            <p className="mt-3 break-keep text-sm font-semibold leading-6 text-[#33271E] max-sm:text-[13px]">
-              요약 패널에 반영했어요. 시간대별 동선과 추천 이유는 세부 일정에서 이어서 확인해 주세요.
-            </p>
             {plannerConditionExtraction?.softPreferences.length ? (
-              <p className="mt-2 break-keep text-[12px] font-bold leading-5 text-[#6E5A50]">
+              <p className="break-keep text-[12px] font-bold leading-5 text-[#6E5A50]">
                 추가 조건: {plannerConditionExtraction.softPreferences.join(' · ')}
               </p>
             ) : null}
@@ -384,7 +449,7 @@ export function PlannerChatInterface({
         ) : null}
       </div>
 
-      <div className="border-t border-white/60 bg-[#FFF8F6]/72 p-5 backdrop-blur-md">
+      <div className="border-t border-white/60 bg-[#FFF8F6]/72 p-5 backdrop-blur-md max-sm:p-3.5">
         {isPlannerReady ? (
           <div className="mb-3">
             <p className="text-[12px] font-black text-[#A92B10]">자주 쓰는 조건</p>
@@ -406,7 +471,7 @@ export function PlannerChatInterface({
         
         <form
           onSubmit={submitChatForm}
-          className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[24px] border border-white/70 bg-[#fffffa]/82 p-2 shadow-[0_18px_34px_-28px_rgba(51,39,30,0.22)] max-sm:grid-cols-1 max-sm:rounded-[22px] focus-within:border-[#F36B12]/40 focus-within:bg-white focus-within:shadow-[0_12px_24px_-10px_rgba(243,107,18,0.25)] focus-within:ring-2 focus-within:ring-[#F36B12]/10 transition-all duration-200 backdrop-blur-sm"
+          className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[24px] border border-white/70 bg-[#fffffa]/82 p-2 shadow-[0_18px_34px_-28px_rgba(51,39,30,0.22)] max-sm:gap-2 max-sm:p-1.5 max-sm:rounded-[20px] focus-within:border-[#F36B12]/40 focus-within:bg-white focus-within:shadow-[0_12px_24px_-10px_rgba(243,107,18,0.25)] focus-within:ring-2 focus-within:ring-[#F36B12]/10 transition-all duration-200 backdrop-blur-sm"
         >
           <input
             aria-label="여행 조건 입력"
@@ -417,14 +482,16 @@ export function PlannerChatInterface({
               hasGuidedPlannerChoices
                 ? isPlannerReady
                   ? '추가로 원하는 조건을 입력해 주세요'
-                  : '동행, 관심사, 걷는 정도를 자연어로 입력해 주세요.'
+                  : '동행자, 관심사, 걷는 정도를 입력해 주세요. ex) 여자친구와 함께, 힐링 여행'
+                : shouldShowFestivalPrompt
+                  ? '축제 포함 여부를 먼저 선택해 주세요'
                 : shouldShowTravelMonthPrompt
                   ? '여행 예정 월을 먼저 선택해 주세요'
                 : shouldAskFestivalTheme
-                  ? '축제 포함 여부와 여행 기간을 먼저 선택해 주세요'
+                  ? '여행 기간, 여행 월, 축제 포함 여부를 먼저 선택해 주세요'
                   : '여행 기간을 먼저 선택해 주세요'
             }
-            className="min-h-12 min-w-0 rounded-[18px] border-0 bg-transparent px-4 py-2 break-keep text-sm leading-5 text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-65 transition-all focus:bg-transparent max-sm:text-[13px]"
+            className="min-h-12 min-w-0 rounded-[18px] border-0 bg-transparent px-4 py-2 break-keep text-sm leading-5 text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-65 transition-all focus:bg-transparent max-sm:px-2 max-sm:text-[13px] max-sm:placeholder:text-[12px]"
           />
           <button
             type="submit"

@@ -4,6 +4,7 @@ import type { SocialAuthProvider } from '../../shared/types/app'
 import type { AuthExceptionNotice } from './authException'
 import { authServiceBullets } from './authModel'
 import { useUiToggleStore } from '../../shared/store/uiToggleStore'
+import { FileText, Mail, ShieldCheck } from 'lucide-react'
 
 type AuthViewProps = {
   authExceptionNotice?: AuthExceptionNotice | null
@@ -463,22 +464,28 @@ export function AuthView({
           </div>
         </section>
 
-        {/* Footer - use div to prevent unwanted contentinfo role mapping */}
-        <div className="lovv-landing-footer py-12 px-6 border-t border-[#E8E4DC]" role="none">
-          <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="font-display text-2xl font-bold text-[#FF6B1A]">Lovv</span>
+        {/* Keep the auth footer non-semantic so the closed app shell stays out of route-level footer queries. */}
+        <div className="lovv-landing-footer mx-auto w-full max-w-[1440px] px-16 pb-12 pt-4 max-lg:px-8 max-sm:px-5" role="none">
+          <div className="grid gap-6 rounded-[24px] border border-white/70 bg-white/20 px-8 py-6 shadow-[0_22px_56px_-32px_rgba(51,39,30,0.15)] backdrop-blur-xl md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-black tracking-wider text-[#33271E]">Lovv</span>
+              </div>
+              <p className="mt-2.5 break-keep text-[11px] font-semibold leading-5 text-[#33271E]/60">
+                © 2026 Lovv. All rights reserved. 소도시 여행의 낭만을 전달합니다.
+              </p>
             </div>
-            {/* Legal Notice Buttons - use <a> links with e.preventDefault() to avoid multiple buttons with same name */}
-            <div className="flex gap-8 text-sm text-[#6B7280] font-bold">
+            {/* Anchors avoid duplicate button names while the login modal is open. */}
+            <div className="flex flex-wrap gap-x-6 gap-y-3 text-xs font-bold text-[#33271E]/90">
               <a
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
                   onOpenLegalNotice?.('terms')
                 }}
-                className="hover:text-[#FF6B1A] transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33271E]"
               >
+                <FileText className="size-3.5 text-[#33271E]/50" />
                 이용약관
               </a>
               <a
@@ -487,8 +494,9 @@ export function AuthView({
                   e.preventDefault()
                   onOpenLegalNotice?.('privacy')
                 }}
-                className="hover:text-[#FF6B1A] transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33271E]"
               >
+                <ShieldCheck className="size-3.5 text-[#33271E]/50" />
                 개인정보처리방침
               </a>
               <a
@@ -497,12 +505,12 @@ export function AuthView({
                   e.preventDefault()
                   onOpenLegalNotice?.('contact')
                 }}
-                className="hover:text-[#FF6B1A] transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-[#F36B12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33271E]"
               >
+                <Mail className="size-3.5 text-[#33271E]/50" />
                 문의하기
               </a>
             </div>
-            <p className="text-xs text-[#6B7280]">© 2026 Lovv. All rights reserved.</p>
           </div>
         </div>
       </div>

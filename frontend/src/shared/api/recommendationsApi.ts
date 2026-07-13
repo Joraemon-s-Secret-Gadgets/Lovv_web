@@ -22,36 +22,84 @@ export type RecommendationThemeLabel =
 export type RecommendationCreateRequestPayload = {
   entryType: 'create'
   requestId: string
+  sessionId?: string
   rawQuery: string
   country: 'KR' | 'JP'
   travelMonth: number
   travelYear: number
   tripType: 'daytrip' | '2d1n' | '3d2n' | '4d3n' | '5d4n'
+  themes: ThemeId[]
   activeRequiredThemes: RecommendationThemeLabel[]
   includeFestivals: boolean
   destinationId: string | null
   executionMode: 'city_discovery' | 'anchored_place_search'
   userLocation: null
   softPreferenceQuery?: string
+  onboardingProfile?: {
+    themes: ThemeId[]
+    selectedThemeIds?: ThemeId[]
+  }
+  feedbackHistory?: Array<Record<string, unknown>>
 }
 
 export type RecommendationClarificationRequestPayload = {
   entryType: 'clarify'
   threadId: string
+  sessionId?: string
   recommendationId?: string
   selectedOptionId?: string
   rawQuery?: string
+  naturalLanguageQuery?: string
+}
+
+export type RecommendationCurrentOrderItem = {
+  itemId: string
+  contentId: string
+  itemType: 'attraction' | 'festival' | string
+  day: number
+  order: number
+  title: string
+  isSeed?: boolean
+  cityId?: string
+  theme?: string
+  latitude?: number | null
+  longitude?: number | null
+  indoorOutdoor?: string
+}
+
+export type RecommendationModifyRequestPayload = {
+  entryType: 'modify'
+  requestId?: string
+  sessionId: string
+  threadId: string
+  recommendationId?: string
+  actorId?: string
+  itineraryRevision?: string
+  destinationId?: string
+  country?: RecommendationCreateRequestPayload['country']
+  travelMonth?: number
+  travelYear?: number
+  tripType?: RecommendationCreateRequestPayload['tripType']
+  themes?: ThemeId[]
+  activeRequiredThemes?: RecommendationThemeLabel[]
+  includeFestivals?: boolean
+  onboardingProfile?: RecommendationCreateRequestPayload['onboardingProfile']
+  feedbackHistory?: RecommendationCreateRequestPayload['feedbackHistory']
+  rawModifyQuery: string
+  currentOrder: RecommendationCurrentOrderItem[]
 }
 
 export type RecommendationRequestPayload =
   | RecommendationCreateRequestPayload
   | RecommendationClarificationRequestPayload
+  | RecommendationModifyRequestPayload
 
 export type RecommendationClarificationOption = {
   optionId?: string
   label?: string
   title?: string
   description?: string
+  helperText?: string | null
   apply?: unknown
   then?: unknown
 }
@@ -62,6 +110,21 @@ export type RecommendationClarification = {
   question?: string
   message?: string
   options?: RecommendationClarificationOption[]
+}
+
+export type RecommendationExplainability = {
+  matchedConditions?: string[]
+  unsupportedConditions?: string[]
+  recommendationReasons?: string[]
+  itineraryFlowReason?: string
+  confidence?: number | string
+  userNotice?: string | string[]
+}
+
+export type RecommendationLinks = {
+  map?: string
+  staySearch?: string
+  [key: string]: string | undefined
 }
 
 export type RecommendationItinerary = {
@@ -77,11 +140,18 @@ export type RecommendationItinerary = {
     items: Array<{
       itemId: string
       contentId?: string
+      itemType?: 'attraction' | 'festival' | string
+      day?: number
+      order?: number
       sortOrder: number
       timeOfDay: 'morning' | 'afternoon' | 'evening' | string
       title: string
       body: string
       reason: string
+      isSeed?: boolean
+      cityId?: string
+      theme?: string
+      indoorOutdoor?: string
       moveMinutes: number
       moveDurationSeconds?: number | null
       moveDistanceMeters?: number | null
@@ -91,6 +161,56 @@ export type RecommendationItinerary = {
       image_url?: string | null
     }>
   }>
+}
+
+const SEQUENTIAL_TIME_LABELS = ['아침', '점심', '저녁'] as const
+
+const normalizeItineraryTimeLabel = (timeOfDay?: string): PlanStop['time'] => {
+  const normalized = timeOfDay?.trim().toLowerCase()
+
+  if (
+    normalized === 'morning' ||
+    normalized === 'breakfast' ||
+    normalized === 'am' ||
+    normalized === '아침' ||
+    normalized === '오전'
+  ) {
+    return '아침'
+  }
+
+  if (
+    normalized === 'afternoon' ||
+    normalized === 'lunch' ||
+    normalized === 'noon' ||
+    normalized === 'midday' ||
+    normalized === 'pm' ||
+    normalized === '점심' ||
+    normalized === '오후'
+  ) {
+    return '점심'
+  }
+
+  if (
+    normalized === 'evening' ||
+    normalized === 'dinner' ||
+    normalized === 'night' ||
+    normalized === '저녁' ||
+    normalized === '밤'
+  ) {
+    return '저녁'
+  }
+
+  return '아침'
+}
+
+const shouldUseSequentialTimeLabels = (items: RecommendationItinerary['days'][0]['items']) => {
+  if (items.length < SEQUENTIAL_TIME_LABELS.length) {
+    return false
+  }
+
+  return items
+    .slice(0, SEQUENTIAL_TIME_LABELS.length)
+    .some((item, index) => normalizeItineraryTimeLabel(item.timeOfDay) !== SEQUENTIAL_TIME_LABELS[index])
 }
 
 export type RecommendationApiResponse = {
@@ -114,8 +234,64 @@ export type RecommendationApiResponse = {
     confidence?: number | string
     recommendationReasons?: string[]
   }
+  explainability?: RecommendationExplainability
+  links?: RecommendationLinks
+  festivalDateVerifications?: unknown
+  alternativeItinerary?: unknown
+  expiresAt?: string
   clarification?: RecommendationClarification
   itinerary?: RecommendationItinerary
+}
+
+const isRecommendationItineraryLike = (value: unknown): value is RecommendationItinerary => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const record = value as Partial<RecommendationItinerary>
+
+  return Array.isArray(record.days)
+}
+
+const resolveMappableItinerary = (
+  apiResponse: RecommendationApiResponse,
+  preferAlternativeItinerary = false,
+): RecommendationItinerary | undefined => {
+  if (
+    preferAlternativeItinerary &&
+    isRecommendationItineraryLike(apiResponse.alternativeItinerary) &&
+    apiResponse.alternativeItinerary.days.length > 0
+  ) {
+    const alternative = apiResponse.alternativeItinerary
+    const original = apiResponse.itinerary
+
+    return {
+      tripType: alternative.tripType || original?.tripType || 'daytrip',
+      title: alternative.title || original?.title || '날씨 대체 일정',
+      summary: alternative.summary || original?.summary || '날씨 영향을 줄인 대체 일정입니다.',
+      durationLabel: alternative.durationLabel || original?.durationLabel || '당일치기',
+      days: alternative.days,
+    }
+  }
+
+  if (isRecommendationItineraryLike(apiResponse.itinerary) && apiResponse.itinerary.days.length > 0) {
+    return apiResponse.itinerary
+  }
+
+  if (isRecommendationItineraryLike(apiResponse.alternativeItinerary) && apiResponse.alternativeItinerary.days.length > 0) {
+    const alternative = apiResponse.alternativeItinerary
+    const original = apiResponse.itinerary
+
+    return {
+      tripType: alternative.tripType || original?.tripType || 'daytrip',
+      title: alternative.title || original?.title || '날씨 대체 일정',
+      summary: alternative.summary || original?.summary || '날씨 영향을 줄인 대체 일정입니다.',
+      durationLabel: alternative.durationLabel || original?.durationLabel || '당일치기',
+      days: alternative.days,
+    }
+  }
+
+  return apiResponse.itinerary
 }
 
 export type PopularDestinationApiItem = {
@@ -156,6 +332,23 @@ type RecommendationsApiRequestOptions = {
   baseUrl?: string
   accessToken?: string | null
   fetchImpl?: RecommendationsApiFetch
+  retryDelayMs?: number
+}
+
+export class RecommendationApiRequestError extends Error {
+  readonly status: number
+  readonly code: string
+
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'RecommendationApiRequestError'
+    this.status = status
+    this.code = code
+  }
 }
 
 const defaultRecommendationCreateApiBaseUrl =
@@ -192,6 +385,42 @@ const createRecommendationsHeaders = (
   return headers
 }
 
+const createRecommendationApiRequestError = async (response: Response) => {
+  let code = 'RECOMMENDATION_REQUEST_FAILED'
+  let message = `Recommendation API request failed with status ${response.status}`
+
+  try {
+    const body = await response.json()
+
+    if (body && typeof body === 'object') {
+      const record = body as Record<string, unknown>
+      const nestedError = record.error && typeof record.error === 'object'
+        ? record.error as Record<string, unknown>
+        : null
+
+      if (typeof record.code === 'string' && record.code.trim()) {
+        code = record.code.trim()
+      }
+      if (typeof record.message === 'string' && record.message.trim()) {
+        message = record.message.trim()
+      }
+      if (typeof record.error === 'string' && record.error.trim()) {
+        message = record.error.trim()
+      }
+      if (typeof nestedError?.code === 'string' && nestedError.code.trim()) {
+        code = nestedError.code.trim()
+      }
+      if (typeof nestedError?.message === 'string' && nestedError.message.trim()) {
+        message = nestedError.message.trim()
+      }
+    }
+  } catch {
+    // Keep the status-based fallback when the backend returns a non-JSON error body.
+  }
+
+  return new RecommendationApiRequestError(response.status, code, message)
+}
+
 export const requestCreateRecommendation = async (
   payload: RecommendationRequestPayload,
   baseUrlOrOptions?: string | RecommendationsApiRequestOptions,
@@ -203,15 +432,26 @@ export const requestCreateRecommendation = async (
     options.baseUrl ?? defaultRecommendationCreateApiBaseUrl,
   )
 
-  const response = await fetchImpl(url, {
+  const requestInit: RequestInit = {
     method: 'POST',
     headers: createRecommendationsHeaders(options, true),
     body: JSON.stringify(payload),
     credentials: 'include',
-  })
+  }
+  let response = await fetchImpl(url, requestInit)
+
+  if (payload.entryType === 'create' && !response.ok && [502, 503, 504].includes(response.status)) {
+    const retryDelayMs = options.retryDelayMs ?? 1_000
+
+    if (retryDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+    }
+
+    response = await fetchImpl(url, requestInit)
+  }
 
   if (!response.ok) {
-    throw new Error(`Recommendation API request failed with status ${response.status}`)
+    throw await createRecommendationApiRequestError(response)
   }
 
   return response.json()
@@ -266,38 +506,51 @@ export const requestListReactionCities = async (
   }
 }
 
-export const mapRecommendationToDraft = (apiResponse: RecommendationApiResponse): PlanDraft => {
-  const { itinerary, explanations } = apiResponse
+export const mapRecommendationToDraft = (
+  apiResponse: RecommendationApiResponse,
+  options: { preferAlternativeItinerary?: boolean } = {},
+): PlanDraft => {
+  const { explainability, explanations } = apiResponse
+  const itinerary = resolveMappableItinerary(apiResponse, options.preferAlternativeItinerary)
 
   if (!itinerary) {
     throw new Error('Recommendation API response is missing itinerary')
   }
 
-  const rawNotice = explanations?.userNotice
+  const rawNotice = explainability?.userNotice ?? explanations?.userNotice
   const userNotice: string[] = Array.isArray(rawNotice)
     ? rawNotice
     : rawNotice
       ? [rawNotice]
       : []
+  const recommendationReasons =
+    explainability?.recommendationReasons ?? explanations?.recommendationReasons
+  const confidence = explainability?.confidence ?? explanations?.confidence
 
   const days: PlanDay[] = (itinerary?.days || []).map((d) => {
-    const stops: PlanStop[] = (d.items || []).map((item) => {
-      let time: '아침' | '점심' | '저녁' = '아침'
-      if (item.timeOfDay === 'morning' || item.timeOfDay === '아침') {
-        time = '아침'
-      } else if (item.timeOfDay === 'afternoon' || item.timeOfDay === '점심') {
-        time = '점심'
-      } else if (item.timeOfDay === 'evening' || item.timeOfDay === '저녁') {
-        time = '저녁'
-      }
+    const items = d.items || []
+    const useSequentialTimeLabels = shouldUseSequentialTimeLabels(items)
+    const stops: PlanStop[] = items.map((item, index) => {
+      const time =
+        useSequentialTimeLabels && index < SEQUENTIAL_TIME_LABELS.length
+          ? SEQUENTIAL_TIME_LABELS[index]
+          : normalizeItineraryTimeLabel(item.timeOfDay)
 
       return {
+        itemId: item.itemId || undefined,
+        itemType: item.itemType || undefined,
+        day: item.day ?? d.day,
+        order: item.order ?? item.sortOrder ?? undefined,
         time,
         move: `${item.moveMinutes || 0}분`,
         title: item.title || '',
         body: item.body || '',
         reason: item.reason || '',
         contentId: item.contentId ?? undefined,
+        isSeed: item.isSeed ?? undefined,
+        cityId: item.cityId ?? apiResponse.destination?.cityId ?? apiResponse.destination?.destinationId ?? undefined,
+        theme: item.theme ?? undefined,
+        indoorOutdoor: item.indoorOutdoor ?? undefined,
         imageUrl: item.imageUrl?.trim() || item.image_url?.trim() || undefined,
         latitude: item.latitude ?? undefined,
         longitude: item.longitude ?? undefined,
@@ -349,5 +602,37 @@ export const mapRecommendationToDraft = (apiResponse: RecommendationApiResponse)
     days,
     stops,
     userNotice: userNotice.length > 0 ? userNotice : undefined,
+    recommendationReasons:
+      Array.isArray(recommendationReasons) && recommendationReasons.length > 0
+        ? recommendationReasons
+        : undefined,
+    confidence,
+    links: apiResponse.links,
+    festivalDateVerifications: apiResponse.festivalDateVerifications,
+    alternativeItinerary: apiResponse.alternativeItinerary,
   }
 }
+
+export const mapDraftToRecommendationCurrentOrder = (draft: PlanDraft): RecommendationCurrentOrderItem[] =>
+  draft.days.flatMap((day) =>
+    day.stops
+      .map((stop, index) => {
+        const fallbackId = `day-${day.day}-order-${index + 1}-${stop.title.trim().replace(/\s+/g, '-')}`
+
+        return {
+          itemId: stop.itemId || stop.contentId || fallbackId,
+          contentId: stop.contentId || stop.itemId || fallbackId,
+          itemType: stop.itemType || (stop.source === 'wishlist' ? 'restaurant' : 'attraction'),
+          day: stop.day ?? day.day,
+          order: index + 1,
+          title: stop.title,
+          isSeed: stop.isSeed,
+          cityId: stop.cityId,
+          theme: stop.theme,
+          latitude: stop.latitude ?? null,
+          longitude: stop.longitude ?? null,
+          indoorOutdoor: stop.indoorOutdoor,
+        }
+      })
+      .filter((item) => item.title),
+  )

@@ -21,7 +21,9 @@ const renderChat = (
     chatMessages: [],
     shouldShowFestivalPrompt: false,
     festivalThemeChoice: 'undecided',
+    selectedDurationLabel: null,
     submitChatMessage: vi.fn(),
+    submitGuidedPlannerChoices: vi.fn(),
     shouldShowDurationPrompt: false,
     shouldShowTravelMonthPrompt: false,
     selectedTravelMonth: null,
@@ -45,6 +47,32 @@ const renderChat = (
 }
 
 describe('PlannerChatInterface clarification options', () => {
+  it('continues guided planning without a festival choice when the destination has no festival prompt', () => {
+    const submitGuidedPlannerChoices = vi.fn()
+
+    renderChat({
+      shouldAskFestivalTheme: false,
+      shouldShowDurationPrompt: true,
+      hasGuidedPlannerChoices: false,
+      submitGuidedPlannerChoices,
+    })
+
+    expect(screen.getByText('여행 기간과 희망 월을 한 번에 골라주세요.')).toBeInTheDocument()
+    expect(screen.queryByText('축제 포함 여부')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '축제 포함' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '1박 2일' }))
+    expect(submitGuidedPlannerChoices).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '6월' }))
+
+    expect(submitGuidedPlannerChoices).toHaveBeenCalledWith({
+      durationLabel: '1박 2일',
+      travelMonth: 6,
+      festivalChoice: 'exclude',
+    })
+  })
+
   it('renders server clarification options as buttons and returns the selected option id', async () => {
     const onSelectClarificationOption = vi.fn()
     const chatMessages: ChatMessage[] = [
@@ -61,7 +89,9 @@ describe('PlannerChatInterface clarification options', () => {
             {
               optionId: 'continue_without_festival',
               label: '축제 없이 계속하기',
-              description: '동선을 먼저 안정적으로 구성합니다.',
+              helperText: '동선을 먼저 안정적으로 구성합니다.',
+              apply: { includeFestivals: false },
+              then: 'rerun_discovery',
             },
             {
               optionId: 'include_festival',
@@ -75,6 +105,7 @@ describe('PlannerChatInterface clarification options', () => {
     renderChat({ chatMessages, onSelectClarificationOption })
 
     expect(screen.getByText('축제를 일정에 포함할까요?')).toBeInTheDocument()
+    expect(screen.getByText('동선을 먼저 안정적으로 구성합니다.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /축제 없이 계속하기/ }))
 
     expect(onSelectClarificationOption).toHaveBeenCalledWith(

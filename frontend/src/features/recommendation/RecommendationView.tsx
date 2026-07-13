@@ -163,11 +163,11 @@ export function RecommendationView({ onOpenDestinationOnMap }: RecommendationVie
           <span>POPULAR AREAS</span>
         </div>
         <h1 className="break-keep text-4xl font-black tracking-tight text-[#33271E] max-sm:text-3xl">
-          여행자들이 가장 많이 반응한 지역입니다
+           Lovv 인기 일정
         </h1>
         <p className="mx-auto mt-3 max-w-[680px] break-keep text-sm font-semibold leading-6 text-[#7A5A45] max-sm:text-xs">
-          저장 일정에 남겨진 반응을 지역별로 합산해 인기 흐름을 보여줍니다.
-          개인 피드백은 다음 일정 생성에 반영되고, 이 화면은 전체 랭킹만 공개합니다.
+          저장 일정에 남겨진 반응을 지역별로 합산한 인기 랭킹
+         
         </p>
       </div>
 

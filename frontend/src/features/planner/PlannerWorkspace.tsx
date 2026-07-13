@@ -45,7 +45,13 @@ type PlannerWorkspaceProps = {
   chatMessages: ChatMessage[]
   shouldShowFestivalPrompt: boolean
   festivalThemeChoice: FestivalThemeChoice
+  selectedDurationLabel: string | null
   submitChatMessage: (message: string) => void
+  submitGuidedPlannerChoices: (choices: {
+    durationLabel: string
+    travelMonth: number
+    festivalChoice: Exclude<FestivalThemeChoice, 'undecided'>
+  }) => void
   shouldShowDurationPrompt: boolean
   shouldShowTravelMonthPrompt: boolean
   isPlannerReady: boolean
@@ -85,7 +91,9 @@ export function PlannerWorkspace({
   chatMessages,
   shouldShowFestivalPrompt,
   festivalThemeChoice,
+  selectedDurationLabel,
   submitChatMessage,
+  submitGuidedPlannerChoices,
   shouldShowDurationPrompt,
   shouldShowTravelMonthPrompt,
   isPlannerReady,
@@ -144,18 +152,20 @@ export function PlannerWorkspace({
     <section
       aria-label="Planner State"
       data-testid="chat-planner-summary"
-      className="min-w-0 rounded-[18px] border border-white/60 bg-[#fffffa]/40 p-6 shadow-[0_18px_42px_-28px_rgba(51,39,30,0.15)] backdrop-blur-2xl"
+      className="min-w-0 rounded-[18px] border border-white/60 bg-[#fffffa]/42 px-5 py-4 shadow-[0_14px_34px_-30px_rgba(51,39,30,0.14)] backdrop-blur-2xl"
     >
-      <div className="grid grid-cols-[minmax(220px,0.8fr)_minmax(0,1.45fr)_minmax(220px,0.7fr)] items-start gap-5 max-xl:grid-cols-1">
-        <div>
-          <p className="text-sm font-semibold text-[#33271E]">Lovv AI Planner</p>
+      <div className="grid grid-cols-[minmax(180px,0.62fr)_minmax(0,1.75fr)] items-center gap-5 max-xl:grid-cols-1">
+        <div className="min-w-0">
+          <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
+            Lovv AI Planner
+          </p>
           <h2
             id="chat-title"
-            className="mt-3 break-keep text-[28px] font-black leading-9 text-[#33271E] max-sm:text-2xl max-sm:leading-8"
+            className="mt-2 break-keep text-[26px] font-black leading-8 text-[#33271E] max-sm:text-2xl max-sm:leading-8"
           >
             일정 생성하기
           </h2>
-          <p className="mt-4 break-keep text-sm leading-6 text-[#33271E]">
+          <p className="sr-only">
             {plannerCityContext
               ? shouldAskFestivalTheme
                 ? `${plannerCityContext.cityName} 상세 정보를 기준으로 축제 포함 여부와 여행 기간을 먼저 정리합니다.`
@@ -164,55 +174,67 @@ export function PlannerWorkspace({
           </p>
         </div>
 
-        <ol aria-label="AI 일정 진행 상태" className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
+        <ol
+          aria-label="AI 일정 진행 상태"
+          className="relative grid grid-cols-3 gap-3 max-md:flex max-md:overflow-x-auto max-md:snap-x max-md:snap-mandatory max-md:pb-2 scroll-smooth"
+        >
           {plannerStateSteps.map((step, index) => (
             <li
               key={step.id}
-              className={`min-w-0 rounded-[14px] border px-4 py-3 ${getPlannerStepClassName(step.status, getStepTone(index))}`}
+              className={`relative min-w-0 rounded-[12px] border px-3 py-2.5 max-md:w-[220px] max-md:shrink-0 max-md:snap-center ${getPlannerStepClassName(step.status, getStepTone(index))}`}
             >
-              <div className="flex items-start gap-3">
+              {index > 0 ? (
                 <span
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/55 text-[12px] font-black"
+                  aria-hidden="true"
+                  className="absolute -left-3 top-5 h-px w-3 bg-[#F3B489]/70 max-md:hidden"
+                />
+              ) : null}
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`flex size-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-black ${
+                    step.status === 'completed'
+                      ? 'border-[#F36B12] bg-[#F36B12] text-[#33271E]'
+                      : step.status === 'active'
+                        ? 'border-[#F36B12] bg-[#fffffa] text-[#A92B10]'
+                        : 'border-white/70 bg-white/50 text-[#6E5A50]'
+                  }`}
                   aria-hidden="true"
                 >
                   {index + 1}
                 </span>
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="break-keep text-sm font-black leading-5">{step.label}</h3>
-                    <span className="rounded-[5px] bg-white/45 px-2 py-0.5 text-[11px] font-black leading-4">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h3 className="truncate text-sm font-black leading-5">{step.label}</h3>
+                    <span className="shrink-0 rounded-[5px] bg-white/48 px-2 py-0.5 text-[10px] font-black leading-4">
                       {step.statusLabel}
                     </span>
                   </div>
-                  <p className="mt-2 line-clamp-2 break-keep text-[12px] font-semibold leading-5">
-                    {step.body}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {step.chips.slice(0, 3).map((chip) => (
+                  {step.status === 'active' && step.body ? (
+                    <p className="mt-1 line-clamp-1 break-keep text-[11px] font-semibold leading-4">
+                      {step.body}
+                    </p>
+                  ) : step.body ? (
+                    <span className="sr-only">{step.body}</span>
+                  ) : null}
+                  {step.status === 'active' && step.chips.length > 0 ? (
+                    <div className="mt-1.5 flex min-w-0 gap-1 overflow-hidden">
+                    {step.chips.slice(0, 2).map((chip) => (
                       <span
                         key={`${step.id}-${chip}`}
-                        className="inline-flex min-h-7 items-center rounded-[5px] bg-white/52 px-2.5 py-0.5 text-[11px] font-black leading-4"
+                        className="inline-flex min-h-6 max-w-[92px] shrink-0 items-center truncate rounded-[5px] bg-white/52 px-2 py-0.5 text-[10px] font-black leading-4"
                       >
                         {chip}
                       </span>
                     ))}
-                  </div>
+                    </div>
+                  ) : step.chips.length > 0 ? (
+                    <span className="sr-only">{step.chips.join(' ')}</span>
+                  ) : null}
                 </div>
               </div>
             </li>
           ))}
         </ol>
-
-        <div className="rounded-[14px] border border-white/40 bg-[#FFF8F6]/75 p-5 shadow-[0_14px_30px_-28px_rgba(51,39,30,0.1)] backdrop-blur-sm">
-          <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#A92B10]">AI Tip</p>
-          <p className="mt-3 break-keep text-sm font-semibold leading-6 text-[#33271E]">
-            {plannerCityContext
-              ? shouldAskFestivalTheme
-                ? `${plannerCityContext.cityName}의 첫 동선 단서를 유지한 채 기간과 축제 조건만 좁힙니다.`
-                : `${plannerCityContext.cityName}의 첫 동선 단서를 유지한 채 여행 기간만 좁힙니다.`
-              : '취향, 기간, 축제 포함 여부를 먼저 정리하면 일정 초안의 이동 강도와 추천 이유가 더 분명해집니다.'}
-          </p>
-        </div>
       </div>
     </section>
   )
@@ -234,14 +256,16 @@ export function PlannerWorkspace({
         {renderPlannerStateHeader()}
         <div
           data-testid="chat-top-grid"
-          className="grid min-h-[680px] grid-cols-[minmax(0,1.6fr)_minmax(360px,0.74fr)] items-stretch gap-6 xl:h-[min(760px,calc(100dvh-9rem))] max-xl:grid-cols-1"
+          className="grid min-h-[680px] grid-cols-[minmax(0,1.6fr)_minmax(360px,0.74fr)] items-stretch gap-6 xl:h-[min(760px,calc(100dvh-9rem))] max-xl:grid-cols-1 max-xl:h-auto"
         >
           <PlannerChatInterface
             chatScrollRef={chatScrollRef}
             chatMessages={chatMessages}
             shouldShowFestivalPrompt={shouldShowFestivalPrompt}
             festivalThemeChoice={festivalThemeChoice}
+            selectedDurationLabel={selectedDurationLabel}
             submitChatMessage={submitChatMessage}
+            submitGuidedPlannerChoices={submitGuidedPlannerChoices}
             shouldShowDurationPrompt={shouldShowDurationPrompt}
             shouldShowTravelMonthPrompt={shouldShowTravelMonthPrompt}
             selectedTravelMonth={selectedTravelMonth}

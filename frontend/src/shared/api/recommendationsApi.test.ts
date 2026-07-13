@@ -1,5 +1,7 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
+  RecommendationApiRequestError,
+  mapDraftToRecommendationCurrentOrder,
   mapRecommendationToDraft,
   requestCreateRecommendation,
   requestListPopularDestinations,
@@ -7,6 +9,7 @@ import {
 } from './recommendationsApi'
 import type {
   RecommendationApiResponse,
+  RecommendationCreateRequestPayload,
   RecommendationItinerary,
   RecommendationRequestPayload,
 } from './recommendationsApi'
@@ -67,6 +70,7 @@ describe('requestCreateRecommendation', () => {
       travelMonth: 7,
       travelYear: 2026,
       tripType: '2d1n' as const,
+      themes: ['sea_coast'],
       activeRequiredThemes: ['바다·해안'],
       includeFestivals: false,
       destinationId: 'KR-42-830',
@@ -110,6 +114,7 @@ describe('requestCreateRecommendation', () => {
         travelMonth: 7,
         travelYear: 2026,
         tripType: 'daytrip',
+        themes: ['nature_trekking'],
         activeRequiredThemes: ['자연·트레킹'],
         includeFestivals: false,
         destinationId: null,
@@ -127,6 +132,126 @@ describe('requestCreateRecommendation', () => {
         }),
       }),
     )
+  })
+
+  it('preserves recommendation API error status and code', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => ({
+        code: 'AGENTCORE_UNAVAILABLE',
+        message: 'Recommendation generation is temporarily unavailable',
+      }),
+    })
+
+    await expect(
+      requestCreateRecommendation(
+        {
+          entryType: 'modify',
+          requestId: 'req-modify-001',
+          sessionId: 'session-001',
+          threadId: 'thread-001',
+          rawModifyQuery: '1일차 아침 일정 바꿔줘',
+          currentOrder: [],
+        },
+        { fetchImpl, retryDelayMs: 0 },
+      ),
+    ).rejects.toMatchObject({
+      name: 'RecommendationApiRequestError',
+      status: 502,
+      code: 'AGENTCORE_UNAVAILABLE',
+      message: 'Recommendation generation is temporarily unavailable',
+    })
+
+    await expect(
+      requestCreateRecommendation(
+        {
+          entryType: 'modify',
+          requestId: 'req-modify-002',
+          sessionId: 'session-001',
+          threadId: 'thread-001',
+          rawModifyQuery: '1일차 아침 일정 바꿔줘',
+          currentOrder: [],
+        },
+        { fetchImpl, retryDelayMs: 0 },
+      ),
+    ).rejects.toBeInstanceOf(RecommendationApiRequestError)
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries a transient AgentCore failure once with the same session payload', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: async () => ({ code: 'AGENTCORE_UNAVAILABLE' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => makeResponse([makeDay(1, [makeItem()])]),
+      })
+    const payload: RecommendationCreateRequestPayload = {
+      entryType: 'create',
+      requestId: 'req-retry-001',
+      sessionId: 'session-stable-retry-001',
+      rawQuery: '바다 일정',
+      country: 'KR',
+      travelMonth: 7,
+      travelYear: 2026,
+      tripType: 'daytrip',
+      themes: ['sea_coast'],
+      activeRequiredThemes: ['바다·해안'],
+      includeFestivals: false,
+      destinationId: null,
+      executionMode: 'city_discovery',
+      userLocation: null,
+    }
+
+    await requestCreateRecommendation(payload, { fetchImpl, retryDelayMs: 0 })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(fetchImpl.mock.calls[0]).toEqual(fetchImpl.mock.calls[1])
+    expect(fetchImpl.mock.calls[1]?.[1]?.body).toBe(JSON.stringify(payload))
+  })
+
+  it('reads the backend nested error envelope', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'themes is required',
+        },
+      }),
+    })
+
+    await expect(
+      requestCreateRecommendation(
+        {
+          entryType: 'create',
+          requestId: 'req-invalid-001',
+          rawQuery: '양양 당일치기',
+          country: 'KR',
+          travelMonth: 7,
+          travelYear: 2026,
+          tripType: 'daytrip',
+          themes: ['sea_coast'],
+          activeRequiredThemes: ['바다·해안'],
+          includeFestivals: false,
+          destinationId: null,
+          executionMode: 'city_discovery',
+          userLocation: null,
+        },
+        { fetchImpl },
+      ),
+    ).rejects.toMatchObject({
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      message: 'themes is required',
+    })
   })
 
   it('sends clarification option answers without rewriting the server option id', async () => {
@@ -164,6 +289,110 @@ describe('requestCreateRecommendation', () => {
       }),
     )
   })
+
+  it('accepts V2 clarification responses with thread and recommendation ids', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        threadId: 'thread-001',
+        recommendationId: 'rec-001',
+        clarification: {
+          question: '숙박 중심으로 더 좁힐까요?',
+          options: [{
+            optionId: 'stay',
+            label: '숙박 중심',
+            helperText: '숙소 주변 후보를 우선합니다.',
+            apply: { destinationId: null },
+            then: 'anchor',
+          }],
+        },
+      }),
+    })
+
+    const response = await requestCreateRecommendation(
+      {
+        entryType: 'clarify',
+        threadId: 'thread-001',
+        recommendationId: 'rec-001',
+        selectedOptionId: 'stay',
+      },
+      { fetchImpl },
+    )
+
+    expect(response.threadId).toBe('thread-001')
+    expect(response.recommendationId).toBe('rec-001')
+    expect(response.clarification?.question).toBe('숙박 중심으로 더 좁힐까요?')
+    expect(response.clarification?.options?.[0].optionId).toBe('stay')
+    expect(response.clarification?.options?.[0].helperText).toBe('숙소 주변 후보를 우선합니다.')
+    expect(response.clarification?.options?.[0].apply).toEqual({ destinationId: null })
+    expect(response.clarification?.options?.[0].then).toBe('anchor')
+  })
+
+  it('builds V2 modify currentOrder from preserved PlanDraft item metadata', () => {
+    const draft = mapRecommendationToDraft(
+      makeResponse([
+        makeDay(1, [
+          makeItem({
+            itemId: 'item-2',
+            contentId: '2723663',
+            itemType: 'attraction',
+            day: 1,
+            order: 2,
+            title: '묵호항',
+            isSeed: false,
+            cityId: 'KR-32-3',
+            theme: '바다·해안',
+            latitude: 37.5491,
+            longitude: 129.1162,
+            indoorOutdoor: 'outdoor',
+          }),
+        ]),
+      ]),
+    )
+
+    expect(mapDraftToRecommendationCurrentOrder(draft)).toEqual([
+      {
+        itemId: 'item-2',
+        contentId: '2723663',
+        itemType: 'attraction',
+        day: 1,
+        order: 1,
+        title: '묵호항',
+        isSeed: false,
+        cityId: 'KR-32-3',
+        theme: '바다·해안',
+        latitude: 37.5491,
+        longitude: 129.1162,
+        indoorOutdoor: 'outdoor',
+      },
+    ])
+  })
+
+  it('builds currentOrder for local draft stops without backend item ids', () => {
+    const draft = mapRecommendationToDraft(
+      makeResponse([
+        makeDay(1, [
+          makeItem({ itemId: '', contentId: '', title: '점심 후보', timeOfDay: 'lunch' }),
+          makeItem({ itemId: '', contentId: '', title: '저녁 후보', timeOfDay: 'dinner' }),
+        ]),
+      ]),
+    )
+
+    expect(mapDraftToRecommendationCurrentOrder(draft)).toEqual([
+      expect.objectContaining({
+        itemId: 'day-1-order-1-점심-후보',
+        contentId: 'day-1-order-1-점심-후보',
+        order: 1,
+        title: '점심 후보',
+      }),
+      expect.objectContaining({
+        itemId: 'day-1-order-2-저녁-후보',
+        contentId: 'day-1-order-2-저녁-후보',
+        order: 2,
+        title: '저녁 후보',
+      }),
+    ])
+  })
 })
 
 // ── timeOfDay 매핑 ────────────────────────────────────────────────────────────
@@ -200,8 +429,190 @@ describe('mapRecommendationToDraft — timeOfDay 매핑', () => {
   })
 
   it('알 수 없는 timeOfDay → 아침 fallback', () => {
-    const res = makeResponse([makeDay(1, [makeItem({ timeOfDay: 'noon' })])])
+    const res = makeResponse([makeDay(1, [makeItem({ timeOfDay: 'unknown-time' })])])
     expect(mapRecommendationToDraft(res).days[0].stops[0].time).toBe('아침')
+  })
+
+  it('lunch/noon/dinner 같은 V2 별칭을 한국어 시간대로 매핑', () => {
+    const lunch = makeResponse([makeDay(1, [makeItem({ timeOfDay: 'lunch' })])])
+    const noon = makeResponse([makeDay(1, [makeItem({ timeOfDay: 'noon' })])])
+    const dinner = makeResponse([makeDay(1, [makeItem({ timeOfDay: 'dinner' })])])
+
+    expect(mapRecommendationToDraft(lunch).days[0].stops[0].time).toBe('점심')
+    expect(mapRecommendationToDraft(noon).days[0].stops[0].time).toBe('점심')
+    expect(mapRecommendationToDraft(dinner).days[0].stops[0].time).toBe('저녁')
+  })
+
+  it('하루 3개 코스의 중복 시간대는 카드 순서대로 아침/점심/저녁으로 보정', () => {
+    const res = makeResponse([
+      makeDay(1, [
+        makeItem({ timeOfDay: 'lunch', title: '첫 번째 장소' }),
+        makeItem({ timeOfDay: 'lunch', title: '두 번째 장소' }),
+        makeItem({ timeOfDay: 'dinner', title: '세 번째 장소' }),
+      ]),
+    ])
+
+    expect(mapRecommendationToDraft(res).days[0].stops.map((stop) => stop.time)).toEqual([
+      '아침',
+      '점심',
+      '저녁',
+    ])
+  })
+})
+
+describe('mapRecommendationToDraft — AgentCore V2 fields', () => {
+  it('uses V2 explainability before legacy explanations', () => {
+    const draft = mapRecommendationToDraft(
+      makeResponse(
+        [makeDay(1, [makeItem()])],
+        {
+          explainability: {
+            userNotice: 'V2 운영 시간 확인 필요',
+            confidence: 0.87,
+            recommendationReasons: ['역사 테마와 잘 맞습니다.'],
+          },
+          explanations: {
+            userNotice: 'legacy notice',
+            confidence: 'legacy',
+            recommendationReasons: ['legacy reason'],
+          },
+        },
+      ),
+    )
+
+    expect(draft.userNotice).toEqual(['V2 운영 시간 확인 필요'])
+    expect(draft.confidence).toBe(0.87)
+    expect(draft.recommendationReasons).toEqual(['역사 테마와 잘 맞습니다.'])
+  })
+
+  it('preserves V2 links, festival verifications, and alternative itinerary metadata', () => {
+    const alternativeItinerary = { trigger: 'rain', days: [] }
+    const festivalDateVerifications = [{ festivalId: 'festival-1', dateStatus: 'confirmed' }]
+    const links = {
+      map: 'https://maps.example/gyeongju',
+      staySearch: 'https://stay.example/gyeongju',
+    }
+
+    const draft = mapRecommendationToDraft(
+      makeResponse(
+        [makeDay(1, [makeItem()])],
+        {
+          links,
+          festivalDateVerifications,
+          alternativeItinerary,
+        },
+      ),
+    )
+
+    expect(draft.links).toEqual(links)
+    expect(draft.festivalDateVerifications).toEqual(festivalDateVerifications)
+    expect(draft.alternativeItinerary).toEqual(alternativeItinerary)
+  })
+
+  it('uses alternativeItinerary days when the primary itinerary has no days', () => {
+    const draft = mapRecommendationToDraft(
+      makeResponse(
+        [],
+        {
+          alternativeItinerary: {
+            tripType: 'daytrip',
+            title: '비 오는 날 대체 일정',
+            summary: '실내 중심 대체 일정입니다.',
+            durationLabel: '당일치기',
+            days: [
+              makeDay(1, [
+                makeItem({
+                  title: '서귀포 실내 전시관',
+                  body: '비를 피하며 둘러보는 장소',
+                  reason: '날씨 영향을 줄입니다.',
+                }),
+              ]),
+            ],
+          },
+        },
+      ),
+    )
+
+    expect(draft.dayCount).toBe(1)
+    expect(draft.durationLabel).toBe('당일치기')
+    expect(draft.summary).toBe('실내 중심 대체 일정입니다.')
+    expect(draft.days[0].stops[0].title).toBe('서귀포 실내 전시관')
+  })
+
+  it('prefers alternativeItinerary for an explicit weather replacement response', () => {
+    const draft = mapRecommendationToDraft(
+      makeResponse(
+        [makeDay(1, [makeItem({ title: '기존 야외 일정' })])],
+        {
+          alternativeItinerary: {
+            tripType: 'daytrip',
+            title: '비 오는 날 대체 일정',
+            summary: '실내 중심 대체 일정입니다.',
+            durationLabel: '당일치기',
+            days: [
+              makeDay(1, [
+                makeItem({
+                  title: '서귀포 실내 전시관',
+                  body: '비를 피하며 둘러보는 장소',
+                  reason: '날씨 영향을 줄입니다.',
+                }),
+              ]),
+            ],
+          },
+        },
+      ),
+      { preferAlternativeItinerary: true },
+    )
+
+    expect(draft.summary).toBe('실내 중심 대체 일정입니다.')
+    expect(draft.days[0].stops[0].title).toBe('서귀포 실내 전시관')
+  })
+
+  it('preserves V2 itinerary item metadata needed for modify currentOrder', () => {
+    const draft = mapRecommendationToDraft(
+      makeResponse(
+        [
+          makeDay(1, [
+            makeItem({
+              itemId: 'item-2',
+              contentId: '2723663',
+              itemType: 'attraction',
+              day: 1,
+              order: 2,
+              title: '묵호항',
+              isSeed: false,
+              cityId: 'KR-32-3',
+              theme: '바다·해안',
+              latitude: 37.5491,
+              longitude: 129.1162,
+              indoorOutdoor: 'outdoor',
+            }),
+          ]),
+        ],
+        {
+          destination: {
+            destinationId: 'KR-32-3',
+            name: '동해시',
+            country: 'KR',
+          },
+        },
+      ),
+    )
+
+    expect(draft.days[0].stops[0]).toMatchObject({
+      itemId: 'item-2',
+      contentId: '2723663',
+      itemType: 'attraction',
+      day: 1,
+      order: 2,
+      title: '묵호항',
+      isSeed: false,
+      cityId: 'KR-32-3',
+      theme: '바다·해안',
+      latitude: 37.5491,
+      longitude: 129.1162,
+      indoorOutdoor: 'outdoor',
+    })
   })
 })
 

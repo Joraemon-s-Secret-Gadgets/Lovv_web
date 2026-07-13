@@ -182,7 +182,7 @@ export function PlannerTimelineView({
     </section>
   )
 
-  if (isPlannerLoading && hasGuidedPlannerChoices) {
+  if (isPlannerLoading && hasGuidedPlannerChoices && isPlannerReady) {
     return renderSkeletonItineraryPanel()
   }
 
@@ -197,9 +197,12 @@ export function PlannerTimelineView({
           <h3 className="mt-2 break-keep text-2xl font-bold leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7">
             아직 일정이 생성되지 않았어요
           </h3>
-          <p className="mt-4 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
+          <p className="mt-3 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px]">
+            아래 조건을 고르면 일정이 표시됩니다.
+          </p>
+          <p className="sr-only">
             {shouldAskFestivalTheme
-              ? '축제 포함 여부와 여행 기간을 고른 뒤 이번 여행 조건을 입력하면 일정 초안이 여기에 표시됩니다.'
+              ? '여행 기간, 여행 월, 축제 포함 여부를 고른 뒤 이번 여행 조건을 입력하면 일정 초안이 여기에 표시됩니다.'
               : shouldShowTravelMonthPrompt
                 ? '여행 예정 월을 고르면 해당 소도시의 축제 기간과 맞는지 확인해 일정 초안을 표시합니다.'
                 : '여행 기간을 고른 뒤 해당 소도시의 동선 단서를 기준으로 일정 초안이 여기에 표시됩니다.'}
@@ -214,7 +217,7 @@ export function PlannerTimelineView({
                 ? '당일치기부터 2박 3일까지 여행 기간을 선택해 주세요.'
                 : shouldShowTravelMonthPrompt
                   ? '여행 예정 월을 선택해 주세요.'
-                : '동행, 관심사, 걷는 정도를 자연어로 입력해 주세요.'}
+                : '동행자, 관심사, 걷는 정도를 입력해 주세요.'}
           </p>
         </div>
       </section>
@@ -244,17 +247,18 @@ export function PlannerTimelineView({
           </span>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 max-md:grid-cols-1">
+        <div className="mt-4 flex flex-wrap gap-2">
           {[
             plannerCityContext
               ? `${plannerCityContext.cityName} 중심`
               : `${plannerPreferenceLabel} 중심`,
+            planDraft.intensityLabel,
             shouldAskFestivalTheme ? `${planDraft.festivalThemeLabel} 반영` : null,
             `${plannerPreferenceProfile.selectedThemeIds.length}개 테마 반영`,
           ].filter((item): item is string => Boolean(item)).map((item) => (
             <span
               key={item}
-              className="inline-flex min-h-11 min-w-0 items-center rounded-[14px] border border-white/50 bg-[#fffffa]/80 px-4 py-2 break-keep text-sm font-bold leading-5 text-[#33271E] shadow-sm max-sm:text-[13px]"
+              className="inline-flex min-h-8 min-w-0 items-center rounded-full border border-white/50 bg-[#fffffa]/80 px-3 py-1 break-keep text-[12px] font-bold leading-4 text-[#33271E] shadow-sm"
             >
               {item}
             </span>
@@ -274,14 +278,14 @@ export function PlannerTimelineView({
         <h4 className="sr-only break-keep max-sm:text-lg max-sm:leading-6">{currentPlanTitle}</h4>
         <span className="sr-only">총 {planDraft.stops.length}개 코스</span>
 
-        <div className="mt-4 rounded-[18px] border border-white/60 bg-[#FFF8F6]/85 p-4 shadow-[0_14px_28px_-24px_rgba(51,39,30,0.18)] backdrop-blur-sm">
-          <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#A92B10]">
-            핵심 추천 기준
-          </p>
-          <p className="mt-2 line-clamp-3 break-keep text-sm font-semibold leading-6 text-[#33271E] max-sm:text-[13px]">
+        <details className="mt-2 rounded-[14px] border border-white/60 bg-[#FFF8F6]/85 px-4 py-3 shadow-sm backdrop-blur-sm">
+          <summary className="cursor-pointer text-[12px] font-black text-[#A92B10] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]">
+            추천 기준 보기
+          </summary>
+          <p className="mt-2 break-keep text-sm font-semibold leading-6 text-[#33271E] max-sm:text-[13px]">
             {planDraft.summary}
           </p>
-        </div>
+        </details>
 
         <section
           aria-labelledby="generated-plan-summary-title"
@@ -289,12 +293,9 @@ export function PlannerTimelineView({
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#F36B12]">
-                Summary
-              </p>
               <h5
                 id="generated-plan-summary-title"
-                className="mt-2 break-keep text-lg font-black leading-7 text-[#33271E]"
+                className="break-keep text-lg font-black leading-7 text-[#33271E]"
               >
                 일차별 핵심 흐름
               </h5>
@@ -317,9 +318,14 @@ export function PlannerTimelineView({
                   <p className="break-keep text-sm font-black leading-6 text-[#33271E]">
                     {day.title}
                   </p>
-                  <p className="mt-1 line-clamp-2 break-keep text-[13px] font-semibold leading-5 text-[#6E5A50]">
-                    {day.summary}
-                  </p>
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-[12px] font-bold leading-5 text-[#6E5A50] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]">
+                      흐름 보기
+                    </summary>
+                    <p className="mt-1 break-keep text-[13px] font-semibold leading-5 text-[#6E5A50]">
+                      {day.summary}
+                    </p>
+                  </details>
                 </div>
                 <span className="rounded-full border border-white/60 bg-[#fffffa]/80 px-3 py-1 text-[12px] font-bold text-[#33271E] max-sm:col-start-2 max-sm:w-fit shadow-sm">
                   {day.stops.length}개 코스
@@ -335,9 +341,6 @@ export function PlannerTimelineView({
           >
             세부 일정 보기
           </button>
-          <p className="mt-3 break-keep text-center text-[12px] font-bold leading-5 text-[#6E5A50]">
-            시간대별 장소, 이동 시간, 추천 이유는 세부 화면에서 확인할 수 있어요.
-          </p>
         </section>
 
         <div className="sr-only">

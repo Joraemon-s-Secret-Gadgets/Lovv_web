@@ -97,12 +97,12 @@ export function CityMapDiscoverySection({
       aria-labelledby="city-map-discovery-title"
       className="lovv-page-map lovv-map-page mx-auto max-w-[1500px] px-16 pb-16 pt-6 max-lg:px-8 max-sm:px-5"
     >
-      <div className="lovv-map-shell overflow-hidden rounded-[30px] border border-white/70 shadow-[0_28px_72px_-42px_rgba(51,39,30,0.3)] backdrop-blur-2xl">
+      <div className="lovv-map-shell overflow-hidden rounded-[22px] border border-white/70 shadow-[0_24px_60px_-42px_rgba(51,39,30,0.28)] backdrop-blur-2xl">
         <div
           data-testid="city-map-layout-shell"
           className="grid grid-cols-[minmax(0,1.7fr)_minmax(380px,0.82fr)] gap-0 xl:h-[min(900px,calc(100vh-112px))] xl:min-h-[760px] xl:overflow-hidden max-xl:grid-cols-1"
         >
-          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#fffffa]/26 p-7 backdrop-blur-md max-xl:overflow-visible max-sm:p-5">
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#fffffa]/26 p-5 backdrop-blur-md max-xl:overflow-visible max-sm:p-4">
             <CityMapFilters
               cityMapCountry={cityMapCountry}
               cityMapQuery={cityMapQuery}
@@ -117,11 +117,11 @@ export function CityMapDiscoverySection({
               onSetPanelMode={onSetPanelMode}
             />
 
-            <div className="mt-6 flex min-h-0 flex-1 flex-col">
+            <div className="mt-4 flex min-h-0 flex-1 flex-col">
               <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                 <div
                   data-testid="city-map-marker-layer"
-                  className="lovv-city-map-surface relative min-h-[560px] flex-1 overflow-hidden rounded-[28px] border border-white/60 bg-[#fffffa]/40 shadow-[0_22px_58px_-36px_rgba(51,39,30,0.24)] backdrop-blur-sm xl:min-h-0 max-xl:h-[620px] max-sm:h-[440px] max-sm:min-h-[440px]"
+                  className="lovv-city-map-surface relative min-h-[560px] flex-1 overflow-hidden rounded-[20px] border border-white/60 bg-[#fffffa]/40 shadow-[0_18px_48px_-36px_rgba(51,39,30,0.22)] backdrop-blur-sm xl:min-h-0 max-xl:h-[620px] max-sm:h-[440px] max-sm:min-h-[440px]"
                   role="region"
                   aria-label={`${selectedCountryOption.label} 소도시 지도. 현재 조건에 맞는 도시명 마커 ${visibleSmallCityMapMarkers.length}개.`}
                 >
@@ -132,7 +132,7 @@ export function CityMapDiscoverySection({
                     selectedMarkerCityId={selectedSmallCity?.id ?? null}
                     onSelectMarker={onSelectMapMarker}
                   />
-                  <div className="absolute left-5 top-5 z-10 max-w-[360px] rounded-[18px] border border-white/70 bg-white/86 px-4 py-3 text-[12px] font-black text-[#33271E] shadow-[0_16px_32px_-24px_rgba(51,39,30,0.22)] backdrop-blur-md">
+                  <div className="absolute left-4 top-4 z-10 max-w-[280px] rounded-[12px] border border-white/70 bg-white/86 px-3 py-2 text-[11px] font-black text-[#33271E] shadow-[0_12px_24px_-20px_rgba(51,39,30,0.2)] backdrop-blur-md">
                     <p>{selectedCountryOption.description}</p>
                     <p className="mt-1 text-[#6E5A50]">도시명 마커 {visibleSmallCityMapMarkers.length}개</p>
                   </div>
@@ -180,7 +180,7 @@ export function CityMapDiscoverySection({
             <div
               ref={cityMapDetailPanelRef}
               data-testid="city-map-detail-sticky-content"
-              className="lovv-map-side-panel h-full min-h-0 overflow-y-auto rounded-[24px] p-4 pr-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.48)]"
+              className="lovv-map-side-panel h-full min-h-0 overflow-y-auto rounded-[18px] p-3 pr-2 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.48)]"
             >
               {isCityMapListPanel ? (
                 <CityMapListPanel

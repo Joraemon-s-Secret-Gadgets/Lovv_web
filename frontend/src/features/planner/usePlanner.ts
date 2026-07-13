@@ -15,7 +15,6 @@ import {
 import {
   createInitialChatMessages,
   createPlanDraft,
-  shouldAskFestivalForCity,
   getPlannerCitySeedText,
   getPreferenceProfileLabel,
   createPlanId,
@@ -23,7 +22,6 @@ import {
   createMessageId,
   getFestivalThemeLabel,
   getExplicitDurationLabel,
-  shouldAskTravelMonthForCity,
   createMockConditionExtraction,
   getPlannerBaselineThemeIds,
   createAssistantReply,
@@ -31,6 +29,7 @@ import {
   getTravelMonthLabel,
   resolveFestivalThemeChoice,
   formatThemeList,
+  shouldAskFestivalForCity,
 } from './plannerModel'
 import {
   requestCreateSavedPlan,
@@ -44,6 +43,7 @@ import {
 import {
   requestCreateRecommendation,
   mapRecommendationToDraft,
+  mapDraftToRecommendationCurrentOrder,
   type RecommendationApiResponse,
   type RecommendationCreateRequestPayload,
   type RecommendationThemeLabel,
@@ -86,11 +86,14 @@ const createRecommendationRequestId = () => {
   return `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+const createRecommendationSessionId = () => `session-${createRecommendationRequestId()}`
+
 const toRecommendationThemeLabels = (themeIds: ThemeId[]): RecommendationThemeLabel[] =>
   getThemeLabels(themeIds) as RecommendationThemeLabel[]
 
 const createRecommendationRequestPayload = ({
   rawQuery,
+  sessionId,
   country,
   tripType,
   activeThemeIds,
@@ -100,6 +103,7 @@ const createRecommendationRequestPayload = ({
   travelMonth,
 }: {
   rawQuery: string
+  sessionId: string
   country: RecommendationCreateRequestPayload['country']
   tripType: RecommendationCreateRequestPayload['tripType']
   activeThemeIds: ThemeId[]
@@ -110,16 +114,22 @@ const createRecommendationRequestPayload = ({
 }): RecommendationCreateRequestPayload => ({
   entryType: 'create',
   requestId: createRecommendationRequestId(),
+  sessionId,
   rawQuery,
   country,
   travelMonth,
   travelYear,
   tripType,
+  themes: activeThemeIds,
   activeRequiredThemes: toRecommendationThemeLabels(activeThemeIds),
   includeFestivals,
   destinationId: destinationId ?? null,
   executionMode: destinationId ? 'anchored_place_search' : 'city_discovery',
   userLocation: null,
+  onboardingProfile: {
+    themes: activeThemeIds,
+    selectedThemeIds: activeThemeIds,
+  },
 })
 
 const getRecommendationClarificationLabel = (option: {
@@ -128,7 +138,7 @@ const getRecommendationClarificationLabel = (option: {
   title?: string
 }) => option.label?.trim() || option.title?.trim() || option.optionId?.trim() || '선택하기'
 
-const createRecommendationClarification = (
+export const createRecommendationClarification = (
   response: RecommendationApiResponse,
 ): ChatClarification | null => {
   const options = Array.isArray(response.clarification?.options)
@@ -138,6 +148,9 @@ const createRecommendationClarification = (
           optionId: option.optionId?.trim() ?? '',
           label: getRecommendationClarificationLabel(option),
           description: option.description?.trim() || undefined,
+          helperText: option.helperText?.trim() || undefined,
+          apply: option.apply,
+          then: option.then,
         }))
     : []
   const threadId = response.threadId?.trim() || response.sessionId?.trim()
@@ -250,6 +263,10 @@ export function usePlanner({
   const [planDraft, setPlanDraft] = useState<PlanDraft>(() => createPlanDraft(selectedPreference))
   const [generatedPlanDestinationName, setGeneratedPlanDestinationName] = useState<string | null>(null)
   const [generatedPlanDestinationId, setGeneratedPlanDestinationId] = useState<string | null>(null)
+  const [generatedRecommendationThreadId, setGeneratedRecommendationThreadId] = useState<string | null>(null)
+  const [generatedRecommendationSessionId, setGeneratedRecommendationSessionId] = useState<string | null>(null)
+  const [plannerRecommendationSessionId, setPlannerRecommendationSessionId] = useState(createRecommendationSessionId)
+  const [generatedRecommendationId, setGeneratedRecommendationId] = useState<string | null>(null)
   const [isPlannerLoading, setIsPlannerLoading] = useState(false)
   const [isSavingPlan, setIsSavingPlan] = useState(false)
   const [isPlanCloning, setIsPlanCloning] = useState(false)
@@ -263,7 +280,7 @@ export function usePlanner({
         const nextPlannerLabel = getPreferenceProfileLabel(selectedPreferenceProfile)
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setChatMessages(createInitialChatMessages(nextPlannerLabel, null, false))
-        setPlanDraft(createPlanDraft(selectedPreference, '', 'exclude', null))
+        setPlanDraft(createPlanDraft(selectedPreference, '', 'undecided', null))
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -287,16 +304,21 @@ export function usePlanner({
   const plannerPreferenceLabel = getPreferenceProfileLabel(plannerPreferenceProfile)
   const plannerThemeHashtags = getThemeHashtags(plannerPreferenceProfile)
 
-  const shouldAskFestivalTheme = false  // 축제 질문 비활성화 - 여행 월 선택으로 대체
-  const shouldShowFestivalPrompt = false
+  const shouldAskFestivalTheme = shouldAskFestivalForCity(plannerCityContext)
   const shouldShowDurationPrompt = selectedDurationLabel === null
   const shouldShowTravelMonthPrompt =
     selectedDurationLabel !== null &&
     selectedTravelMonth === null &&
     plannerConditionExtraction === null
-  const hasSettledFestivalChoice = true
+  const shouldShowFestivalPrompt =
+    shouldAskFestivalTheme &&
+    selectedDurationLabel !== null &&
+    selectedTravelMonth !== null &&
+    festivalThemeChoice === 'undecided' &&
+    plannerConditionExtraction === null
+  const hasSettledFestivalChoice = !shouldAskFestivalTheme || festivalThemeChoice !== 'undecided'
   const hasGuidedPlannerChoices =
-    selectedDurationLabel !== null && !shouldShowTravelMonthPrompt
+    selectedDurationLabel !== null && selectedTravelMonth !== null && hasSettledFestivalChoice
   const isPlannerReady = hasGuidedPlannerChoices && plannerConditionExtraction !== null
   const canSubmitChatInput = hasGuidedPlannerChoices && chatInput.trim().length > 0 && !isPlannerLoading
 
@@ -408,6 +430,22 @@ export function usePlanner({
     })
   }, [currentPlanId, isPlannerReady, planDraft, savedCurrentPlan, setSavedPlans])
 
+  const rememberRecommendationSession = useCallback((response: RecommendationApiResponse) => {
+    const threadId = response.threadId?.trim()
+    const sessionId = response.sessionId?.trim()
+    const recommendationId = response.recommendationId?.trim()
+
+    if (threadId) {
+      setGeneratedRecommendationThreadId(threadId)
+    }
+    if (sessionId) {
+      setGeneratedRecommendationSessionId(sessionId)
+    }
+    if (recommendationId) {
+      setGeneratedRecommendationId(recommendationId)
+    }
+  }, [])
+
   const resetPlannerFlow = useCallback((
     preference = selectedPreference,
     cityContext: PlannerCityContext | null = plannerCityContext,
@@ -415,8 +453,7 @@ export function usePlanner({
   ) => {
     const nextPlannerContextText = getPlannerCitySeedText(cityContext)
     const nextPlannerLabel = getPreferenceProfileLabel(profile)
-    const shouldAskFestival = shouldAskFestivalForCity(cityContext)
-    const nextFestivalThemeChoice: FestivalThemeChoice = shouldAskFestival ? 'undecided' : 'exclude'
+    const nextFestivalThemeChoice: FestivalThemeChoice = 'undecided'
 
     setChatInput('')
     setFestivalThemeChoice(nextFestivalThemeChoice)
@@ -426,11 +463,15 @@ export function usePlanner({
     setPlannerConditionExtraction(null)
     setPlannerCityContext(cityContext)
     setPlannerContextText(nextPlannerContextText)
-    setChatMessages(createInitialChatMessages(nextPlannerLabel, cityContext, shouldAskFestival))
+    setChatMessages(createInitialChatMessages(nextPlannerLabel, cityContext, false))
     setPlanDraft(createPlanDraft(preference, nextPlannerContextText, nextFestivalThemeChoice, cityContext))
     setSavedPlanNotice(null)
     setGeneratedPlanDestinationName(null)
     setGeneratedPlanDestinationId(null)
+    setGeneratedRecommendationThreadId(null)
+    setGeneratedRecommendationSessionId(null)
+    setPlannerRecommendationSessionId(createRecommendationSessionId())
+    setGeneratedRecommendationId(null)
   }, [
     plannerCityContext,
     selectedPreferenceProfile,
@@ -462,7 +503,7 @@ export function usePlanner({
       },
       tripType: plan.durationLabel.replace(/\s+/g, '-'),
       durationLabel: plan.durationLabel,
-      themes: plannerCityContext ? plannerCityContext.themes : plannerPreferenceProfile.selectedThemeIds,
+      themes: getThemeLabels(plannerPreferenceProfile.selectedThemeIds),
       festivalChoice: festivalThemeChoice,
       intensityLabel: plan.intensityLabel,
       preferenceSnapshot: {
@@ -523,9 +564,7 @@ export function usePlanner({
     setSavedPlanNotice(null)
     setIsSavingPlan(true)
 
-    const themeLabels = plannerCityContext
-      ? plannerCityContext.themes
-      : getThemeLabels(plannerPreferenceProfile.selectedThemeIds)
+    const themeLabels = getThemeLabels(plannerPreferenceProfile.selectedThemeIds)
     const savedAt = new Date().toISOString()
     const sourceRecommendationId = currentPlanId
     const savedPlanDestinationId =
@@ -921,7 +960,12 @@ export function usePlanner({
         stops: nextDays.flatMap((day) => day.stops),
       })
     })
-    setSavedPlanNotice('선택한 일차만 대체 일정으로 바꿨어요. 저장하면 변경 내용이 반영됩니다.')
+    setSavedPlanNotice('선택한 일차만 대체 일정으로 바꿨어요.')
+  }, [setSavedPlanNotice])
+
+  const replacePlanDraft = useCallback((replacement: PlanDraft) => {
+    setPlanDraft(applyWishlistSummaryToPlanDraft(replacement))
+    setSavedPlanNotice('전체 일정 수정안을 반영했어요. 저장하면 변경 내용이 반영됩니다.')
   }, [setSavedPlanNotice])
 
   const addWishlistRestaurant = useCallback((restaurant: SelectedMealPlace) => {
@@ -977,6 +1021,87 @@ export function usePlanner({
       requestCreateRecommendation(payload, { accessToken: authAccessToken }),
   })
 
+  const requestPlanModification = useCallback(async ({
+    rawModifyQuery,
+    scope,
+    planDraftOverride,
+    preferAlternativeItinerary = false,
+  }: {
+    rawModifyQuery: string
+    scope:
+      | { kind: 'plan' }
+      | { kind: 'day'; dayNumber: number }
+      | { kind: 'stop'; dayNumber: number; stopIndex: number }
+    planDraftOverride?: PlanDraft
+    preferAlternativeItinerary?: boolean
+  }): Promise<PlanDraft | PlanDay | PlanStop | null> => {
+    const trimmedQuery = rawModifyQuery.trim()
+
+    if (!trimmedQuery) {
+      return null
+    }
+
+    const threadId = generatedRecommendationThreadId ?? generatedRecommendationSessionId ?? plannerRecommendationSessionId
+    const sessionId = generatedRecommendationSessionId ?? threadId
+    const activeThemeIds = getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext)
+    const travelMonth = selectedTravelMonth ?? new Date().getMonth() + 1
+    const draftForModification = planDraftOverride ?? planDraft
+
+    const response = (await createRecommendationMutation.mutateAsync({
+      entryType: 'modify',
+      requestId: createRecommendationRequestId(),
+      sessionId,
+      threadId,
+      actorId: currentUser?.id,
+      recommendationId: generatedRecommendationId ?? undefined,
+      destinationId: plannerCityContext?.cityId ?? generatedPlanDestinationId ?? undefined,
+      country: plannerCityContext?.country || 'KR',
+      travelYear: new Date().getFullYear(),
+      travelMonth,
+      tripType: getRecommendationTripType(selectedDurationLabel ?? planDraft.durationLabel),
+      themes: activeThemeIds,
+      activeRequiredThemes: toRecommendationThemeLabels(activeThemeIds),
+      includeFestivals: festivalThemeChoice === 'include',
+      onboardingProfile: {
+        themes: activeThemeIds,
+        selectedThemeIds: activeThemeIds,
+      },
+      rawModifyQuery: trimmedQuery,
+      currentOrder: mapDraftToRecommendationCurrentOrder(draftForModification),
+    })) as RecommendationApiResponse
+
+    rememberRecommendationSession(response)
+    const modifiedDraft = mapRecommendationToDraft(response, { preferAlternativeItinerary })
+
+    if (scope.kind === 'plan') {
+      return modifiedDraft
+    }
+
+    if (scope.kind === 'day') {
+      return modifiedDraft.days.find((day) => day.day === scope.dayNumber) ?? null
+    }
+
+    const targetDay = modifiedDraft.days.find((day) => day.day === scope.dayNumber)
+
+    return targetDay?.stops[scope.stopIndex] ?? null
+  }, [
+    createRecommendationMutation,
+    currentUser?.id,
+    generatedPlanDestinationId,
+    generatedRecommendationId,
+    generatedRecommendationSessionId,
+    generatedRecommendationThreadId,
+    festivalThemeChoice,
+    planDraft,
+    plannerCityContext?.cityId,
+    plannerCityContext,
+    plannerRecommendationSessionId,
+    plannerPreferenceProfile,
+    rememberRecommendationSession,
+    selectedDurationLabel,
+    selectedTravelMonth,
+  ])
+
   const submitChatMessage = async (message: string) => {
     const trimmedMessage = message.trim()
 
@@ -1001,7 +1126,7 @@ export function usePlanner({
         {
           id: createMessageId('assistant', currentMessages.length + 1),
           role: 'assistant',
-          content: `${getFestivalThemeLabel(nextFestivalThemeChoice)} 기준으로 볼게요. 이제 여행 기간을 먼저 골라주세요.`,
+          content: `${getFestivalThemeLabel(nextFestivalThemeChoice)} 기준으로 볼게요. 이제 원하는 조건을 자유롭게 말해주세요.`,
         },
       ])
       setFestivalThemeChoice(nextFestivalThemeChoice)
@@ -1025,7 +1150,7 @@ export function usePlanner({
         plannerCityContext,
         selectedTravelMonth,
       )
-      const shouldAskTravelMonth = shouldAskTravelMonthForCity(plannerCityContext, festivalThemeChoice)
+      const shouldAskTravelMonth = true
       const nextExtraction = plannerCityContext
         ? createMockConditionExtraction(
             '',
@@ -1066,15 +1191,17 @@ export function usePlanner({
           const response = (await createRecommendationMutation.mutateAsync(
             createRecommendationRequestPayload({
               rawQuery: `${nextSelectedDurationLabel} ${plannerContextText}`.trim(),
+              sessionId: plannerRecommendationSessionId,
               country: plannerCityContext.country || 'KR',
               tripType: getRecommendationTripType(nextSelectedDurationLabel),
               activeThemeIds: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
-              includeFestivals: false,
+              includeFestivals: festivalThemeChoice === 'include',
               destinationId: plannerCityContext.cityId,
               travelYear: new Date().getFullYear(),
               travelMonth: defaultTravelMonth,
             }),
           )) as RecommendationApiResponse
+          rememberRecommendationSession(response)
           const clarification = createRecommendationClarification(response)
 
           if (clarification) {
@@ -1186,7 +1313,7 @@ export function usePlanner({
         {
           id: createMessageId('assistant', currentMessages.length + 1),
           role: 'assistant',
-          content: `${getTravelMonthLabel(nextTravelMonth)} 여행으로 잡아둘게요. 이제 동행, 관심사, 걷는 정도 등 원하는 조건을 자유롭게 알려주세요.`,
+          content: `${getTravelMonthLabel(nextTravelMonth)} 여행으로 잡아둘게요. 축제 포함 여부를 골라주세요.`,
         },
       ])
       setSelectedTravelMonth(nextTravelMonth)
@@ -1229,15 +1356,17 @@ export function usePlanner({
       const response = (await createRecommendationMutation.mutateAsync(
         createRecommendationRequestPayload({
           rawQuery: trimmedMessage,
+          sessionId: plannerRecommendationSessionId,
           country: plannerCityContext?.country || 'KR',
           tripType: getRecommendationTripType(selectedDurationLabel),
           activeThemeIds: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
-          includeFestivals: false,
+          includeFestivals: festivalThemeChoice === 'include',
           destinationId: plannerCityContext?.cityId ?? null,
           travelYear: new Date().getFullYear(),
           travelMonth: selectedTravelMonth ?? new Date().getMonth() + 1,
         }),
       )) as RecommendationApiResponse
+      rememberRecommendationSession(response)
       const clarification = createRecommendationClarification(response)
 
       if (clarification) {
@@ -1251,7 +1380,7 @@ export function usePlanner({
           },
         ])
         setPlannerContextText(nextPlannerContextText)
-        setPlannerConditionExtraction(nextExtraction)
+        setPlannerConditionExtraction(null)
         setSavedPlanNotice(null)
 
         return
@@ -1369,6 +1498,7 @@ export function usePlanner({
         recommendationId: clarification.recommendationId,
         selectedOptionId: optionId,
       })) as RecommendationApiResponse
+      rememberRecommendationSession(response)
       const nextClarification = createRecommendationClarification(response)
 
       if (nextClarification) {
@@ -1381,6 +1511,8 @@ export function usePlanner({
             clarification: nextClarification,
           },
         ])
+        setPlannerConditionExtraction(null)
+        setSavedPlanNotice(null)
 
         return
       }
@@ -1403,6 +1535,12 @@ export function usePlanner({
         },
       ])
       setPlanDraft(realDraft)
+      setPlannerConditionExtraction(
+        createMockConditionExtraction(
+          '',
+          getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
+        ),
+      )
       setSavedPlanNotice(null)
       const destId = response.destination?.cityId || response.destination?.destinationId
       const destName = resolveSmallCityDisplayName(response.destination?.name, destId, plannerCityContext?.cityName)
@@ -1429,6 +1567,59 @@ export function usePlanner({
     }
   }
 
+  const submitGuidedPlannerChoices = ({
+    durationLabel,
+    travelMonth,
+    festivalChoice,
+  }: {
+    durationLabel: string
+    travelMonth: number
+    festivalChoice: Exclude<FestivalThemeChoice, 'undecided'>
+  }) => {
+    if (hasGuidedPlannerChoices || isPlannerLoading) {
+      return
+    }
+
+    const travelMonthLabel = getTravelMonthLabel(travelMonth)
+    const festivalChoiceLabel = getFestivalThemeLabel(festivalChoice)
+    const guidedChoiceSummary = shouldAskFestivalTheme
+      ? `${durationLabel} · ${travelMonthLabel} · ${festivalChoiceLabel}`
+      : `${durationLabel} · ${travelMonthLabel}`
+    const guidedChoiceReply = shouldAskFestivalTheme
+      ? `${durationLabel}, ${travelMonthLabel}, ${festivalChoiceLabel} 기준으로 볼게요. 이제 원하는 조건을 자유롭게 말해주세요.`
+      : `${durationLabel}, ${travelMonthLabel} 기준으로 볼게요. 이제 원하는 조건을 자유롭게 말해주세요.`
+    const nextPlannerContextText = `${plannerContextText} ${travelMonthLabel}`.trim()
+    const nextDraft = createPlanDraft(
+      plannerPreference,
+      `${durationLabel} ${nextPlannerContextText}`,
+      festivalChoice,
+      plannerCityContext,
+      travelMonth,
+    )
+
+    setChatMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        id: createMessageId('user', currentMessages.length),
+        role: 'user',
+        content: guidedChoiceSummary,
+      },
+      {
+        id: createMessageId('assistant', currentMessages.length + 1),
+        role: 'assistant',
+        content: guidedChoiceReply,
+      },
+    ])
+    setSelectedDurationLabel(durationLabel)
+    setSelectedTravelMonth(travelMonth)
+    setFestivalThemeChoice(festivalChoice)
+    setPlannerContextText(nextPlannerContextText)
+    setPlannerConditionExtraction(null)
+    setPlanDraft(nextDraft)
+    setSavedPlanNotice(null)
+    setChatInput('')
+  }
+
   const submitChatForm = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     submitChatMessage(chatInput)
@@ -1441,9 +1632,7 @@ export function usePlanner({
         label: '취향 반영',
         status: 'completed' as const,
         statusLabel: '완료',
-        body: plannerCityContext
-          ? `${selectedPreferenceLabel} 취향은 유지하고 선택한 소도시를 일정 출발점으로 사용합니다.`
-          : `${selectedPreferenceLabel} 기준 테마로 시작합니다.`,
+        body: '',
         chips: plannerThemeHashtags,
       },
       {
@@ -1451,9 +1640,7 @@ export function usePlanner({
         label: '후보 탐색',
         status: hasSettledFestivalChoice ? ('completed' as const) : ('active' as const),
         statusLabel: hasSettledFestivalChoice ? '완료' : '진행 중',
-        body: plannerCityContext
-          ? `${plannerCityContext.countryLabel} ${plannerCityContext.region}의 ${plannerCityContext.cityName} 상세 정보를 기준 후보로 고정했습니다.`
-          : '선택한 분위기와 가까운 한국·일본 소도시 후보를 좁히고 있어요.',
+        body: '',
         chips: plannerCityContext
           ? [plannerCityContext.cityName, plannerCityContext.region]
           : getThemeLabels(plannerPreferenceProfile.selectedThemeIds),
@@ -1477,7 +1664,9 @@ export function usePlanner({
               ? '여행 기간을 선택해 주세요.'
               : shouldShowTravelMonthPrompt
                 ? '여행 예정 월을 선택해 주세요.'
-                : '여행 기간과 월을 먼저 선택해 주세요.',
+                : shouldShowFestivalPrompt
+                  ? '축제 포함 여부를 선택해 주세요.'
+                  : '여행 기간과 월을 먼저 선택해 주세요.',
         chips: isPlannerReady
           ? ['초안 준비', planDraft.intensityLabel]
           : hasGuidedPlannerChoices
@@ -1558,9 +1747,12 @@ export function usePlanner({
     toggleGeneratedPlanLike,
     replacePlanStop,
     replacePlanDay,
+    replacePlanDraft,
+    requestPlanModification,
     addWishlistRestaurant,
     removeWishlistRestaurant,
     submitChatMessage,
+    submitGuidedPlannerChoices,
     selectClarificationOption,
     submitChatForm,
     plannerStateSteps,

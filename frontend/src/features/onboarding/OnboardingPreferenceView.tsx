@@ -179,7 +179,7 @@ export function OnboardingPreferenceView({
 
               <div
                 data-testid="preference-card-grid"
-                className="mt-5 grid auto-rows-[212px] grid-cols-3 gap-4 max-lg:grid-cols-2 max-md:auto-rows-auto max-md:grid-cols-1"
+                className="mt-5 grid auto-rows-[212px] grid-cols-3 gap-4 max-lg:auto-rows-auto max-lg:grid-cols-2 max-md:grid-cols-1"
               >
                 {themeDefinitions.map((theme, index) => {
                   const isSelected = activeThemeIds.includes(theme.id)
@@ -193,7 +193,7 @@ export function OnboardingPreferenceView({
                       aria-pressed={isSelected}
                       aria-disabled={isMaxed}
                       onClick={() => onToggleTheme(theme.id)}
-                      className={`flex h-full min-w-0 flex-col overflow-hidden rounded-[22px] border p-5 text-left transition hover:-translate-y-0.5 ${colors.hoverBg} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-md:min-h-[212px] ${
+                      className={`flex h-full min-w-0 flex-col overflow-hidden rounded-[22px] border p-5 text-left transition hover:-translate-y-0.5 ${colors.hoverBg} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E] max-lg:min-h-[196px] ${
                         isSelected
                           ? `lovv-onboarding-theme-card lovv-onboarding-theme-card-selected ${colors.selectedCard}`
                           : isMaxed
@@ -217,7 +217,7 @@ export function OnboardingPreferenceView({
                         <span className="block break-keep text-[23px] font-bold leading-8 text-[#33271E] max-sm:text-xl max-sm:leading-7">
                           {t('themes.' + theme.id + '.label')}
                         </span>
-                        <span className="mt-2 block line-clamp-2 break-keep text-sm leading-6 text-[#33271E]">
+                        <span className="mt-2 block line-clamp-2 break-keep text-sm leading-6 text-[#33271E] max-sm:text-[13px] max-sm:leading-5">
                           {t('themes.' + theme.id + '.description')}
                         </span>
                       </span>
@@ -289,7 +289,7 @@ export function OnboardingPreferenceView({
           {hasSelectedCover ? (
             <aside
               data-testid="preference-preview-card"
-              className="lovv-onboarding-preview-card lovv-liquid-panel sticky top-[220px] h-fit rounded-[28px] border border-white/60 p-5 shadow-[0_24px_70px_-42px_rgba(51,39,30,0.45)] max-xl:static"
+              className="lovv-onboarding-preview-card lovv-liquid-panel sticky top-[220px] h-fit rounded-[28px] border border-white/60 p-5 shadow-[0_24px_70px_-42px_rgba(51,39,30,0.45)] max-xl:static max-sm:p-4"
             >
               <div className="lovv-onboarding-preview-media group relative overflow-hidden rounded-[24px] border border-white/50">
                 <div className="absolute left-5 right-5 top-5 z-10 flex items-center justify-between gap-3">
@@ -303,7 +303,7 @@ export function OnboardingPreferenceView({
                 <img
                   src={selectedPreviewPrimaryImage.image}
                   alt={t('onboarding.featured_label', { city: selectedPreviewPrimaryImage.city })}
-                  className="h-[360px] w-full object-cover max-sm:h-[260px]"
+                  className="h-[360px] w-full object-cover max-lg:h-[260px] max-sm:h-[200px]"
                 />
                 <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-[#33271E]/80 via-[#33271E]/24 to-transparent p-5">
                   <span className="min-w-0 rounded-full bg-[#fffffa]/95 px-4 py-2 text-[12px] font-bold text-[#33271E] shadow-[0_10px_30px_-22px_rgba(0,0,0,0.5)]">

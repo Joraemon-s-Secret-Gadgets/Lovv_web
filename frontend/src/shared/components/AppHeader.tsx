@@ -5,10 +5,10 @@
  */
 
 import logoImage from '../../assets/lovv-logo.png'
-import type { MouseEvent } from 'react'
+import { useState, type MouseEvent } from 'react'
 import type { LovvUser } from '../types/app'
 import { useUiToggleStore } from '../store/uiToggleStore'
-import { User, LogOut } from 'lucide-react'
+import { User, LogOut, Menu, X } from 'lucide-react'
 import type { View } from '../types/app'
 import { useTranslation } from 'react-i18next'
 import { LanguageSelector } from './LanguageSelector'
@@ -40,6 +40,8 @@ export function AppHeader({
   openRecommendation,
 }: AppHeaderProps) {
   const { t } = useTranslation()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  
   // Session menu state from central store
   const isSessionMenuOpen = useUiToggleStore((state) => state.isSessionMenuOpen)
   const toggleSessionMenu = useUiToggleStore((state) => state.toggleSessionMenu)
@@ -50,27 +52,35 @@ export function AppHeader({
         ? 'lovv-font-numeric'
         : 'lovv-font-pretendard'
 
+  const handleMobileNavClick = (callback: () => void) => {
+    setIsMobileMenuOpen(false)
+    callback()
+  }
+
   return (
-    <header className={`fixed inset-x-0 top-0 z-20 border-b border-white/60 bg-white/40 shadow-[0_8px_32px_-24px_rgba(51,39,30,0.25)] backdrop-blur-2xl ${headerFontClass}`}>
+    <header className={`fixed inset-x-0 top-0 z-50 border-b border-white/60 bg-white/40 shadow-[0_8px_32px_-24px_rgba(51,39,30,0.25)] backdrop-blur-2xl ${headerFontClass}`}>
       <div className="relative mx-auto flex items-center min-h-[58px] max-w-[1440px] px-9 py-1 max-lg:px-8 max-sm:px-4">
         {/* Left: Logo */}
         <div className="flex justify-start">
           <a
             href="/home"
             aria-label="Lovv home"
-            onClick={goHome}
+            onClick={(e) => {
+              setIsMobileMenuOpen(false)
+              goHome(e)
+            }}
             className="flex h-10 w-[74px] shrink-0 items-center overflow-hidden"
           >
             <img src={logoImage} alt="Lovv" className="h-full w-full object-contain" />
           </a>
         </div>
 
-        {/* Left: Navigation */}
-        <nav className="ml-8 flex items-center gap-7 max-lg:gap-5 max-sm:ml-4 max-sm:gap-3" role="navigation" aria-label="메인 메뉴">
+        {/* Left: Navigation (Desktop only) */}
+        <nav className="ml-8 hidden md:flex items-center gap-7 max-lg:gap-5" role="navigation" aria-label="메인 메뉴">
           <button
             type="button"
             onClick={openMap}
-            className={`min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] max-sm:text-[12px] ${
+            className={`min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
               activeView === 'map'
                 ? 'text-[#F36B12] font-black'
                 : 'text-[#33271E] hover:text-[#F36B12]'
@@ -84,7 +94,7 @@ export function AppHeader({
           <button
             type="button"
             onClick={openPlanner}
-            className={`min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] max-sm:text-[12px] ${
+            className={`min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
               activeView === 'planner' || activeView === 'chat'
                 ? 'text-[#F36B12] font-black'
                 : 'text-[#33271E] hover:text-[#F36B12]'
@@ -98,7 +108,7 @@ export function AppHeader({
           <button
             type="button"
             onClick={openRecommendation}
-            className={`min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] max-sm:text-[12px] ${
+            className={`min-h-10 text-sm font-bold transition-all relative py-1 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
               activeView === 'recommendation'
                 ? 'text-[#F36B12] font-black'
                 : 'text-[#33271E] hover:text-[#F36B12]'
@@ -114,8 +124,9 @@ export function AppHeader({
         {/* Right: Session Menu & Language Selector */}
         <div className="ml-auto flex items-center justify-end gap-3.5">
           <LanguageSelector />
-          <div className="relative shrink-0">
-            {/* Avatar single button representation for accessibility and consistency */}
+          
+          {/* Desktop User Avatar */}
+          <div className="relative shrink-0 hidden md:block">
             <button
               type="button"
               aria-haspopup="menu"
@@ -129,7 +140,7 @@ export function AppHeader({
               </span>
             </button>
 
-            {/* Session dropdown menu overlay (Liquid glass style) */}
+            {/* Session dropdown menu overlay */}
             <div
               role="menu"
               aria-label="세션 메뉴"
@@ -159,8 +170,98 @@ export function AppHeader({
               </button>
             </div>
           </div>
+
+          {/* Mobile Hamburger Menu Toggle Button */}
+          <button
+            type="button"
+            aria-expanded={isMobileMenuOpen}
+            aria-label="모바일 내비게이션 토글"
+            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-white/50 bg-[#fffffa]/60 text-[#33271E] shadow-sm transition hover:border-[#F3B489] hover:bg-[#FFF0E4]/40 md:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+          >
+            {isMobileMenuOpen ? <X className="size-5 text-[#A92B10]" /> : <Menu className="size-5 text-[#A92B10]" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Drawer Overlay */}
+      {isMobileMenuOpen && (
+        <div className="border-t border-white/30 bg-[#fffffa]/95 px-6 py-5 shadow-inner backdrop-blur-2xl md:hidden animate-[lovv-chip-in_0.2s_ease-out] flex flex-col gap-5">
+          <nav className="flex flex-col gap-1.5" role="navigation" aria-label="모바일 메인 메뉴">
+            <button
+              type="button"
+              onClick={() => handleMobileNavClick(openMap)}
+              className={`flex min-h-12 w-full items-center rounded-[14px] px-4 text-base font-bold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
+                activeView === 'map'
+                  ? 'bg-[#FFF0E4] text-[#F36B12] font-black'
+                  : 'text-[#33271E] hover:bg-[#FFF0E4]/40'
+              }`}
+            >
+              {t('common.search_cities')}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleMobileNavClick(openPlanner)}
+              className={`flex min-h-12 w-full items-center rounded-[14px] px-4 text-base font-bold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
+                activeView === 'planner' || activeView === 'chat'
+                  ? 'bg-[#FFF0E4] text-[#F36B12] font-black'
+                  : 'text-[#33271E] hover:bg-[#FFF0E4]/40'
+              }`}
+            >
+              {t('common.plan_itinerary')}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleMobileNavClick(openRecommendation)}
+              className={`flex min-h-12 w-full items-center rounded-[14px] px-4 text-base font-bold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12] ${
+                activeView === 'recommendation'
+                  ? 'bg-[#FFF0E4] text-[#F36B12] font-black'
+                  : 'text-[#33271E] hover:bg-[#FFF0E4]/40'
+              }`}
+            >
+              {t('common.recommendation')}
+            </button>
+          </nav>
+
+          <hr className="border-t border-[#F3B489]/20" />
+
+          {/* User Session Block on Mobile Drawer */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3 px-4 py-2">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#F36B12] text-sm font-black text-[#fffffa]">
+                {currentUser?.avatarInitial ?? 'M'}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-black text-[#33271E]">
+                  {currentUser?.name ?? 'Guest User'}
+                </p>
+                <p className="truncate text-[11px] font-semibold text-[#6E5A50]/70">
+                  {currentProviderLabel} 계정
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-1.5">
+              <button
+                type="button"
+                onClick={() => handleMobileNavClick(openMyPage)}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-[14px] border border-[#F3B489]/40 bg-[#fffffa] text-sm font-black text-[#33271E] transition hover:bg-[#FFF0E4]/40"
+              >
+                <User className="size-4 text-[#A92B10]" />
+                {t('common.mypage')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMobileNavClick(signOut)}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-[14px] border border-[#F3B489]/40 bg-[#fffffa] text-sm font-black text-[#A92B10] transition hover:bg-[#FFE0CA]/40"
+              >
+                <LogOut className="size-4 text-[#A92B10]" />
+                {t('common.logout')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

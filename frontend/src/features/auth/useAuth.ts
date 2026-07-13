@@ -92,6 +92,16 @@ const isPendingGeneratedSavedPlan = (
   Boolean(activeGeneratedPlanId && (plan.id === activeGeneratedPlanId || plan.sourceRecommendationId === activeGeneratedPlanId)) &&
   !serverPlans.some((serverPlan) => isSameSavedPlanIdentity(plan, serverPlan))
 
+const isLocalGeneratedPlanRouteId = (routePlanId: string | null) =>
+  Boolean(
+    routePlanId &&
+      (
+        routePlanId.includes('AI-추천-여행-코스') ||
+        routePlanId.includes('동선이-느슨한-일정') ||
+        routePlanId.includes('덜-걷는-일정')
+      ),
+  )
+
 const resolveSocialAuthProvider = (
   user: LovvUser | null,
   fallbackProvider: SocialAuthProvider | null,
@@ -196,6 +206,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
     },
     enabled: isInitialAuthSessionQueryEnabled,
     retry: false,
+    refetchOnWindowFocus: false,
   })
 
   const [pendingAuthRedirectPath, setPendingAuthRedirectPath] = useState<string | null>(null)
@@ -274,7 +285,9 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
       const currentPlanId = plannerRef?.current?.currentPlanId ?? null
       const isPlannerReady = plannerRef?.current?.isPlannerReady ?? false
       const shouldLoadRoutePlanDetail =
-        Boolean(routePlanId) && !(routePlanId === currentPlanId && isPlannerReady)
+        Boolean(routePlanId) &&
+        !isLocalGeneratedPlanRouteId(routePlanId) &&
+        !(routePlanId === currentPlanId && isPlannerReady)
 
       if (
         shouldLoadRoutePlanDetail &&
@@ -302,10 +315,11 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
       return { savedPlans: nextSavedPlans, savedPlanLikes: nextSavedPlanLikes, routePlanLoadFailed }
     },
     enabled: shouldLoadSavedPlans,
+    refetchOnWindowFocus: false,
   })
 
   const isSavedPlansRestoring =
-    shouldLoadSavedPlans && (savedPlansQuery.isFetching || savedPlansQuery.isPending)
+    shouldLoadSavedPlans && savedPlansQuery.isPending
 
   const commitCurrentUser = useCallback(
     (user: LovvUser | null, fallbackProvider: SocialAuthProvider | null = null) => {

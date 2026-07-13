@@ -22,6 +22,14 @@ type GoogleMapMarkerInstance = {
   setMap: (map: GoogleMapInstance | null) => void
 }
 
+type GoogleMapAdvancedMarkerInstance = {
+  addEventListener?: (eventName: 'gmp-click', handler: () => void) => void
+  addListener?: (eventName: 'click', handler: () => void) => void
+  map: GoogleMapInstance | null
+}
+
+type GoogleMapMarkerOverlay = GoogleMapMarkerInstance | GoogleMapAdvancedMarkerInstance
+
 type GoogleLatLngBoundsInstance = {
   extend: (position: GoogleLatLngLiteral) => void
 }
@@ -34,6 +42,9 @@ type GoogleLatLngLiteral = {
 type GoogleMapsNamespace = {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance
   Marker?: new (options: Record<string, unknown>) => GoogleMapMarkerInstance
+  marker?: {
+    AdvancedMarkerElement?: new (options: Record<string, unknown>) => GoogleMapAdvancedMarkerInstance
+  }
   LatLngBounds: new () => GoogleLatLngBoundsInstance
   SymbolPath?: {
     CIRCLE: number
@@ -54,6 +65,42 @@ const googleMapsCallbackName = '__lovvGoogleMapsReady'
 const defaultGoogleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() ?? ''
 const defaultGoogleMapsMapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() ?? ''
 let googleMapsRuntimePromise: Promise<GoogleMapsNamespace> | null = null
+
+const clearMarkerOverlay = (marker: GoogleMapMarkerOverlay) => {
+  if ('setMap' in marker) {
+    marker.setMap(null)
+    return
+  }
+
+  marker.map = null
+}
+
+const createCityMarkerContent = (label: string, isSelected: boolean) => {
+  const marker = document.createElement('button')
+  marker.type = 'button'
+  marker.setAttribute('aria-label', `지도 마커: ${label}`)
+  marker.className = [
+    'lovv-advanced-city-marker',
+    'relative',
+    'inline-grid',
+    'h-8',
+    'min-w-8',
+    'place-items-center',
+    'rounded-full',
+    'border',
+    'px-2',
+    'text-[11px]',
+    'font-black',
+    'leading-none',
+    'shadow-[0_14px_22px_-14px_rgba(51,39,30,0.55)]',
+    isSelected
+      ? 'border-[#A92B10] bg-[#F36B12] text-[#33271E]'
+      : 'border-[#C92E18] bg-[#E73323] text-white',
+  ].join(' ')
+  marker.textContent = label.slice(0, 2)
+
+  return marker
+}
 
 const getCountryCenter = (country: SmallCityCountry): GoogleLatLngLiteral => {
   const bounds = smallCityMapBounds[country]
@@ -123,7 +170,7 @@ const loadGoogleMapsRuntime = (apiKey: string) =>
       script.id = googleMapsScriptId
       script.async = true
       script.defer = true
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&callback=${googleMapsCallbackName}`
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&libraries=marker&callback=${googleMapsCallbackName}`
       script.addEventListener('error', () => {
         window.clearTimeout(timeoutId)
         googleMapsRuntimePromise = null
@@ -151,7 +198,7 @@ export function SmallCityGoogleMap({
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<GoogleMapInstance | null>(null)
   const mapsRef = useRef<GoogleMapsNamespace | null>(null)
-  const markerInstancesRef = useRef<GoogleMapMarkerInstance[]>([])
+  const markerInstancesRef = useRef<GoogleMapMarkerOverlay[]>([])
   const onSelectMarkerRef = useRef(onSelectMarker)
   const countryRef = useRef(country)
   const [runtimeStatus, setRuntimeStatus] = useState<'fallback' | 'loading' | 'ready'>(
@@ -237,16 +284,37 @@ export function SmallCityGoogleMap({
     const map = mapRef.current
     const maps = mapsRef.current
     const GoogleMarker = maps?.Marker
+    const GoogleAdvancedMarker = googleMapsMapId ? maps?.marker?.AdvancedMarkerElement : undefined
 
-    markerInstancesRef.current.forEach((marker) => marker.setMap(null))
+    markerInstancesRef.current.forEach(clearMarkerOverlay)
     markerInstancesRef.current = []
 
-    if (!map || !maps || !GoogleMarker) {
+    if (!map || !maps || (!GoogleAdvancedMarker && !GoogleMarker)) {
       return
     }
 
     markerInstancesRef.current = markers.map((cityMarker) => {
       const isSelected = cityMarker.cityId === selectedMarkerCityId
+      if (GoogleAdvancedMarker) {
+        const marker = new GoogleAdvancedMarker({
+          content: createCityMarkerContent(cityMarker.label, isSelected),
+          gmpClickable: true,
+          map,
+          position: { lat: cityMarker.latitude, lng: cityMarker.longitude },
+          title: cityMarker.label,
+        })
+
+        marker.addEventListener?.('gmp-click', () => {
+          onSelectMarkerRef.current(cityMarker)
+        })
+
+        return marker
+      }
+
+      if (!GoogleMarker) {
+        throw new Error('Google Maps marker runtime unavailable.')
+      }
+
       const marker = new GoogleMarker({
         clickable: true,
         label: {
@@ -274,7 +342,7 @@ export function SmallCityGoogleMap({
 
       return marker
     })
-  }, [markers, selectedMarkerCityId, runtimeStatus, mapInstanceVersion])
+  }, [googleMapsMapId, markers, selectedMarkerCityId, runtimeStatus, mapInstanceVersion])
 
   return (
     <div

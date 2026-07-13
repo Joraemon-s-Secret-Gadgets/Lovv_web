@@ -224,38 +224,7 @@ export function MyPageView({
                         </p>
                       ) : null}
 
-                      <div className="mt-8 grid grid-cols-2 gap-4 max-md:grid-cols-1 md:grid-cols-3 xl:grid-cols-5">
-                        <article className="flex min-h-[150px] min-w-0 flex-col justify-between overflow-hidden rounded-[12px] border border-white/70 bg-white/70 p-5 shadow-[0_18px_38px_-30px_rgba(51,39,30,0.25)] backdrop-blur-md">
-                          <div>
-                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
-                              로그인 방식
-                            </p>
-                            <div
-                              className={`mt-4 inline-flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-black shadow-sm ${
-                                currentProviderTone === 'kakao'
-                                  ? 'border-[#F2D741] bg-[#FEE500] text-[#191600]'
-                                  : currentProviderTone === 'google'
-                                    ? 'border-white/80 bg-[#fffffa] text-[#33271E]'
-                                    : 'border-white/70 bg-[#FFF0E4] text-[#33271E]'
-                              }`}
-                            >
-                              <span
-                                aria-hidden="true"
-                                className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-black ${
-                                  currentProviderTone === 'kakao'
-                                    ? 'bg-[#191600] text-[#FEE500]'
-                                    : currentProviderTone === 'google'
-                                      ? 'bg-white text-[#4285F4] shadow-[inset_0_0_0_1px_rgba(51,39,30,0.12)]'
-                                      : 'bg-[#F36B12] text-[#33271E]'
-                                }`}
-                              >
-                                {currentProviderTone === 'kakao' ? 'k' : currentProviderTone === 'google' ? 'G' : 'L'}
-                              </span>
-                              <span className="min-w-0 truncate">{currentProviderLabel}</span>
-                            </div>
-                          </div>
-                        </article>
-
+                      <div className="mt-8 grid grid-cols-2 gap-4 max-md:grid-cols-1 md:grid-cols-3 xl:grid-cols-4">
                         <article className="flex min-h-[150px] flex-col justify-between rounded-[20px] border border-white/70 bg-gradient-to-br from-[#EEF7F2] to-[#fffffa] p-5 shadow-[0_18px_38px_-30px_rgba(45,90,61,0.28)] md:col-span-2 xl:col-span-1">
                           <div>
                             <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#2D5A3D]">

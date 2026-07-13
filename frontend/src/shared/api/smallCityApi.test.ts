@@ -8,6 +8,7 @@ import {
   smallCityApiEndpoints,
   requestGetSmallCityDetail,
   requestGetSmallCityPlaces,
+  requestListSmallCities,
   type SmallCityApiDetailResponse,
   type SmallCityApiListResponse,
   type SmallCityApiPlacesResponse,
@@ -319,6 +320,68 @@ describe('small-city API contract adapter', () => {
       }),
     ).toBe('country=JP&q=%EC%8B%9C%EB%A7%8C%ED%86%A0+%EC%8B%9C%EC%9E%A5&themes=%EC%9E%90%EC%97%B0%2C%EB%B0%94%EB%8B%A4&page=2&page_size=80')
     expect(createSmallCityApiQuery({})).toBe(`page=1&page_size=${defaultSmallCityApiPageSize}`)
+  })
+
+  it('loads every deployed city page for the discovery catalog', async () => {
+    const firstCity = createResponse().data[0]
+    const secondCity = {
+      ...firstCity,
+      id: 'kr-gangneung-001',
+      country: 'KR' as const,
+      country_label: '한국' as const,
+      region: '강원',
+      name_ko: '강릉',
+      name_local: '강릉',
+    }
+    const fetchImpl = vi.fn(async (input: string) => {
+      const page = new URL(input, 'https://api.lovv.test').searchParams.get('page')
+      const payload = page === '2'
+        ? createResponse({
+            data: [secondCity],
+            page: { page: 2, pageSize: 120, total: 121, hasNext: false },
+          })
+        : createResponse({
+            page: { page: 1, pageSize: 120, total: 121, hasNext: true },
+          })
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => payload,
+      }
+    })
+
+    const result = await requestListSmallCities({}, {
+      baseUrl: 'https://api.lovv.test',
+      fetchImpl,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(fetchImpl.mock.calls[0][0]).toContain('page=1')
+    expect(fetchImpl.mock.calls[1][0]).toContain('page=2')
+    expect(result.cities.map((city) => city.id)).toEqual([
+      'jp-shimanto-001',
+      'kr-gangneung-001',
+    ])
+    expect(result.page).toEqual({ page: 1, pageSize: 2, total: 121, hasNext: false })
+  })
+
+  it('keeps explicit page requests scoped to one page', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => createResponse({
+        page: { page: 1, pageSize: 120, total: 235, hasNext: true },
+      }),
+    }))
+
+    const result = await requestListSmallCities({ page: 1 }, {
+      baseUrl: 'https://api.lovv.test',
+      fetchImpl,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(result.page).toEqual({ page: 1, pageSize: 120, total: 235, hasNext: true })
   })
 
   it('falls back to static catalog detail when live API fails', async () => {

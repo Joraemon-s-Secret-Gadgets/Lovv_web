@@ -52,7 +52,11 @@ export type SavedPlanApiRecord = {
     days?: PlanDay[]
     selectedRestaurants?: SelectedMealPlace[]
     selected_restaurants?: SelectedMealPlace[]
+    alternativeItinerary?: unknown
+    links?: Record<string, string | undefined>
   }
+  alternativeItinerary?: unknown
+  links?: Record<string, string | undefined>
   days?: PlanDay[]
   stops?: PlanStop[]
   selectedRestaurants?: SelectedMealPlace[]
@@ -131,8 +135,11 @@ export type SavedPlanApiCreatePayload = {
   itinerary: {
     days: PlanDay[]
     selectedRestaurants?: SelectedMealPlace[]
+    alternativeItinerary?: unknown
+    links?: Record<string, string | undefined>
   }
   alternativeItinerary?: unknown
+  links?: Record<string, string | undefined>
 }
 
 export type SavedPlanApiCreateResponse = {
@@ -539,6 +546,8 @@ export const adaptSavedPlanApiRecord = (record: SavedPlanApiRecord): SavedPlan |
       ? record.itinerary.selected_restaurants
       : [],
     destinationId: destinationId || undefined,
+    links: record.links ?? record.itinerary?.links,
+    alternativeItinerary: record.alternativeItinerary ?? record.itinerary?.alternativeItinerary,
     isLiked: readIsLiked(record),
     isPublic: typeof record.isPublic === 'boolean' ? record.isPublic : (typeof record.is_public === 'boolean' ? record.is_public : record.is_public === 1),
     copiedFromItineraryId: readString(record.copiedFromItineraryId, record.copied_from_itinerary_id),

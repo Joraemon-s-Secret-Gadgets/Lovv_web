@@ -84,6 +84,9 @@ export type ChatClarificationOption = {
   optionId: string
   label: string
   description?: string
+  helperText?: string
+  apply?: unknown
+  then?: unknown
 }
 
 export type ChatClarification = {
@@ -105,6 +108,10 @@ export type ChatMessage = {
 export type PlannerStepStatus = 'completed' | 'active' | 'pending'
 
 export type PlanStop = {
+  itemId?: string
+  itemType?: 'attraction' | 'festival' | string
+  day?: number
+  order?: number
   time: '아침' | '점심' | '저녁'
   move: string
   title: string
@@ -114,6 +121,10 @@ export type PlanStop = {
   lockLevel?: 'none' | 'user_added' | 'pinned'
   wishlistRestaurantId?: string
   contentId?: string
+  isSeed?: boolean
+  cityId?: string
+  theme?: string
+  indoorOutdoor?: string
   imageUrl?: string
   latitude?: number | null
   longitude?: number | null
@@ -168,6 +179,11 @@ export type PlanDraft = {
   stops: PlanStop[]
   selectedRestaurants?: SelectedMealPlace[]
   userNotice?: string[]
+  recommendationReasons?: string[]
+  confidence?: number | string
+  links?: Record<string, string | undefined>
+  festivalDateVerifications?: unknown
+  alternativeItinerary?: unknown
 }
 
 export type SavedPlanLike = 'like' | null
@@ -198,6 +214,8 @@ export type SavedPlan = {
   stops: PlanStop[]
   selectedRestaurants?: SelectedMealPlace[]
   destinationId?: string
+  links?: Record<string, string | undefined>
+  alternativeItinerary?: unknown
   isLiked?: boolean
   isPublic?: boolean
   copiedFromItineraryId?: string

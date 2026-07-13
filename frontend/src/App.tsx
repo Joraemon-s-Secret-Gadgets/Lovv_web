@@ -360,7 +360,11 @@ function App() {
     : null
   const routeSavedPlan = savedPlanForRoute ?? savedPlanForRouteFromQuery
   
-  const isRouteCurrentGeneratedPlan = routePlanId === planner.currentPlanId && planner.isPlannerReady
+  const isRouteCurrentGeneratedPlan = Boolean(
+    planner.isPlannerReady &&
+      routePlanId &&
+      (routePlanId === planner.currentPlanId || routePlanId === generatedPlanDetailRouteId),
+  )
   const savedGeneratedPlanForRoute = isRouteCurrentGeneratedPlan
     ? auth.savedPlans.find(
         (plan) => plan.id === planner.currentPlanId || plan.sourceRecommendationId === planner.currentPlanId,
@@ -829,12 +833,13 @@ function App() {
                 chatMessages={planner.chatMessages}
                 onReplacePlanStop={isRouteCurrentGeneratedPlan ? planner.replacePlanStop : undefined}
                 onReplacePlanDay={isRouteCurrentGeneratedPlan ? planner.replacePlanDay : undefined}
+                onReplacePlanDraft={isRouteCurrentGeneratedPlan ? planner.replacePlanDraft : undefined}
+                onRequestPlanModification={isRouteCurrentGeneratedPlan ? planner.requestPlanModification : undefined}
                 activeThemeIds={preferences.activeThemeIds}
                 onAddThemePreference={handleAddThemePreference}
                 onRemoveThemePreferences={handleRemoveThemePreferences}
                 getSavedPlanLike={planner.getSavedPlanLike}
                 onSelectSavedPlanLike={planner.selectSavedPlanLike}
-                selectedTravelMonth={planner.selectedTravelMonth}
                 currentUser={auth.currentUser}
                 ownerId={activeSavedPlanForRoute?.ownerId}
                 isPublic={activeSavedPlanForRoute?.isPublic}
@@ -887,15 +892,17 @@ function App() {
                 chatMessages={planner.chatMessages}
                 shouldShowFestivalPrompt={planner.shouldShowFestivalPrompt}
                 festivalThemeChoice={planner.festivalThemeChoice}
+                selectedDurationLabel={planner.selectedDurationLabel}
                 submitChatMessage={planner.submitChatMessage}
+                submitGuidedPlannerChoices={planner.submitGuidedPlannerChoices}
                 shouldShowDurationPrompt={planner.shouldShowDurationPrompt}
                 shouldShowTravelMonthPrompt={planner.shouldShowTravelMonthPrompt}
+                selectedTravelMonth={planner.selectedTravelMonth}
                 isPlannerReady={planner.isPlannerReady}
                 planDraft={planner.planDraft}
                 plannerConditionExtraction={planner.plannerConditionExtraction}
                 chatInput={planner.chatInput}
                 setChatInput={planner.setChatInput}
-                selectedTravelMonth={planner.selectedTravelMonth}
                 hasGuidedPlannerChoices={planner.hasGuidedPlannerChoices}
                 canSubmitChatInput={planner.canSubmitChatInput}
                 submitChatForm={planner.submitChatForm}

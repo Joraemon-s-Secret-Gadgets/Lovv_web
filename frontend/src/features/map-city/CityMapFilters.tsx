@@ -49,21 +49,19 @@ export function CityMapFilters({
 
   return (
     <>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-6 rounded-[26px] border border-white/70 bg-white/62 p-6 shadow-[0_18px_42px_-32px_rgba(51,39,30,0.22)] backdrop-blur-md max-lg:grid-cols-1 max-sm:p-5">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[18px] border border-white/70 bg-white/62 px-5 py-4 shadow-[0_14px_34px_-30px_rgba(51,39,30,0.18)] backdrop-blur-md max-lg:grid-cols-1 max-sm:p-4">
         <div className="min-w-0">
-          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#A92B10]">
+          <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#A92B10]">
             Small city atlas
           </p>
           <h2
             id="city-map-discovery-title"
-            className="mt-3 break-keep text-[34px] font-black leading-10 text-[#33271E] max-sm:text-[28px] max-sm:leading-9"
+            className="mt-2 break-keep text-[28px] font-black leading-9 text-[#33271E] max-sm:text-[24px] max-sm:leading-8"
           >
             가고 싶은 곳 찾아보기
           </h2>
-          <p className="mt-3 max-w-[720px] break-keep text-sm font-semibold leading-6 text-[#5E4B42]">
-            국가와 도시명으로 지도에서 소도시를 먼저 고르고,
-            <br className="hidden md:block" />
-            테마는 후보를 좁히는 필터와 선택 이후 일정 소재로 사용합니다.
+          <p className="mt-2 max-w-[720px] break-keep text-[13px] font-semibold leading-5 text-[#5E4B42]">
+            검색과 해시태그로 후보를 좁힌 뒤 지도에서 소도시를 고릅니다.
           </p>
         </div>
 
@@ -94,7 +92,7 @@ export function CityMapFilters({
         </div>
       </div>
 
-      <div className="mb-4 mt-6 rounded-[24px] border border-white/70 bg-white/64 p-4 shadow-[0_14px_34px_-30px_rgba(51,39,30,0.2)] backdrop-blur-md">
+      <div className="mb-4 mt-4 rounded-[18px] border border-white/70 bg-white/64 p-3 shadow-[0_12px_28px_-26px_rgba(51,39,30,0.18)] backdrop-blur-md">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 max-md:grid-cols-1">
           <label className="min-w-0">
             <span className="sr-only">소도시 검색어</span>
@@ -106,14 +104,14 @@ export function CityMapFilters({
               }}
               disabled={!canUseSmallCityCatalog}
               placeholder="도시, 지역, 테마 검색"
-              className="min-h-12 w-full rounded-[18px] border border-white/70 bg-[#fffffa]/82 px-4 text-sm font-bold text-[#33271E] outline-none transition-all placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-60 focus:border-[#F36B12] focus:bg-white focus:ring-4 focus:ring-[#FF7017]/10"
+              className="min-h-11 w-full rounded-[14px] border border-white/70 bg-[#fffffa]/82 px-4 text-sm font-bold text-[#33271E] outline-none transition-all placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-60 focus:border-[#F36B12] focus:bg-white focus:ring-4 focus:ring-[#FF7017]/10"
             />
           </label>
           <button
             type="button"
             onClick={onClearFilters}
             disabled={!hasActiveFilters || !canUseSmallCityCatalog}
-            className="inline-flex min-h-12 items-center justify-center rounded-[18px] border border-white/70 bg-[#fffffa]/72 px-5 text-sm font-black text-[#33271E] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#FFE0CA] disabled:cursor-default disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:bg-[#fffffa]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+            className="inline-flex min-h-11 items-center justify-center rounded-[14px] border border-white/70 bg-[#fffffa]/72 px-5 text-sm font-black text-[#33271E] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#FFE0CA] disabled:cursor-default disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:bg-[#fffffa]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
           >
             필터 초기화
           </button>

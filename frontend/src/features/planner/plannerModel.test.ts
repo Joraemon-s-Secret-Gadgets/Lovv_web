@@ -377,9 +377,8 @@ describe('applyWishlistSummaryToPlanDraft', () => {
   it('위시리스트에서 추가한 stop을 일차 설명과 전체 일정 설명에 반영한다', () => {
     const nextDraft = applyWishlistSummaryToPlanDraft(createDraft([dayWithWishlistStop]))
 
-    expect(nextDraft.days[0].summary).toContain(
-      '사용자가 추가한 맛집 동네식당을 포함해 1일차 추천 일정 동선을 조정했습니다.',
-    )
+    expect(nextDraft.days[0].summary).toContain('안목해변 ➔ 동네식당 등을 차례로 방문하는 일정입니다.')
+    expect(nextDraft.days[0].summary).toContain('사용자가 추가한 맛집 동네식당을 포함해 1일차 추천 일정 동선을 조정했습니다.')
     expect(nextDraft.summary).toContain('사용자가 직접 추가한 맛집 1곳을 포함한 일정입니다.')
     expect(nextDraft.stops).toEqual(nextDraft.days.flatMap((day) => day.stops))
   })
@@ -405,8 +404,8 @@ describe('applyWishlistSummaryToPlanDraft', () => {
       stops: dayWithoutWishlistStop.stops,
     })
 
-    expect(nextDraft.days[0].summary).toBe('해안 산책과 로컬 식사를 잇는 코스입니다.')
-    expect(nextDraft.summary).toBe('강릉 바다를 중심으로 여유롭게 이동하는 일정입니다.')
+    expect(nextDraft.days[0].summary).toBe('안목해변 중심으로 구성한 일정입니다.')
+    expect(nextDraft.summary).toBe('안목해변을 중심으로 구성한 1일 일정입니다.')
   })
 
   it('여러 위시리스트 stop은 이름 목록과 총 개수를 갱신한다', () => {
@@ -451,7 +450,7 @@ describe('applyWishlistSummaryToPlanDraft', () => {
 
     const nextDraft = applyWishlistSummaryToPlanDraft(createDraft([pinnedAgentDay]))
 
-    expect(nextDraft.days[0].summary).toBe('해안 산책과 로컬 식사를 잇는 코스입니다.')
-    expect(nextDraft.summary).toBe('강릉 바다를 중심으로 여유롭게 이동하는 일정입니다.')
+    expect(nextDraft.days[0].summary).toBe('보존 관광지 중심으로 구성한 일정입니다.')
+    expect(nextDraft.summary).toBe('보존 관광지를 중심으로 구성한 1일 일정입니다.')
   })
 })
