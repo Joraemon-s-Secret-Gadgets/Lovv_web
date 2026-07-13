@@ -1131,7 +1131,8 @@ export function PlanDetailView({
         ...activeDay,
         stops: normalizeStopsAfterReorder(stops),
       })
-      setActiveStopIndex(toStopIndex)
+      const movedDisplayIndex = stops.filter((stop) => !isMealPlaceholderStop(stop)).indexOf(movedStop)
+      setActiveStopIndex(movedDisplayIndex >= 0 ? movedDisplayIndex : null)
       setFloatingChatNotice('방문 순서를 바꿨어요. 다음 수정 요청부터 Agent가 이 순서를 기준으로 봅니다.')
     }
 

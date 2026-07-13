@@ -133,7 +133,7 @@ const getRecommendationClarificationLabel = (option: {
   title?: string
 }) => option.label?.trim() || option.title?.trim() || option.optionId?.trim() || '선택하기'
 
-const createRecommendationClarification = (
+export const createRecommendationClarification = (
   response: RecommendationApiResponse,
 ): ChatClarification | null => {
   const options = Array.isArray(response.clarification?.options)
@@ -143,6 +143,9 @@ const createRecommendationClarification = (
           optionId: option.optionId?.trim() ?? '',
           label: getRecommendationClarificationLabel(option),
           description: option.description?.trim() || undefined,
+          helperText: option.helperText?.trim() || undefined,
+          apply: option.apply,
+          then: option.then,
         }))
     : []
   const threadId = response.threadId?.trim() || response.sessionId?.trim()
