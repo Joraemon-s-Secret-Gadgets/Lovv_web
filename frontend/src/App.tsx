@@ -850,6 +850,7 @@ function App() {
                 setPendingAuthRedirectPath={auth.setPendingAuthRedirectPath}
                 addWishlistRestaurant={planner.addWishlistRestaurant}
                 removeWishlistRestaurant={planner.removeWishlistRestaurant}
+                authAccessToken={auth.authAccessToken}
               />
             </ErrorBoundary>
           ) : activeView === 'mypage' ? (

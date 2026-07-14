@@ -6,7 +6,7 @@ import foxFaceImage from '../../assets/foxhead-smile.png'
 import type { SmallCityCountry } from '../map-city/smallCities'
 import { requestGetSmallCityDetail, requestGetSmallCityPlaces } from '../../shared/api/smallCityApi'
 import { requestKakaoPlaceImage } from '../../shared/api/kakaoPlaceImageApi'
-import { RecommendationApiRequestError } from '../../shared/api/recommendationsApi'
+import { RecommendationApiRequestError, requestRecommendationRoute } from '../../shared/api/recommendationsApi'
 import { PlanDetailGoogleMap } from './PlanDetailGoogleMap'
 import {
   hasExplicitReplacementDestination,
@@ -23,11 +23,12 @@ import {
   buildAttractionImageUrl as buildAttractionImageUrlFromModel,
 } from './plannerImageModel'
 import {
+  applyCalculatedRouteToDay,
   formatEstimatedMoveLabel,
   getPlanRouteCoordinates,
   getPlanStopLatLng,
   getStraightLineDistanceMeters,
-  requestOpenRouteServicePath,
+  resolveDisplayedRoutePath,
 } from './plannerRouteModel'
 
 // ---------------------------------------------------------------------------
@@ -37,7 +38,6 @@ import {
 const IMAGE_CDN_BASE =
   (import.meta.env.VITE_IMAGE_CDN_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '') ||
   DEFAULT_IMAGE_CDN_BASE_URL
-const OPEN_ROUTE_SERVICE_API_KEY = (import.meta.env.VITE_OPENROUTESERVICE_API_KEY as string | undefined)?.trim() ?? ''
 let localChatMessageIdSequence = 0
 const MAX_WISHLIST_STOPS_PER_DAY = 3
 const DISTANT_RESTAURANT_WARNING_METERS = 10_000
@@ -421,6 +421,7 @@ type PlanDetailViewProps = {
   setPendingAuthRedirectPath?: (path: string | null) => void
   addWishlistRestaurant?: (restaurant: SelectedMealPlace) => void
   removeWishlistRestaurant?: (restaurantId: string) => void
+  authAccessToken?: string | null
 }
 
 const createPlanHeroSubtitle = (planDraft: PlanDraft) => {
@@ -525,6 +526,7 @@ export function PlanDetailView({
   setPendingAuthRedirectPath,
   addWishlistRestaurant,
   removeWishlistRestaurant,
+  authAccessToken,
 }: PlanDetailViewProps) {
   const navigate = useNavigate()
 
@@ -634,6 +636,16 @@ export function PlanDetailView({
   const activeMapStops = (activeDay?.stops ?? []).filter((stop) => !isMealPlaceholderStop(stop))
   const activeRouteCoordinates = getPlanRouteCoordinates(activeMapStops, nameToCoords)
   const activeRouteCoordinateKey = serializeRouteCoordinates(activeRouteCoordinates)
+  const activeRouteRequestKey = activeRouteCoordinateKey ? `${activeDay?.day ?? 0}:${activeRouteCoordinateKey}` : ''
+  const persistedRouteKey = `${planId}:${activeDay?.day ?? 0}`
+  const persistedRouteCoordinateKeysRef = useRef(new Map<string, string>())
+  if (
+    activeDay?.route?.geometry?.coordinates &&
+    activeRouteCoordinates.length >= 2 &&
+    !persistedRouteCoordinateKeysRef.current.has(persistedRouteKey)
+  ) {
+    persistedRouteCoordinateKeysRef.current.set(persistedRouteKey, activeRouteCoordinateKey)
+  }
   const hasUserAddedWishlistStop = activeMapStops.some((stop) => stop.wishlistRestaurantId || stop.source === 'wishlist')
   const allPlacedWishlistRestaurantIds = useMemo(
     () => new Set(days.flatMap((day) => day.stops).map((stop) => stop.wishlistRestaurantId).filter((id): id is string => Boolean(id))),
@@ -643,24 +655,26 @@ export function PlanDetailView({
     () => (planDraft.selectedRestaurants ?? []).filter((r) => !allPlacedWishlistRestaurantIds.has(r.id) || activeMapStops.some((stop) => stop.wishlistRestaurantId === r.id)),
     [planDraft.selectedRestaurants, allPlacedWishlistRestaurantIds, activeMapStops],
   )
-  const [openRouteResult, setOpenRouteResult] = useState<{
+  const [calculatedRouteResult, setCalculatedRouteResult] = useState<{
     key: string
     path: RoutePathCoordinate[] | null
     status: 'ready' | 'fallback'
   } | null>(null)
-  const currentOpenRouteResult = openRouteResult?.key === activeRouteCoordinateKey ? openRouteResult : null
-  const openRoutePath = currentOpenRouteResult?.status === 'ready' ? currentOpenRouteResult.path : null
-  const openRouteStatus: 'idle' | 'loading' | 'ready' | 'fallback' =
+  const latestRouteRequestKeyRef = useRef(activeRouteRequestKey)
+  latestRouteRequestKeyRef.current = activeRouteRequestKey
+  const currentCalculatedRouteResult = calculatedRouteResult?.key === activeRouteRequestKey ? calculatedRouteResult : null
+  const calculatedRoutePath = currentCalculatedRouteResult?.status === 'ready' ? currentCalculatedRouteResult.path : null
+  const calculatedRouteStatus: 'idle' | 'loading' | 'ready' | 'fallback' =
     activeRouteCoordinates.length < 2
       ? 'idle'
-      : !OPEN_ROUTE_SERVICE_API_KEY
+      : !authAccessToken
         ? 'fallback'
-        : currentOpenRouteResult?.status ?? 'loading'
+        : currentCalculatedRouteResult?.status ?? 'loading'
 
   useEffect(() => {
     let isCancelled = false
 
-    if (!activeRouteCoordinateKey || !OPEN_ROUTE_SERVICE_API_KEY) {
+    if (!activeRouteCoordinateKey || !authAccessToken || currentCalculatedRouteResult) {
       return () => {
         isCancelled = true
       }
@@ -674,31 +688,37 @@ export function PlanDetailView({
       }
     }
 
-    requestOpenRouteServicePath(coordinates, OPEN_ROUTE_SERVICE_API_KEY)
-      .then((routePath) => {
-        if (isCancelled) {
+    requestRecommendationRoute(coordinates, { accessToken: authAccessToken })
+      .then((route) => {
+        if (isCancelled || latestRouteRequestKeyRef.current !== activeRouteRequestKey) {
           return
         }
 
-        if (routePath && routePath.length > 1) {
-          setOpenRouteResult({
-            key: activeRouteCoordinateKey,
+        const routePath = route?.geometry?.coordinates
+
+        if (route && routePath && routePath.length > 1) {
+          setCalculatedRouteResult({
+            key: activeRouteRequestKey,
             path: routePath,
             status: 'ready',
           })
+          if (activeDay && onReplacePlanDay) {
+            persistedRouteCoordinateKeysRef.current.set(persistedRouteKey, activeRouteCoordinateKey)
+            onReplacePlanDay(activeDay.day, applyCalculatedRouteToDay(activeDay, route))
+          }
           return
         }
 
-        setOpenRouteResult({
-          key: activeRouteCoordinateKey,
+        setCalculatedRouteResult({
+          key: activeRouteRequestKey,
           path: null,
           status: 'fallback',
         })
       })
       .catch(() => {
-        if (!isCancelled) {
-          setOpenRouteResult({
-            key: activeRouteCoordinateKey,
+        if (!isCancelled && latestRouteRequestKeyRef.current === activeRouteRequestKey) {
+          setCalculatedRouteResult({
+            key: activeRouteRequestKey,
             path: null,
             status: 'fallback',
           })
@@ -708,13 +728,20 @@ export function PlanDetailView({
     return () => {
       isCancelled = true
     }
-  }, [activeRouteCoordinateKey])
+  }, [activeDay, activeRouteCoordinateKey, activeRouteRequestKey, authAccessToken, currentCalculatedRouteResult, onReplacePlanDay, persistedRouteKey])
 
-  const displayedRoutePath = openRoutePath ?? (hasUserAddedWishlistStop ? undefined : activeDay?.route?.geometry?.coordinates)
+  const displayedRoutePath = resolveDisplayedRoutePath({
+    calculatedPath: calculatedRoutePath,
+    persistedPath: activeDay?.route?.geometry?.coordinates,
+    hasUserAddedWishlistStop,
+    persistedRouteMatchesCurrent:
+      persistedRouteCoordinateKeysRef.current.get(persistedRouteKey) === activeRouteCoordinateKey,
+    calculationFailed: currentCalculatedRouteResult?.status === 'fallback',
+  })
   const routeStatusLabel =
-    openRouteStatus === 'loading'
+    calculatedRouteStatus === 'loading'
       ? '실제 도로 동선 계산 중'
-      : openRouteStatus === 'ready'
+      : calculatedRouteStatus === 'ready'
         ? '실제 도로 동선'
         : activeRouteCoordinates.length > 1
           ? '직선 동선 표시'

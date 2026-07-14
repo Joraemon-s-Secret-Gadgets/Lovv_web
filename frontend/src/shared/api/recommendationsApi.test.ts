@@ -6,6 +6,7 @@ import {
   requestCreateRecommendation,
   requestListPopularDestinations,
   requestListReactionCities,
+  requestRecommendationRoute,
 } from './recommendationsApi'
 import type {
   RecommendationApiResponse,
@@ -17,6 +18,60 @@ import type { PlanRoute } from '../types/app'
 
 afterEach(() => {
   vi.restoreAllMocks()
+})
+
+describe('requestRecommendationRoute', () => {
+  it('인증 토큰과 좌표를 Kakao 경로 재계산 API로 전송한다', async () => {
+    const route: PlanRoute = {
+      provider: 'kakao-mobility',
+      profile: 'driving',
+      geometry: {
+        type: 'LineString',
+        coordinates: [[128.91, 37.75], [128.95, 37.77]],
+      },
+      distanceMeters: 4200,
+      durationSeconds: 780,
+    }
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ route }),
+    })
+
+    await expect(requestRecommendationRoute(
+      [[128.91, 37.75], [128.95, 37.77]],
+      { baseUrl: 'https://api.lovv.test/', accessToken: 'access-token', fetchImpl },
+    )).resolves.toEqual(route)
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.lovv.test/api/v1/routes',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Authorization: 'Bearer access-token',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ coordinates: [[128.91, 37.75], [128.95, 37.77]] }),
+      }),
+    )
+  })
+
+  it('잘못된 경로 좌표 응답은 지도와 저장 데이터에 전달하지 않는다', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        route: {
+          provider: 'kakao-mobility',
+          geometry: { type: 'LineString', coordinates: [[128.91, 37.75], [Number.NaN, 37.77]] },
+        },
+      }),
+    })
+
+    await expect(requestRecommendationRoute(
+      [[128.91, 37.75], [128.95, 37.77]],
+      { accessToken: 'access-token', fetchImpl },
+    )).resolves.toBeNull()
+  })
 })
 
 const makeItem = (overrides: Partial<RecommendationItinerary['days'][0]['items'][0]> = {}) => ({
@@ -772,10 +827,10 @@ describe('mapRecommendationToDraft — PlanDraft 구조', () => {
     expect(draft.stops).toHaveLength(3)
   })
 
-  it('OpenRouteService route geometry를 day에 보존', () => {
+  it('Kakao Mobility route geometry를 day에 보존', () => {
     const route: PlanRoute = {
-      provider: 'openrouteservice',
-      profile: 'driving-car',
+      provider: 'kakao-mobility',
+      profile: 'driving',
       geometry: {
         type: 'LineString',
         coordinates: [[128.947, 37.771], [128.908, 37.805]],
@@ -793,7 +848,7 @@ describe('mapRecommendationToDraft — PlanDraft 구조', () => {
     expect(mapRecommendationToDraft(res).days[0].route).toEqual(route)
   })
 
-  it('지도와 저장 상세에 필요한 stop 좌표와 ORS 이동값을 보존', () => {
+  it('지도와 저장 상세에 필요한 stop 좌표와 이동값을 보존', () => {
     const res = makeResponse([
       makeDay(1, [
         makeItem({
