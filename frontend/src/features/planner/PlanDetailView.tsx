@@ -633,19 +633,13 @@ export function PlanDetailView({
   const days = planDraft.days
   const safeDayIndex = Math.min(activeDayIndex, Math.max(0, days.length - 1))
   const activeDay = days[safeDayIndex]
-  const activeMapStops = (activeDay?.stops ?? []).filter((stop) => !isMealPlaceholderStop(stop))
+  const activeMapStops = useMemo(
+    () => (activeDay?.stops ?? []).filter((stop) => !isMealPlaceholderStop(stop)),
+    [activeDay?.stops],
+  )
   const activeRouteCoordinates = getPlanRouteCoordinates(activeMapStops, nameToCoords)
   const activeRouteCoordinateKey = serializeRouteCoordinates(activeRouteCoordinates)
   const activeRouteRequestKey = activeRouteCoordinateKey ? `${activeDay?.day ?? 0}:${activeRouteCoordinateKey}` : ''
-  const persistedRouteKey = `${planId}:${activeDay?.day ?? 0}`
-  const persistedRouteCoordinateKeysRef = useRef(new Map<string, string>())
-  if (
-    activeDay?.route?.geometry?.coordinates &&
-    activeRouteCoordinates.length >= 2 &&
-    !persistedRouteCoordinateKeysRef.current.has(persistedRouteKey)
-  ) {
-    persistedRouteCoordinateKeysRef.current.set(persistedRouteKey, activeRouteCoordinateKey)
-  }
   const hasUserAddedWishlistStop = activeMapStops.some((stop) => stop.wishlistRestaurantId || stop.source === 'wishlist')
   const allPlacedWishlistRestaurantIds = useMemo(
     () => new Set(days.flatMap((day) => day.stops).map((stop) => stop.wishlistRestaurantId).filter((id): id is string => Boolean(id))),
@@ -660,8 +654,6 @@ export function PlanDetailView({
     path: RoutePathCoordinate[] | null
     status: 'ready' | 'fallback'
   } | null>(null)
-  const latestRouteRequestKeyRef = useRef(activeRouteRequestKey)
-  latestRouteRequestKeyRef.current = activeRouteRequestKey
   const currentCalculatedRouteResult = calculatedRouteResult?.key === activeRouteRequestKey ? calculatedRouteResult : null
   const calculatedRoutePath = currentCalculatedRouteResult?.status === 'ready' ? currentCalculatedRouteResult.path : null
   const calculatedRouteStatus: 'idle' | 'loading' | 'ready' | 'fallback' =
@@ -690,7 +682,7 @@ export function PlanDetailView({
 
     requestRecommendationRoute(coordinates, { accessToken: authAccessToken })
       .then((route) => {
-        if (isCancelled || latestRouteRequestKeyRef.current !== activeRouteRequestKey) {
+        if (isCancelled) {
           return
         }
 
@@ -703,7 +695,6 @@ export function PlanDetailView({
             status: 'ready',
           })
           if (activeDay && onReplacePlanDay) {
-            persistedRouteCoordinateKeysRef.current.set(persistedRouteKey, activeRouteCoordinateKey)
             onReplacePlanDay(activeDay.day, applyCalculatedRouteToDay(activeDay, route))
           }
           return
@@ -716,7 +707,7 @@ export function PlanDetailView({
         })
       })
       .catch(() => {
-        if (!isCancelled && latestRouteRequestKeyRef.current === activeRouteRequestKey) {
+        if (!isCancelled) {
           setCalculatedRouteResult({
             key: activeRouteRequestKey,
             path: null,
@@ -728,14 +719,14 @@ export function PlanDetailView({
     return () => {
       isCancelled = true
     }
-  }, [activeDay, activeRouteCoordinateKey, activeRouteRequestKey, authAccessToken, currentCalculatedRouteResult, onReplacePlanDay, persistedRouteKey])
+  }, [activeDay, activeRouteCoordinateKey, activeRouteRequestKey, authAccessToken, currentCalculatedRouteResult, onReplacePlanDay])
 
   const displayedRoutePath = resolveDisplayedRoutePath({
     calculatedPath: calculatedRoutePath,
     persistedPath: activeDay?.route?.geometry?.coordinates,
     hasUserAddedWishlistStop,
     persistedRouteMatchesCurrent:
-      persistedRouteCoordinateKeysRef.current.get(persistedRouteKey) === activeRouteCoordinateKey,
+      calculatedRouteResult === null || currentCalculatedRouteResult?.status === 'ready',
     calculationFailed: currentCalculatedRouteResult?.status === 'fallback',
   })
   const routeStatusLabel =
