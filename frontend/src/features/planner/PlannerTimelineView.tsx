@@ -182,7 +182,7 @@ export function PlannerTimelineView({
     </section>
   )
 
-  if (isPlannerLoading && hasGuidedPlannerChoices && isPlannerReady) {
+  if (isPlannerLoading && hasGuidedPlannerChoices) {
     return renderSkeletonItineraryPanel()
   }
 

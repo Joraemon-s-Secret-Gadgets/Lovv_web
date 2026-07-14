@@ -2377,8 +2377,8 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '메시지 보내기' }))
 
     expect(screen.queryByRole('region', { name: '생성된 일정 요약' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'AI 일정 생성 중' })).not.toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'AI 일정 결과' })).toHaveTextContent('아직 일정이 생성되지 않았어요')
+    expect(screen.getByRole('region', { name: 'AI 일정 생성 중' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'AI 일정 결과' })).not.toBeInTheDocument()
 
     await act(async () => {
       recommendationResponse.resolve({
@@ -2420,6 +2420,7 @@ describe('MVP main entry screen', () => {
 
     expect(await screen.findByText('일정을 계속 만들기 전에 선택이 필요해요.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '전통 중심' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'AI 일정 생성 중' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '생성된 일정 요약' })).not.toBeInTheDocument()
     expect(screen.queryByText('선택 전에 보이면 안 되는 일정 요약입니다.')).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'AI 일정 결과' })).toHaveTextContent('아직 일정이 생성되지 않았어요')
