@@ -31,12 +31,15 @@
   - 상세 화면과 플래너에 변경된 destination 이름/ID를 우선 전달한다.
 - `frontend/src/App.test.tsx`
   - 도시 변경 후 화면, 후속 수정 요청, 로컬 저장 destination을 검증한다.
+- `frontend/e2e/lovv-v2-itinerary.e2e.ts`
+  - 실제 Chromium에서 수정 요청·응답 누적과 챗봇 닫기/재열기 후 기록 유지를 검증한다.
 
 ## Test and Verification Results
 
 - `npm test -- src/features/planner/PlanDetailView.test.tsx`: 6 passed.
 - `npm test -- src/App.test.tsx -t "applies a city replacement destination"`: 1 passed.
 - `npm test`: 33 files, 349 tests passed.
+- `npm run test:e2e`: Chromium 1 scenario passed. 로그인, 일정 생성, 수정 적용, 연속 기록 누적, 닫기/재열기, 저장, 재열람을 검증했다.
 - `npm run lint`: passed.
 - `npm run build`: passed.
 - `git diff --check`: passed.
@@ -49,4 +52,3 @@
 - 실제 AgentCore/AWS 환경의 종단 간 수동 확인은 로컬 자격 증명과 배포 환경 없이 수행하지 않았다.
 - 개인 fork `main` 푸시 및 Organization PR은 TASK2이며 사용자 확인 후 수행한다.
 - AWS S3 서울 리전 배포는 사용자가 다음 날 직접 진행하기로 하여 범위에서 제외했다.
-
