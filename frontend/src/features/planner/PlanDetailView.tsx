@@ -578,6 +578,22 @@ export function PlanDetailView({
 
   const [localChatMessages, setLocalChatMessages] = useState<ChatMessage[]>([])
 
+  const appendLocalChatMessage = (role: ChatMessage['role'], content: string) => {
+    setLocalChatMessages((current) => [
+      ...current,
+      {
+        id: createLocalChatMessageId(`plan-detail-${role}`),
+        role,
+        content,
+      },
+    ])
+  }
+
+  const reportFloatingChatResult = (content: string) => {
+    setFloatingChatNotice(content)
+    appendLocalChatMessage('assistant', content)
+  }
+
   const feedbackChips = [
     { id: 'healing_rest', label: t('feedback.chip_healing') },
     { id: 'nature_trekking', label: t('feedback.chip_nature') },
@@ -874,7 +890,7 @@ export function PlanDetailView({
       rawModifyQuery = `${day.day}일차 ${day.stops[stopIndex]?.time ?? ''} 일정 바꿔줘`.trim(),
     ) => {
       if (!onRequestPlanModification) {
-        setFloatingChatNotice('일정 수정 에이전트 연결이 아직 준비되지 않았어요.')
+        reportFloatingChatResult('일정 수정 에이전트 연결이 아직 준비되지 않았어요.')
         return
       }
 
@@ -890,7 +906,7 @@ export function PlanDetailView({
         })
 
         if (!candidate || !('time' in candidate)) {
-          setFloatingChatNotice('수정 후보를 받지 못했어요. 조건을 조금 더 구체적으로 다시 요청해 주세요.')
+          reportFloatingChatResult('수정 후보를 받지 못했어요. 조건을 조금 더 구체적으로 다시 요청해 주세요.')
           return
         }
 
@@ -900,9 +916,9 @@ export function PlanDetailView({
           stopIndex,
           candidate,
         })
-        setFloatingChatNotice('에이전트가 제안한 후보를 확인해 주세요.')
+        reportFloatingChatResult('에이전트가 제안한 후보를 확인해 주세요.')
       } catch (error) {
-        setFloatingChatNotice(getPlanModificationFailureMessage(error))
+        reportFloatingChatResult(getPlanModificationFailureMessage(error))
       } finally {
         setPendingModificationRequest(null)
       }
@@ -921,10 +937,7 @@ export function PlanDetailView({
       setFloatingChatNotice(null)
       setFloatingChatInput('')
       setFloatingChatOpen(true)
-      setLocalChatMessages((current) => [
-        ...current,
-        { id: createLocalChatMessageId('stop-replace'), role: 'user', content: requestMessage },
-      ])
+      appendLocalChatMessage('user', requestMessage)
 
       await requestStopReplacement(day, stopIndex, requestMessage)
     }
@@ -944,7 +957,7 @@ export function PlanDetailView({
       const targetDay = days.find((day) => day.day === dayNumber)
 
       if (!targetDay || !onRequestPlanModification) {
-        setFloatingChatNotice('일정 수정 에이전트 연결이 아직 준비되지 않았어요.')
+        reportFloatingChatResult('일정 수정 에이전트 연결이 아직 준비되지 않았어요.')
         return
       }
 
@@ -959,12 +972,12 @@ export function PlanDetailView({
         })
 
         if (!candidate || !('stops' in candidate) || 'days' in candidate) {
-          setFloatingChatNotice('수정 후보를 받지 못했어요. 조건을 조금 더 구체적으로 다시 요청해 주세요.')
+          reportFloatingChatResult('수정 후보를 받지 못했어요. 조건을 조금 더 구체적으로 다시 요청해 주세요.')
           return
         }
 
         if (!hasOnlyNewReplacementStops(targetDay, candidate)) {
-          setFloatingChatNotice('기존 방문지와 겹치지 않는 새 일차를 받지 못했어요. 잠시 후 다시 시도해 주세요.')
+          reportFloatingChatResult('기존 방문지와 겹치지 않는 새 일차를 받지 못했어요. 잠시 후 다시 시도해 주세요.')
           return
         }
 
@@ -973,9 +986,9 @@ export function PlanDetailView({
           dayNumber,
           candidate,
         })
-        setFloatingChatNotice('에이전트가 제안한 후보를 확인해 주세요.')
+        reportFloatingChatResult('에이전트가 제안한 후보를 확인해 주세요.')
       } catch (error) {
-        setFloatingChatNotice(getPlanModificationFailureMessage(error))
+        reportFloatingChatResult(getPlanModificationFailureMessage(error))
       } finally {
         setPendingModificationRequest(null)
       }
@@ -989,7 +1002,7 @@ export function PlanDetailView({
       } = {},
     ): Promise<boolean> => {
       if (!onRequestPlanModification || !onReplacePlanDraft) {
-        setFloatingChatNotice('일정 수정 에이전트 연결이 아직 준비되지 않았어요.')
+        reportFloatingChatResult('일정 수정 에이전트 연결이 아직 준비되지 않았어요.')
         return false
       }
 
@@ -1006,15 +1019,15 @@ export function PlanDetailView({
         })
 
         if (!candidate || !('days' in candidate)) {
-          setFloatingChatNotice('전체 일정 수정안을 받지 못했어요. 조건을 조금 더 구체적으로 다시 요청해 주세요.')
+          reportFloatingChatResult('전체 일정 수정안을 받지 못했어요. 조건을 조금 더 구체적으로 다시 요청해 주세요.')
           return false
         }
 
         onReplacePlanDraft(candidate)
-        setFloatingChatNotice(options.successNotice ?? '에이전트가 제안한 전체 일정 수정안을 반영했어요.')
+        reportFloatingChatResult(options.successNotice ?? '에이전트가 제안한 전체 일정 수정안을 반영했어요.')
         return true
       } catch (error) {
-        setFloatingChatNotice(getPlanModificationFailureMessage(error))
+        reportFloatingChatResult(getPlanModificationFailureMessage(error))
         return false
       } finally {
         setPendingModificationRequest(null)
@@ -1028,10 +1041,12 @@ export function PlanDetailView({
 
       if (pendingEdit.kind === 'stop' && onReplacePlanStop) {
         onReplacePlanStop(pendingEdit.dayNumber, pendingEdit.stopIndex, pendingEdit.candidate)
+        reportFloatingChatResult('선택한 장소 변경을 일정에 반영했어요.')
       }
 
       if (pendingEdit.kind === 'day' && onReplacePlanDay) {
         onReplacePlanDay(pendingEdit.dayNumber, pendingEdit.candidate)
+        reportFloatingChatResult(`${pendingEdit.dayNumber}일차 변경을 일정에 반영했어요.`)
       }
 
       setPendingEdit(null)
@@ -1307,8 +1322,10 @@ export function PlanDetailView({
         return
       }
 
+      appendLocalChatMessage('user', command)
+
       if (hasExplicitReplacementDestination(command)) {
-        setFloatingChatNotice('특정 장소 지정은 지원하지 않아요. 바꿀 시간대와 실내 여부, 분위기, 이동 부담을 알려주세요.')
+        reportFloatingChatResult('특정 장소 지정은 지원하지 않아요. 바꿀 시간대와 실내 여부, 분위기, 이동 부담을 알려주세요.')
         return
       }
 
@@ -1325,7 +1342,7 @@ export function PlanDetailView({
       }
 
       if (!editIntent) {
-        setFloatingChatNotice('“도시 바꿔줘”, “1일차 2번째 장소 바꿔줘”, “1일차 점심을 OO로 바꿔줘”처럼 요청해 주세요.')
+        reportFloatingChatResult('“도시 바꿔줘”, “1일차 2번째 장소 바꿔줘”, “1일차 점심을 OO로 바꿔줘”처럼 요청해 주세요.')
         return
       }
 
@@ -1342,7 +1359,7 @@ export function PlanDetailView({
       }
 
       if (editIntent.type === 'replace_day_confirmation') {
-        setFloatingChatNotice('요청을 확인했어요. 일정 화면에서 변경 범위를 확정해 주세요.')
+        reportFloatingChatResult('요청을 확인했어요. 일정 화면에서 변경 범위를 확정해 주세요.')
       }
       setFloatingChatInput('')
       setFloatingChatOpen(editIntent.type === 'replace_stop')
@@ -1925,9 +1942,9 @@ export function PlanDetailView({
                 ) : null}
               </aside>
 
-              <div className="grid min-h-0 grid-rows-[minmax(280px,1fr)_auto] gap-5 lg:sticky lg:top-[96px] lg:max-h-[calc(100dvh-7rem)] lg:min-h-[560px] max-lg:grid-rows-none">
+              <div className="grid min-h-0 grid-rows-[minmax(220px,1fr)_auto] gap-5 lg:sticky lg:top-[96px] lg:max-h-[calc(100dvh-7rem)] lg:min-h-[520px] max-lg:grid-rows-none">
                 {/* Interactive Route Map Panel */}
-                <div className="relative min-h-[280px] overflow-hidden rounded-[24px] border border-white/50 bg-[#fffffa]/30 shadow-[0_16px_42px_-28px_rgba(51,39,30,0.2)] backdrop-blur-sm max-lg:h-[420px]">
+                <div className="relative min-h-[220px] overflow-hidden rounded-[24px] border border-white/50 bg-[#fffffa]/30 shadow-[0_16px_42px_-28px_rgba(51,39,30,0.2)] backdrop-blur-sm max-lg:h-[420px] max-lg:min-h-[280px]">
                   <PlanDetailGoogleMap
                     stops={activeMapStops}
                     wishlistRestaurants={activeDayWishlistRestaurants}
@@ -1946,7 +1963,7 @@ export function PlanDetailView({
 
                 {/* 나의 맛집 위시리스트 (Pocket) */}
                 {canUseMealWishlist ? (
-                  <div className="flex min-h-0 flex-col rounded-[22px] border border-[#F3B489] bg-[#fffffa] p-5 shadow-[0_14px_36px_-24px_rgba(51,39,30,0.2)] max-lg:max-h-[420px]">
+                  <div className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#F3B489] bg-[#fffffa] p-5 shadow-[0_14px_36px_-24px_rgba(51,39,30,0.2)] lg:h-[400px] max-lg:max-h-[420px]">
                   <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h4 className="flex items-center gap-2 text-base font-black text-[#33271E]">
@@ -1975,7 +1992,7 @@ export function PlanDetailView({
                   ) : null}
 
                   {(planDraft.selectedRestaurants ?? []).length > 0 ? (
-                    <ul className="mt-4 min-h-0 max-h-[360px] space-y-3 overflow-y-auto overscroll-contain pb-2 pr-1" aria-label="담아둔 맛집 목록">
+                    <ul className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pb-2 pr-1 lg:max-h-[300px] max-lg:max-h-[360px]" aria-label="담아둔 맛집 목록">
                       {(planDraft.selectedRestaurants ?? []).map((restaurant) => {
                         const isSelectedForPlacement = selectedWishlistRestaurantId === restaurant.id
 
@@ -1990,7 +2007,7 @@ export function PlanDetailView({
                             onDragEnd={() => {
                               setIsDragging(false)
                             }}
-                            className={`flex cursor-grab flex-wrap items-start justify-between gap-4 rounded-[18px] border p-4 transition-colors active:cursor-grabbing ${
+                            className={`flex shrink-0 cursor-grab flex-wrap items-start justify-between gap-4 rounded-[18px] border p-4 transition-colors active:cursor-grabbing ${
                               isSelectedForPlacement
                                 ? 'border-[#F36B12] bg-[#FFF0E4] shadow-[0_12px_28px_-24px_rgba(51,39,30,0.3)]'
                                 : 'border-[#F3B489]/30 bg-[#FFF8F6] hover:border-[#F36B12]'
@@ -2008,7 +2025,7 @@ export function PlanDetailView({
                               <h5 className="break-keep text-sm font-black leading-6 text-[#33271E]">
                                 {restaurant.placeName}
                               </h5>
-                              <p className="mt-1 break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
+                              <p className="mt-1 line-clamp-2 break-keep text-[12px] font-semibold leading-5 text-[#6E5A50]">
                                 {restaurant.roadAddressName ?? restaurant.addressName ?? '주소 정보 없음'}
                               </p>
                               {restaurant.phone ? (
@@ -2263,7 +2280,7 @@ export function PlanDetailView({
                       ))}
                   </div>
                   {[...recentChatMessages, ...localChatMessages].length > 0 ? (
-                    <div className="mt-4 space-y-3" aria-label="최근 대화">
+                    <div role="group" className="mt-4 space-y-3" aria-label="최근 대화">
                       {[...recentChatMessages, ...localChatMessages].map((message) => {
                         const isAssistantMessage = message.role === 'assistant'
 

@@ -148,7 +148,7 @@ export const searchKakaoMealPlaces = async (
             places: results
               .map(adaptKakaoMealPlace)
               .filter((place): place is SelectedMealPlace => Boolean(place))
-              .slice(0, 5),
+              .slice(0, 10),
           }
           kakaoMealSearchCache.set(cacheKey, readyResult)
           resolve(readyResult)

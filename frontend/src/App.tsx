@@ -423,7 +423,7 @@ function App() {
     ? planner.plannerBasisLabel
     : routeSavedPlan?.cityPair ?? planner.plannerBasisLabel
   const activePlanDetailDestinationId = isRouteCurrentGeneratedPlan
-    ? (planner.plannerCityContext?.cityId ?? planner.generatedPlanDestinationId ?? undefined)
+    ? (planner.generatedPlanDestinationId ?? planner.plannerCityContext?.cityId ?? undefined)
     : routeSavedPlan?.destinationId ?? undefined
   const isActivePlanDetailReady = isRouteCurrentGeneratedPlan || Boolean(routeSavedPlan)
   const isActivePlanDetailSaved = isRouteCurrentGeneratedPlan ? Boolean(savedGeneratedPlanForRoute) || planner.isCurrentPlanSaved : Boolean(routeSavedPlan)
@@ -818,7 +818,7 @@ function App() {
                 planDraft={activePlanDetailDraft}
                 plannerBasisLabel={activePlanDetailBasisLabel}
                 cityImageUrl={planner.plannerCityContext?.imageUrl ?? undefined}
-                destinationName={planner.plannerCityContext?.cityName ?? planner.generatedPlanDestinationName ?? undefined}
+                destinationName={planner.generatedPlanDestinationName ?? planner.plannerCityContext?.cityName ?? undefined}
                 destinationId={activePlanDetailDestinationId}
                 planId={activePlanDetailId}
                 isSavedPlanDetailLoading={isBackendRoutePlanLoading}
@@ -922,7 +922,7 @@ function App() {
                 openMyPage={openMyPage}
                 savedPlanNotice={auth.savedPlanNotice}
                 isPlannerLoading={planner.isPlannerLoading}
-                planDestinationName={planner.plannerCityContext?.cityName ?? planner.generatedPlanDestinationName ?? undefined}
+                planDestinationName={planner.generatedPlanDestinationName ?? planner.plannerCityContext?.cityName ?? undefined}
                 activeThemeIds={preferences.activeThemeIds}
                 onAddThemePreference={handleAddThemePreference}
                 onRemoveThemePreferences={handleRemoveThemePreferences}

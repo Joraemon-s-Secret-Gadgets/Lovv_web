@@ -5,7 +5,8 @@
  * @lastModified 2026-07-15
  */
 
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '../../i18n'
@@ -93,6 +94,8 @@ const createCalculatedRoute = (coordinates: RoutePathCoordinate[]): PlanRoute =>
   },
 })
 
+type PlanModificationRequest = NonNullable<ComponentProps<typeof PlanDetailView>['onRequestPlanModification']>
+
 const renderPlanDetail = (planDraft: PlanDraft) => (
   <MemoryRouter>
     <PlanDetailView
@@ -113,6 +116,57 @@ const renderPlanDetail = (planDraft: PlanDraft) => (
   </MemoryRouter>
 )
 
+const renderEditablePlanDetail = (
+  planDraft: PlanDraft,
+  onRequestPlanModification: PlanModificationRequest,
+) => render(
+  <MemoryRouter>
+    <PlanDetailView
+      isPlannerReady
+      shouldAskFestivalTheme={false}
+      returnToChatWorkspace={vi.fn()}
+      currentPlanTitle="수정 대화 테스트"
+      planDraft={planDraft}
+      plannerBasisLabel="강릉"
+      planId="modification-chat-history-plan"
+      saveGeneratedPlan={vi.fn()}
+      isCurrentPlanSaved={false}
+      onDeleteSavedPlan={vi.fn()}
+      openMyPage={vi.fn()}
+      savedPlanNotice={null}
+      authAccessToken="access-token"
+      onReplacePlanStop={vi.fn()}
+      onReplacePlanDay={vi.fn()}
+      onReplacePlanDraft={vi.fn()}
+      onRequestPlanModification={onRequestPlanModification}
+    />
+  </MemoryRouter>,
+)
+
+const renderWishlistPlanDetail = (planDraft: PlanDraft) => render(
+  <MemoryRouter>
+    <PlanDetailView
+      isPlannerReady
+      shouldAskFestivalTheme={false}
+      returnToChatWorkspace={vi.fn()}
+      currentPlanTitle="wishlist layout test"
+      planDraft={planDraft}
+      plannerBasisLabel="Donghae"
+      destinationName="Donghae"
+      planId="wishlist-layout-plan"
+      saveGeneratedPlan={vi.fn()}
+      isCurrentPlanSaved={false}
+      onDeleteSavedPlan={vi.fn()}
+      openMyPage={vi.fn()}
+      savedPlanNotice={null}
+      authAccessToken="access-token"
+      onReplacePlanDay={vi.fn()}
+      addWishlistRestaurant={vi.fn()}
+      removeWishlistRestaurant={vi.fn()}
+    />
+  </MemoryRouter>,
+)
+
 const expectDisplayedRoute = async (routePath: RoutePathCoordinate[] | null) => {
   await waitFor(() => {
     expect(screen.getByTestId('plan-detail-google-map')).toHaveAttribute(
@@ -131,6 +185,45 @@ describe('PlanDetailView day-keyed route results', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.clearAllMocks()
+  })
+
+  it('keeps a selected wishlist card intact inside the desktop scroll list', () => {
+    vi.mocked(requestRecommendationRoute).mockResolvedValue(null)
+    const planDraft: PlanDraft = {
+      ...createPlanDraft([
+        createDay(1, [[129.11, 37.52]], [[129.11, 37.52], [129.12, 37.53]]),
+      ]),
+      selectedRestaurants: [{
+        id: 'wishlist-long-card',
+        placeName: 'Desktop Wishlist Restaurant',
+        roadAddressName: 'Gangwon-do Donghae-si a deliberately long coastal road address for layout verification 12345',
+        phone: '033-123-4567',
+        placeUrl: 'https://place.map.kakao.com/12345',
+        imageUrl: 'https://img1.kakaocdn.net/place.jpg',
+        source: 'kakao',
+        lat: 37.52,
+        lng: 129.11,
+      }],
+    }
+
+    renderWishlistPlanDetail(planDraft)
+
+    const title = screen.getByText('Desktop Wishlist Restaurant')
+    const list = title.closest('ul')
+    const card = title.closest('li')
+    const address = screen.getByText(/deliberately long coastal road address/)
+    const mapPanel = screen.getByTestId('plan-detail-google-map').parentElement
+
+    expect(list).not.toBeNull()
+    expect(mapPanel).toHaveClass('min-h-[220px]', 'max-lg:min-h-[280px]')
+    expect(list).toHaveClass('flex-1', 'overflow-y-auto', 'lg:max-h-[300px]')
+    expect(list?.parentElement).toHaveClass('lg:h-[400px]')
+    expect(card).toHaveClass('shrink-0')
+    expect(address).toHaveClass('line-clamp-2')
+    expect(within(list as HTMLUListElement).getAllByRole('button')).toHaveLength(2)
+    within(list as HTMLUListElement).getAllByRole('button').forEach((button) => {
+      expect(button).toBeVisible()
+    })
   })
 
   it('keeps day 2 persisted route visible while its request is pending after day 1 completes', async () => {
@@ -176,6 +269,92 @@ describe('PlanDetailView day-keyed route results', () => {
       'data-route-path',
       JSON.stringify(day1CalculatedPath),
     )
+  })
+
+  it('keeps consecutive modification requests and assistant results in the chat history', async () => {
+    vi.mocked(requestRecommendationRoute).mockResolvedValue(null)
+    const planDraft = createPlanDraft([
+      createDay(1, [[128.91, 37.75], [128.93, 37.77]], [[128.91, 37.75], [128.93, 37.77]]),
+    ])
+    const onRequestPlanModification = vi.fn<PlanModificationRequest>()
+      .mockResolvedValueOnce({
+        ...planDraft.days[0].stops[0],
+        title: '첫 번째 대체 장소',
+      })
+      .mockResolvedValueOnce({
+        ...planDraft.days[0].stops[1],
+        title: '두 번째 대체 장소',
+      })
+
+    renderEditablePlanDetail(planDraft, onRequestPlanModification)
+    fireEvent.click(screen.getByRole('button', { name: 'Lovv 챗봇' }))
+
+    const input = screen.getByRole('textbox', { name: '세부 일정 수정 요청' })
+    fireEvent.change(input, { target: { value: '1일차 첫 장소 바꿔줘' } })
+    fireEvent.click(screen.getByRole('button', { name: '확인' }))
+    await screen.findByRole('group', { name: /첫 번째 대체 장소 장소 변경 확인/ })
+
+    fireEvent.change(input, { target: { value: '1일차 두 번째 장소 바꿔줘' } })
+    fireEvent.click(screen.getByRole('button', { name: '확인' }))
+    await screen.findByRole('group', { name: /두 번째 대체 장소 장소 변경 확인/ })
+
+    fireEvent.click(screen.getByRole('button', { name: '세부 일정 수정 챗봇 닫기' }))
+    expect(screen.queryByRole('textbox', { name: '세부 일정 수정 요청' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Lovv 챗봇' }))
+
+    const history = screen.getByRole('group', { name: '최근 대화' })
+    expect(within(history).getByText('1일차 첫 장소 바꿔줘')).toBeVisible()
+    expect(within(history).getByText('1일차 두 번째 장소 바꿔줘')).toBeVisible()
+    expect(within(history).getAllByText('에이전트가 제안한 후보를 확인해 주세요.')).toHaveLength(2)
+
+    fireEvent.click(screen.getByRole('button', { name: '바꾸기' }))
+    expect(within(history).getByText('선택한 장소 변경을 일정에 반영했어요.')).toBeVisible()
+  })
+
+  it('keeps unsupported modification requests and assistant guidance in the chat history', async () => {
+    vi.mocked(requestRecommendationRoute).mockResolvedValue(null)
+    const planDraft = createPlanDraft([
+      createDay(1, [[128.91, 37.75], [128.93, 37.77]], [[128.91, 37.75], [128.93, 37.77]]),
+    ])
+    const onRequestPlanModification = vi.fn<PlanModificationRequest>()
+
+    renderEditablePlanDetail(planDraft, onRequestPlanModification)
+    fireEvent.click(screen.getByRole('button', { name: 'Lovv 챗봇' }))
+
+    const input = screen.getByRole('textbox', { name: '세부 일정 수정 요청' })
+    fireEvent.change(input, { target: { value: '첫 번째 지원하지 않는 요청' } })
+    fireEvent.click(screen.getByRole('button', { name: '확인' }))
+    fireEvent.change(input, { target: { value: '두 번째 지원하지 않는 요청' } })
+    fireEvent.click(screen.getByRole('button', { name: '확인' }))
+
+    const history = screen.getByRole('group', { name: '최근 대화' })
+    expect(within(history).getByText('첫 번째 지원하지 않는 요청')).toBeVisible()
+    expect(within(history).getByText('두 번째 지원하지 않는 요청')).toBeVisible()
+    expect(within(history).getAllByText(
+      '“도시 바꿔줘”, “1일차 2번째 장소 바꿔줘”, “1일차 점심을 OO로 바꿔줘”처럼 요청해 주세요.',
+    )).toHaveLength(2)
+    expect(onRequestPlanModification).not.toHaveBeenCalled()
+  })
+
+  it('keeps the modification request and failure result when the agent call rejects', async () => {
+    vi.mocked(requestRecommendationRoute).mockResolvedValue(null)
+    const planDraft = createPlanDraft([
+      createDay(1, [[128.91, 37.75], [128.93, 37.77]], [[128.91, 37.75], [128.93, 37.77]]),
+    ])
+    const onRequestPlanModification = vi.fn<PlanModificationRequest>().mockRejectedValue(new Error('network unavailable'))
+
+    renderEditablePlanDetail(planDraft, onRequestPlanModification)
+    fireEvent.click(screen.getByRole('button', { name: 'Lovv 챗봇' }))
+
+    const input = screen.getByRole('textbox', { name: '세부 일정 수정 요청' })
+    fireEvent.change(input, { target: { value: '1일차 첫 장소 바꿔줘' } })
+    fireEvent.click(screen.getByRole('button', { name: '확인' }))
+
+    const history = await screen.findByRole('group', { name: '최근 대화' })
+    expect(within(history).getByText('1일차 첫 장소 바꿔줘')).toBeVisible()
+    expect(within(history).getByText(
+      '일정 수정 에이전트 연결이 끊겼어요. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.',
+    )).toBeVisible()
   })
 
   it('hides the same day old persisted and calculated paths while a changed request is pending', async () => {

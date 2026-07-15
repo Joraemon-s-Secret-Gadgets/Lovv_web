@@ -2681,6 +2681,131 @@ describe('MVP main entry screen', () => {
     )
   })
 
+  it('applies a city replacement destination to the detail and following modification request', async () => {
+    seedUser()
+    seedPreference('아산/온양 · 벳푸')
+    vi.mocked(requestCreateRecommendation).mockResolvedValueOnce({
+      destination: {
+        destinationId: 'KR-Asan',
+        name: '아산',
+        country: 'KR',
+        region: '충남',
+      },
+      itinerary: {
+        tripType: '2d1n',
+        title: '아산 기존 일정',
+        summary: '아산에서 시작하는 일정입니다.',
+        durationLabel: '1박 2일',
+        days: [
+          {
+            day: 1,
+            title: '아산 1일차',
+            summary: '아산 기존 동선',
+            items: [
+              { itemId: 'asan-1', sortOrder: 1, timeOfDay: 'morning', title: '아산 기존 장소', body: '기존 장소', reason: '기존 일정', moveMinutes: 10 },
+            ],
+          },
+        ],
+      },
+    })
+    renderApp()
+
+    fireEvent.click(screen.getByRole('link', { name: 'AI 일정 짜기' }))
+    await completeGuidedPlanner({
+      duration: '1박 2일',
+      query: '온천 위주로 쉬고 싶어요',
+    })
+    fireEvent.click(screen.getByRole('button', { name: '세부 일정 보기' }))
+
+    vi.mocked(requestCreateRecommendation).mockResolvedValueOnce({
+      threadId: 'city-replacement-thread',
+      sessionId: 'city-replacement-session',
+      recommendationId: 'city-replacement-recommendation',
+      destination: {
+        destinationId: 'KR-Donghae',
+        name: '동해시',
+        country: 'KR',
+        region: '강원',
+      },
+      itinerary: {
+        tripType: '2d1n',
+        title: '동해 새 일정',
+        summary: '동해시로 전체 도시를 바꾼 일정입니다.',
+        durationLabel: '1박 2일',
+        days: [
+          {
+            day: 1,
+            title: '동해 1일차',
+            summary: '동해 새 동선',
+            items: [
+              { itemId: 'donghae-1', sortOrder: 1, timeOfDay: 'morning', title: '동해 새 일정 장소', body: '새 장소', reason: '도시 변경', moveMinutes: 8 },
+            ],
+          },
+        ],
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lovv 챗봇' }))
+    let cityEditChat = screen.getByRole('region', { name: '세부 일정 수정 챗봇' })
+    fireEvent.change(within(cityEditChat).getByLabelText('세부 일정 수정 요청'), {
+      target: { value: '도시 바꿔줘' },
+    })
+    fireEvent.click(within(cityEditChat).getByRole('button', { name: '확인' }))
+
+    expect(await screen.findByText('동해 새 일정 장소')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '동해시' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '마이페이지에 저장' }))
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem('lovv.savedPlans') ?? '[]')[0]).toMatchObject({
+        destinationId: 'KR-Donghae',
+        cityPair: '동해시',
+      })
+    })
+
+    vi.mocked(requestCreateRecommendation).mockResolvedValueOnce({
+      destination: {
+        destinationId: 'KR-Donghae',
+        name: '동해시',
+        country: 'KR',
+        region: '강원',
+      },
+      itinerary: {
+        tripType: '2d1n',
+        title: '동해 장소 수정 후보',
+        summary: '동해시 첫 장소 수정 후보입니다.',
+        durationLabel: '1박 2일',
+        days: [
+          {
+            day: 1,
+            title: '동해 1일차 수정 후보',
+            summary: '동해 첫 장소 수정',
+            items: [
+              { itemId: 'donghae-2', sortOrder: 1, timeOfDay: 'morning', title: '동해 후속 수정 장소', body: '후속 장소', reason: '후속 수정', moveMinutes: 6 },
+            ],
+          },
+        ],
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lovv 챗봇' }))
+    cityEditChat = screen.getByRole('region', { name: '세부 일정 수정 챗봇' })
+    fireEvent.change(within(cityEditChat).getByLabelText('세부 일정 수정 요청'), {
+      target: { value: '1일차 첫 장소 바꿔줘' },
+    })
+    fireEvent.click(within(cityEditChat).getByRole('button', { name: '확인' }))
+
+    await within(cityEditChat).findByText('동해 후속 수정 장소(으)로 바꿀까요?')
+    expect(requestCreateRecommendation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        entryType: 'modify',
+        destinationId: 'KR-Donghae',
+        country: 'KR',
+      }),
+      expect.anything(),
+    )
+  })
+
   it('saves and likes a generated itinerary without duplicate mock storage records', async () => {
     seedUser()
     seedPreference('아산/온양 · 벳푸')

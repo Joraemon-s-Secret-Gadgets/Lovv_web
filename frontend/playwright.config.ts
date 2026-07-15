@@ -38,7 +38,7 @@ export default defineConfig({
       VITE_GOOGLE_MAPS_API_KEY: '',
       VITE_GOOGLE_MAPS_MAP_ID: '',
       VITE_OPENROUTESERVICE_API_KEY: '',
-      VITE_KAKAO_MAP_JAVASCRIPT_KEY: '',
+      VITE_KAKAO_MAP_JAVASCRIPT_KEY: 'e2e-test-key',
       VITE_KAKAO_JAVASCRIPT_KEY: '',
       VITE_IMAGE_CDN_BASE_URL: '',
     },
