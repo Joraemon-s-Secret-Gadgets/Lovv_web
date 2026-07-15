@@ -1,13 +1,16 @@
 /**
  * @file CityMapListPanel.tsx
  * @description List panel rendering search result cards of small cities when viewing results.
- * @lastModified 2026-06-23
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
  */
 
+import { useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { type SmallCity } from './smallCities'
 import { getVisibleMapThemes } from './mapCityFilters'
 
-const MAX_VISIBLE_CITY_RESULTS = 10
+const CITY_RESULTS_PER_PAGE = 10
 
 type CityMapListPanelProps = {
   filteredSmallCities: SmallCity[]
@@ -22,12 +25,17 @@ export function CityMapListPanel({
   selectedSmallCity,
   onSelectCityFromList,
 }: CityMapListPanelProps) {
-  const visibleCities = filteredSmallCities.slice(0, MAX_VISIBLE_CITY_RESULTS)
-  const hiddenCityCount = Math.max(0, filteredSmallCities.length - visibleCities.length)
+  const [page, setPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(filteredSmallCities.length / CITY_RESULTS_PER_PAGE))
+  const currentPage = Math.min(page, totalPages)
+  const pageStartIndex = (currentPage - 1) * CITY_RESULTS_PER_PAGE
+  const visibleCities = filteredSmallCities.slice(pageStartIndex, pageStartIndex + CITY_RESULTS_PER_PAGE)
+  const firstVisibleResult = filteredSmallCities.length > 0 ? pageStartIndex + 1 : 0
+  const lastVisibleResult = Math.min(pageStartIndex + visibleCities.length, filteredSmallCities.length)
 
   return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-white/70 bg-white/66 px-4 py-3 shadow-[0_14px_30px_-26px_rgba(51,39,30,0.2)] backdrop-blur-sm">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-white/70 bg-white/66 px-4 py-3 shadow-[0_14px_30px_-26px_rgba(51,39,30,0.2)] backdrop-blur-sm">
         <div>
           <p className="text-[12px] font-black uppercase tracking-[0.14em] text-[#A92B10]">
             Result list
@@ -39,23 +47,17 @@ export function CityMapListPanel({
             표시된 소도시
           </h3>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-white/50 bg-[#fffffa]/80 px-3 py-1 text-[12px] font-black text-[#33271E] shadow-sm">
-            {filteredSmallCities.length} / {activeCountryTotalCount}
-          </span>
-          {hiddenCityCount > 0 ? (
-            <span className="rounded-full border border-white/50 bg-[#FFF0E4]/82 px-3 py-1 text-[11px] font-black text-[#6E5A50] shadow-sm">
-              상위 {MAX_VISIBLE_CITY_RESULTS}개 표시
-            </span>
-          ) : null}
-        </div>
+        <span className="rounded-full border border-white/50 bg-[#fffffa]/80 px-3 py-1 text-[12px] font-black text-[#33271E] shadow-sm">
+          {firstVisibleResult}-{lastVisibleResult} / {filteredSmallCities.length}
+          {filteredSmallCities.length !== activeCountryTotalCount ? ` (전체 ${activeCountryTotalCount})` : ''}
+        </span>
       </div>
 
       {filteredSmallCities.length > 0 ? (
         <ol
           aria-labelledby="city-map-results-title"
           data-testid="city-map-result-list"
-          className="mt-3 grid grid-cols-2 gap-2 max-sm:grid-cols-1"
+          className="mt-3 grid min-h-0 flex-1 content-start grid-cols-2 gap-2 overflow-y-auto pr-1 max-xl:overflow-visible max-sm:grid-cols-1"
         >
           {visibleCities.map((city) => {
             const isSelected = city.id === selectedSmallCity?.id
@@ -115,11 +117,6 @@ export function CityMapListPanel({
               </li>
             )
           })}
-          {hiddenCityCount > 0 ? (
-            <li className="col-span-2 rounded-[12px] border border-white/60 bg-white/54 px-4 py-3 text-center text-[12px] font-bold leading-5 text-[#6E5A50] max-sm:col-span-1">
-              검색어나 해시태그를 추가하면 나머지 {hiddenCityCount}개 후보를 더 좁혀 볼 수 있어요.
-            </li>
-          ) : null}
         </ol>
       ) : (
         <div className="mt-5 rounded-[12px] border border-white/40 bg-white/50 px-4 py-5 shadow-sm">
@@ -131,6 +128,37 @@ export function CityMapListPanel({
           </p>
         </div>
       )}
-    </>
+
+      {filteredSmallCities.length > CITY_RESULTS_PER_PAGE ? (
+        <nav
+          aria-label="소도시 결과 페이지"
+          className="mt-3 flex min-h-12 shrink-0 items-center justify-center gap-4 rounded-[12px] border border-dashed border-[#F3B489]/60 bg-white/54 px-4 py-2 text-center shadow-sm"
+        >
+          <button
+            type="button"
+            aria-label="이전 페이지"
+            onClick={() => setPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="inline-flex size-8 items-center justify-center rounded-full text-[#A92B10] transition hover:bg-[#FFE0CA] disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+          >
+            <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.5} />
+          </button>
+          <span className="min-w-16 text-center text-[12px] font-black text-[#6E5A50]" aria-live="polite">
+            {currentPage} / {totalPages}
+          </span>
+          <button
+            type="button"
+            aria-label="다음 페이지"
+            onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="inline-flex size-8 items-center justify-center rounded-full text-[#A92B10] transition hover:bg-[#FFE0CA] disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+          >
+            <ChevronRight aria-hidden="true" size={18} strokeWidth={2.5} />
+          </button>
+        </nav>
+      ) : null}
+    </div>
   )
 }
+
+// EOF: CityMapListPanel.tsx

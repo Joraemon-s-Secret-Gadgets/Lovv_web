@@ -1,3 +1,10 @@
+/**
+ * @file PlanDetailView.tsx
+ * @description Itinerary detail view for day navigation, route calculation, editing, and wishlist stops.
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
+ */
+
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ChatMessage, PlanDay, PlanDraft, PlanStop, RoutePathCoordinate, ThemeId, LovvUser, SelectedMealPlace, SavedPlanLike } from '../../shared/types/app'
@@ -5,7 +12,8 @@ import { useTranslation } from 'react-i18next'
 import foxFaceImage from '../../assets/foxhead-smile.png'
 import type { SmallCityCountry } from '../map-city/smallCities'
 import { requestGetSmallCityDetail, requestGetSmallCityPlaces } from '../../shared/api/smallCityApi'
-import { RecommendationApiRequestError } from '../../shared/api/recommendationsApi'
+import { requestKakaoPlaceImage } from '../../shared/api/kakaoPlaceImageApi'
+import { RecommendationApiRequestError, requestRecommendationRoute } from '../../shared/api/recommendationsApi'
 import { PlanDetailGoogleMap } from './PlanDetailGoogleMap'
 import {
   hasExplicitReplacementDestination,
@@ -22,11 +30,12 @@ import {
   buildAttractionImageUrl as buildAttractionImageUrlFromModel,
 } from './plannerImageModel'
 import {
+  applyCalculatedRouteToDay,
   formatEstimatedMoveLabel,
   getPlanRouteCoordinates,
   getPlanStopLatLng,
   getStraightLineDistanceMeters,
-  requestOpenRouteServicePath,
+  resolveDisplayedRoutePath,
 } from './plannerRouteModel'
 
 // ---------------------------------------------------------------------------
@@ -36,7 +45,6 @@ import {
 const IMAGE_CDN_BASE =
   (import.meta.env.VITE_IMAGE_CDN_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '') ||
   DEFAULT_IMAGE_CDN_BASE_URL
-const OPEN_ROUTE_SERVICE_API_KEY = (import.meta.env.VITE_OPENROUTESERVICE_API_KEY as string | undefined)?.trim() ?? ''
 let localChatMessageIdSequence = 0
 const MAX_WISHLIST_STOPS_PER_DAY = 3
 const DISTANT_RESTAURANT_WARNING_METERS = 10_000
@@ -217,13 +225,6 @@ const usePlaceDataMap = (destinationId?: string) => {
 
   useEffect(() => {
     if (!destinationId || !canFetchSmallCityPlaceData(destinationId)) {
-      prevId.current = undefined
-      setLoadedDestinationId(undefined)
-      setCityEnglishName('')
-      setCityFallbackImageUrl('')
-      setNameToImageUrl({})
-      setNameToCoords({})
-      setCountryCode('KR')
       return
     }
 
@@ -366,6 +367,12 @@ const parseRouteCoordinateKey = (coordinateKey: string): RoutePathCoordinate[] =
     })
     .filter((coordinate): coordinate is RoutePathCoordinate => coordinate !== null)
 
+type CalculatedRouteResult = {
+  key: string
+  path: RoutePathCoordinate[] | null
+  status: 'ready' | 'fallback'
+}
+
 // ---------------------------------------------------------------------------
 // PlanDetailView component
 // ---------------------------------------------------------------------------
@@ -420,6 +427,7 @@ type PlanDetailViewProps = {
   setPendingAuthRedirectPath?: (path: string | null) => void
   addWishlistRestaurant?: (restaurant: SelectedMealPlace) => void
   removeWishlistRestaurant?: (restaurantId: string) => void
+  authAccessToken?: string | null
 }
 
 const createPlanHeroSubtitle = (planDraft: PlanDraft) => {
@@ -524,6 +532,7 @@ export function PlanDetailView({
   setPendingAuthRedirectPath,
   addWishlistRestaurant,
   removeWishlistRestaurant,
+  authAccessToken,
 }: PlanDetailViewProps) {
   const navigate = useNavigate()
 
@@ -550,6 +559,7 @@ export function PlanDetailView({
   const [restaurantSearchQuery, setRestaurantSearchQuery] = useState('')
   const [restaurantSearchStatus, setRestaurantSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'missing-key' | 'unavailable' | 'zero-result'>('idle')
   const [restaurantSearchResults, setRestaurantSearchResults] = useState<SelectedMealPlace[]>([])
+  const [restaurantImageLoadingId, setRestaurantImageLoadingId] = useState<string | null>(null)
   const [selectedWishlistRestaurantId, setSelectedWishlistRestaurantId] = useState<string | null>(null)
   const [restaurantPlacementNotice, setRestaurantPlacementNotice] = useState<string | null>(null)
   const [pendingDistantRestaurant, setPendingDistantRestaurant] = useState<PendingDistantRestaurant | null>(null)
@@ -629,9 +639,13 @@ export function PlanDetailView({
   const days = planDraft.days
   const safeDayIndex = Math.min(activeDayIndex, Math.max(0, days.length - 1))
   const activeDay = days[safeDayIndex]
-  const activeMapStops = (activeDay?.stops ?? []).filter((stop) => !isMealPlaceholderStop(stop))
+  const activeMapStops = useMemo(
+    () => (activeDay?.stops ?? []).filter((stop) => !isMealPlaceholderStop(stop)),
+    [activeDay?.stops],
+  )
   const activeRouteCoordinates = getPlanRouteCoordinates(activeMapStops, nameToCoords)
   const activeRouteCoordinateKey = serializeRouteCoordinates(activeRouteCoordinates)
+  const activeRouteRequestKey = activeRouteCoordinateKey ? `${activeDay?.day ?? 0}:${activeRouteCoordinateKey}` : ''
   const hasUserAddedWishlistStop = activeMapStops.some((stop) => stop.wishlistRestaurantId || stop.source === 'wishlist')
   const allPlacedWishlistRestaurantIds = useMemo(
     () => new Set(days.flatMap((day) => day.stops).map((stop) => stop.wishlistRestaurantId).filter((id): id is string => Boolean(id))),
@@ -641,29 +655,33 @@ export function PlanDetailView({
     () => (planDraft.selectedRestaurants ?? []).filter((r) => !allPlacedWishlistRestaurantIds.has(r.id) || activeMapStops.some((stop) => stop.wishlistRestaurantId === r.id)),
     [planDraft.selectedRestaurants, allPlacedWishlistRestaurantIds, activeMapStops],
   )
-  const [openRouteResult, setOpenRouteResult] = useState<{
-    key: string
-    path: RoutePathCoordinate[] | null
-    status: 'ready' | 'fallback'
-  } | null>(null)
-  const currentOpenRouteResult = openRouteResult?.key === activeRouteCoordinateKey ? openRouteResult : null
-  const openRoutePath = currentOpenRouteResult?.status === 'ready' ? currentOpenRouteResult.path : null
-  const openRouteStatus: 'idle' | 'loading' | 'ready' | 'fallback' =
+  const [calculatedRouteResultsByDay, setCalculatedRouteResultsByDay] = useState<Record<number, CalculatedRouteResult>>({})
+  const activeDayCalculatedRouteResult = activeDay
+    ? calculatedRouteResultsByDay[activeDay.day]
+    : undefined
+  const currentCalculatedRouteResult = activeDayCalculatedRouteResult?.key === activeRouteRequestKey
+    ? activeDayCalculatedRouteResult
+    : null
+  const calculatedRoutePath = currentCalculatedRouteResult?.status === 'ready' ? currentCalculatedRouteResult.path : null
+  const calculatedRouteStatus: 'idle' | 'loading' | 'ready' | 'fallback' =
     activeRouteCoordinates.length < 2
       ? 'idle'
-      : !OPEN_ROUTE_SERVICE_API_KEY
+      : !authAccessToken
         ? 'fallback'
-        : currentOpenRouteResult?.status ?? 'loading'
+        : currentCalculatedRouteResult?.status ?? 'loading'
 
   useEffect(() => {
     let isCancelled = false
 
-    if (!activeRouteCoordinateKey || !OPEN_ROUTE_SERVICE_API_KEY) {
+    if (!activeDay || !activeRouteCoordinateKey || !authAccessToken || currentCalculatedRouteResult) {
       return () => {
         isCancelled = true
       }
     }
 
+    const routeDay = activeDay
+    const routeDayNumber = routeDay.day
+    const routeRequestKey = activeRouteRequestKey
     const coordinates = parseRouteCoordinateKey(activeRouteCoordinateKey)
 
     if (coordinates.length < 2) {
@@ -672,47 +690,71 @@ export function PlanDetailView({
       }
     }
 
-    requestOpenRouteServicePath(coordinates, OPEN_ROUTE_SERVICE_API_KEY)
-      .then((routePath) => {
+    requestRecommendationRoute(coordinates, { accessToken: authAccessToken })
+      .then((route) => {
         if (isCancelled) {
           return
         }
 
-        if (routePath && routePath.length > 1) {
-          setOpenRouteResult({
-            key: activeRouteCoordinateKey,
-            path: routePath,
-            status: 'ready',
-          })
+        const routePath = route?.geometry?.coordinates
+
+        if (route && routePath && routePath.length > 1) {
+          setCalculatedRouteResultsByDay((currentResults) => ({
+            ...currentResults,
+            [routeDayNumber]: {
+              key: routeRequestKey,
+              path: routePath,
+              status: 'ready',
+            },
+          }))
+          if (onReplacePlanDay) {
+            onReplacePlanDay(
+              routeDayNumber,
+              applyCalculatedRouteToDay(routeDay, route, nameToCoords, activeMapStops),
+            )
+          }
           return
         }
 
-        setOpenRouteResult({
-          key: activeRouteCoordinateKey,
-          path: null,
-          status: 'fallback',
-        })
+        setCalculatedRouteResultsByDay((currentResults) => ({
+          ...currentResults,
+          [routeDayNumber]: {
+            key: routeRequestKey,
+            path: null,
+            status: 'fallback',
+          },
+        }))
       })
       .catch(() => {
         if (!isCancelled) {
-          setOpenRouteResult({
-            key: activeRouteCoordinateKey,
-            path: null,
-            status: 'fallback',
-          })
+          setCalculatedRouteResultsByDay((currentResults) => ({
+            ...currentResults,
+            [routeDayNumber]: {
+              key: routeRequestKey,
+              path: null,
+              status: 'fallback',
+            },
+          }))
         }
       })
 
     return () => {
       isCancelled = true
     }
-  }, [activeRouteCoordinateKey])
+  }, [activeDay, activeMapStops, activeRouteCoordinateKey, activeRouteRequestKey, authAccessToken, currentCalculatedRouteResult, nameToCoords, onReplacePlanDay])
 
-  const displayedRoutePath = openRoutePath ?? (hasUserAddedWishlistStop ? undefined : activeDay?.route?.geometry?.coordinates)
+  const displayedRoutePath = resolveDisplayedRoutePath({
+    calculatedPath: calculatedRoutePath,
+    persistedPath: activeDay?.route?.geometry?.coordinates,
+    hasUserAddedWishlistStop,
+    persistedRouteMatchesCurrent:
+      activeDayCalculatedRouteResult === undefined || currentCalculatedRouteResult?.status === 'ready',
+    calculationFailed: currentCalculatedRouteResult?.status === 'fallback',
+  })
   const routeStatusLabel =
-    openRouteStatus === 'loading'
+    calculatedRouteStatus === 'loading'
       ? '실제 도로 동선 계산 중'
-      : openRouteStatus === 'ready'
+      : calculatedRouteStatus === 'ready'
         ? '실제 도로 동선'
         : activeRouteCoordinates.length > 1
           ? '직선 동선 표시'
@@ -1020,12 +1062,18 @@ export function PlanDetailView({
       setRestaurantSearchResults(result.places)
     }
 
-    const selectRestaurant = (place: SelectedMealPlace) => {
+    const selectRestaurant = async (place: SelectedMealPlace) => {
       if (!canUseMealWishlist) {
         return
       }
 
-      addWishlistRestaurant?.(place)
+      setRestaurantImageLoadingId(place.id)
+      const imageUrl = place.imageUrl ?? await requestKakaoPlaceImage(place.id)
+      addWishlistRestaurant?.({
+        ...place,
+        imageUrl,
+      })
+      setRestaurantImageLoadingId(null)
       setSelectedWishlistRestaurantId(place.id)
       setRestaurantPlacementNotice('맛집을 담았어요. 왼쪽 코스 사이에서 넣을 위치를 선택해 주세요.')
       setRestaurantSearchOpen(false)
@@ -1131,7 +1179,8 @@ export function PlanDetailView({
         ...activeDay,
         stops: normalizeStopsAfterReorder(stops),
       })
-      setActiveStopIndex(toStopIndex)
+      const movedDisplayIndex = stops.filter((stop) => !isMealPlaceholderStop(stop)).indexOf(movedStop)
+      setActiveStopIndex(movedDisplayIndex >= 0 ? movedDisplayIndex : null)
       setFloatingChatNotice('방문 순서를 바꿨어요. 다음 수정 요청부터 Agent가 이 순서를 기준으로 봅니다.')
     }
 
@@ -1158,7 +1207,7 @@ export function PlanDetailView({
         source: 'wishlist',
         lockLevel: 'user_added',
         wishlistRestaurantId: restaurant.id,
-        imageUrl: '',
+        imageUrl: restaurant.imageUrl ?? '',
         latitude: restaurant.lat ?? null,
         longitude: restaurant.lng ?? null,
         move: '이동 시간 확인 필요',
@@ -1552,6 +1601,7 @@ export function PlanDetailView({
                       const isStopCollapsed = collapsedStops[`${activeDay.day}-${index}`] === true
                       const isLastVisibleStop = index === visibleStops.length - 1
                       const displayTime = item.time
+                      const wishlistRestaurantId = item.wishlistRestaurantId
 
                       const stopDragKey = `${activeDay.day}-${stopIndex}`
 
@@ -1653,15 +1703,28 @@ export function PlanDetailView({
                                     {canEditPlan ? (
                                       <button
                                         type="button"
-                                        onClick={() => void openStopModificationChat(activeDay, stopIndex, index)}
+                                        onClick={() => {
+                                          if (wishlistRestaurantId) {
+                                            removeWishlistRestaurant?.(wishlistRestaurantId)
+                                            setSelectedWishlistRestaurantId((currentId) =>
+                                              currentId === wishlistRestaurantId ? null : currentId,
+                                            )
+                                            return
+                                          }
+
+                                          void openStopModificationChat(activeDay, stopIndex, index)
+                                        }}
                                         disabled={
+                                          !wishlistRestaurantId &&
                                           pendingModificationRequest?.kind === 'stop' &&
                                           pendingModificationRequest.dayNumber === activeDay.day &&
                                           pendingModificationRequest.stopIndex === stopIndex
                                         }
-                                        className="inline-flex min-h-8 items-center rounded-full border border-[#F3B489] bg-[#fffffa] px-3 py-1 text-[12px] font-black leading-4 text-[#A92B10] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                                        className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] px-3 py-1 text-center text-[12px] font-black leading-4 text-[#A92B10] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                                       >
-                                        {pendingModificationRequest?.kind === 'stop' &&
+                                        {wishlistRestaurantId
+                                          ? '제거'
+                                          : pendingModificationRequest?.kind === 'stop' &&
                                         pendingModificationRequest.dayNumber === activeDay.day &&
                                         pendingModificationRequest.stopIndex === stopIndex
                                           ? '에이전트 확인 중'
@@ -1933,6 +1996,14 @@ export function PlanDetailView({
                                 : 'border-[#F3B489]/30 bg-[#FFF8F6] hover:border-[#F36B12]'
                             }`}
                           >
+                            {restaurant.imageUrl ? (
+                              <img
+                                src={restaurant.imageUrl}
+                                alt=""
+                                referrerPolicy="no-referrer"
+                                className="size-16 shrink-0 rounded-[12px] object-cover"
+                              />
+                            ) : null}
                             <div className="min-w-0 flex-1">
                               <h5 className="break-keep text-sm font-black leading-6 text-[#33271E]">
                                 {restaurant.placeName}
@@ -2089,10 +2160,11 @@ export function PlanDetailView({
                         </div>
                         <button
                           type="button"
-                          onClick={() => selectRestaurant(place)}
-                          className="inline-flex min-h-9 shrink-0 items-center rounded-full border border-[#A92B10] bg-[#F36B12] px-3 text-[12px] font-black text-[#33271E] transition hover:bg-[#FF8A2A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                          onClick={() => void selectRestaurant(place)}
+                          disabled={restaurantImageLoadingId !== null}
+                          className="inline-flex min-h-9 shrink-0 items-center rounded-full border border-[#A92B10] bg-[#F36B12] px-3 text-[12px] font-black text-[#33271E] transition hover:bg-[#FF8A2A] disabled:cursor-wait disabled:opacity-65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
                         >
-                          추가
+                          {restaurantImageLoadingId === place.id ? '사진 확인 중' : '추가'}
                         </button>
                       </div>
                     </li>
@@ -2336,3 +2408,5 @@ export function PlanDetailView({
       </section>
     )
 }
+
+// EOF: PlanDetailView.tsx

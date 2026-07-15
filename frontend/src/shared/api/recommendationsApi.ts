@@ -1,12 +1,15 @@
 /**
  * @file recommendationsApi.ts
  * @description Frontend adapter for calling the recommendation API and mapping the response.
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
  */
 
-import type { ThemeId, PlanDraft, PlanDay, PlanRoute, PlanStop } from '../types/app'
+import type { ThemeId, PlanDraft, PlanDay, PlanRoute, PlanStop, RoutePathCoordinate } from '../types/app'
 
 export const recommendationsApiEndpoints = {
   create: '/api/v1/recommendations',
+  route: '/api/v1/routes',
   popularDestinations: '/api/v1/recommendations/popular-destinations',
   reactionCities: '/api/v1/recommendations/reaction-cities',
 } as const
@@ -22,6 +25,7 @@ export type RecommendationThemeLabel =
 export type RecommendationCreateRequestPayload = {
   entryType: 'create'
   requestId: string
+  sessionId?: string
   rawQuery: string
   country: 'KR' | 'JP'
   travelMonth: number
@@ -331,6 +335,7 @@ type RecommendationsApiRequestOptions = {
   baseUrl?: string
   accessToken?: string | null
   fetchImpl?: RecommendationsApiFetch
+  retryDelayMs?: number
 }
 
 export class RecommendationApiRequestError extends Error {
@@ -349,8 +354,7 @@ export class RecommendationApiRequestError extends Error {
   }
 }
 
-const defaultRecommendationCreateApiBaseUrl =
-  (import.meta.env.VITE_LOVV_AGENT_API_URL?.trim() || import.meta.env.VITE_LOVV_API_BASE_URL?.trim()) ?? ''
+const defaultRecommendationCreateApiBaseUrl = import.meta.env.VITE_LOVV_API_BASE_URL?.trim() ?? ''
 const defaultLovvApiBaseUrl = import.meta.env.VITE_LOVV_API_BASE_URL?.trim() ?? ''
 
 const resolveRecommendationsApiOptions = (
@@ -430,10 +434,106 @@ export const requestCreateRecommendation = async (
     options.baseUrl ?? defaultRecommendationCreateApiBaseUrl,
   )
 
-  const response = await fetchImpl(url, {
+  const requestInit: RequestInit = {
     method: 'POST',
     headers: createRecommendationsHeaders(options, true),
     body: JSON.stringify(payload),
+    credentials: 'include',
+  }
+  let response = await fetchImpl(url, requestInit)
+
+  if (payload.entryType === 'create' && !response.ok && [502, 503, 504].includes(response.status)) {
+    const retryDelayMs = options.retryDelayMs ?? 1_000
+
+    if (retryDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+    }
+
+    response = await fetchImpl(url, requestInit)
+  }
+
+  if (!response.ok) {
+    throw await createRecommendationApiRequestError(response)
+  }
+
+  return response.json()
+}
+
+const normalizeRecommendationRoute = (value: unknown): PlanRoute | null => {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const route = value as Record<string, unknown>
+  const geometry = route.geometry
+  if (!geometry || typeof geometry !== 'object') {
+    return null
+  }
+
+  const geometryRecord = geometry as Record<string, unknown>
+  if (geometryRecord.type !== 'LineString' || !Array.isArray(geometryRecord.coordinates)) {
+    return null
+  }
+
+  const coordinates: RoutePathCoordinate[] = []
+  for (const coordinate of geometryRecord.coordinates) {
+    if (!Array.isArray(coordinate) || coordinate.length !== 2) {
+      return null
+    }
+    const [longitude, latitude] = coordinate
+    if (
+      typeof longitude !== 'number' || !Number.isFinite(longitude) || longitude < -180 || longitude > 180 ||
+      typeof latitude !== 'number' || !Number.isFinite(latitude) || latitude < -90 || latitude > 90
+    ) {
+      return null
+    }
+    coordinates.push([longitude, latitude])
+  }
+
+  if (coordinates.length < 2) {
+    return null
+  }
+
+  return {
+    provider: typeof route.provider === 'string' ? route.provider : undefined,
+    profile: typeof route.profile === 'string' ? route.profile : undefined,
+    geometry: { type: 'LineString', coordinates },
+    distanceMeters: typeof route.distanceMeters === 'number' && Number.isFinite(route.distanceMeters)
+      ? route.distanceMeters
+      : undefined,
+    durationSeconds: typeof route.durationSeconds === 'number' && Number.isFinite(route.durationSeconds)
+      ? route.durationSeconds
+      : undefined,
+    segments: Array.isArray(route.segments)
+      ? route.segments.map((segment) => {
+          if (!segment || typeof segment !== 'object') {
+            return {}
+          }
+          const record = segment as Record<string, unknown>
+          return {
+            distanceMeters: typeof record.distanceMeters === 'number' && Number.isFinite(record.distanceMeters)
+              ? record.distanceMeters
+              : undefined,
+            durationSeconds: typeof record.durationSeconds === 'number' && Number.isFinite(record.durationSeconds)
+              ? record.durationSeconds
+              : undefined,
+          }
+        })
+      : undefined,
+  }
+}
+
+export const requestRecommendationRoute = async (
+  coordinates: RoutePathCoordinate[],
+  baseUrlOrOptions?: string | RecommendationsApiRequestOptions,
+): Promise<PlanRoute | null> => {
+  const options = resolveRecommendationsApiOptions(baseUrlOrOptions)
+  const fetchImpl = options.fetchImpl ?? fetch
+  const url = buildRecommendationsApiUrl(recommendationsApiEndpoints.route, options.baseUrl)
+  const response = await fetchImpl(url, {
+    method: 'POST',
+    headers: createRecommendationsHeaders(options, true),
+    body: JSON.stringify({ coordinates }),
     credentials: 'include',
   })
 
@@ -441,7 +541,8 @@ export const requestCreateRecommendation = async (
     throw await createRecommendationApiRequestError(response)
   }
 
-  return response.json()
+  const body = (await response.json()) as { route?: unknown }
+  return normalizeRecommendationRoute(body.route)
 }
 
 export const requestListPopularDestinations = async (
@@ -623,3 +724,5 @@ export const mapDraftToRecommendationCurrentOrder = (draft: PlanDraft): Recommen
       })
       .filter((item) => item.title),
   )
+
+// EOF: recommendationsApi.ts

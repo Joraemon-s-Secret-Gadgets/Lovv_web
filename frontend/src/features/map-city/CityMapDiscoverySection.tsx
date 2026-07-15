@@ -1,7 +1,8 @@
 /**
  * @file CityMapDiscoverySection.tsx
  * @description Main entry panel coordinating filters, list, details view, and the interactive Google Map.
- * @lastModified 2026-06-23
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
  */
 
 import type { RefObject } from 'react'
@@ -180,10 +181,13 @@ export function CityMapDiscoverySection({
             <div
               ref={cityMapDetailPanelRef}
               data-testid="city-map-detail-sticky-content"
-              className="lovv-map-side-panel h-full min-h-0 overflow-y-auto rounded-[18px] p-3 pr-2 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.48)]"
+              className={`lovv-map-side-panel h-full min-h-0 rounded-[18px] p-3 pr-2 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.48)] max-xl:overflow-visible ${
+                isCityMapListPanel ? 'overflow-hidden' : 'overflow-y-auto'
+              }`}
             >
               {isCityMapListPanel ? (
                 <CityMapListPanel
+                  key={`${cityMapCountry}:${cityMapQuery}:${selectedSmallCityThemes.join(',')}`}
                   filteredSmallCities={filteredSmallCities}
                   activeCountryTotalCount={activeCountryTotalCount}
                   selectedSmallCity={selectedSmallCity}
@@ -214,3 +218,5 @@ export function CityMapDiscoverySection({
     </section>
   )
 }
+
+// EOF: CityMapDiscoverySection.tsx

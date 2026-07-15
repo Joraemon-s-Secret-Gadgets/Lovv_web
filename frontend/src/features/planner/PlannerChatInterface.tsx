@@ -1,7 +1,8 @@
 /**
  * @file PlannerChatInterface.tsx
  * @description Chatbot interaction panel for the travel planner workspace.
- * @lastModified 2026-06-23
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
  */
 
 import { useState, useEffect } from 'react'
@@ -155,21 +156,6 @@ export function PlannerChatInterface({
   const [draftFestivalChoice, setDraftFestivalChoice] = useState<Exclude<FestivalThemeChoice, 'undecided'> | null>(
     hasGuidedPlannerChoices && festivalThemeChoice !== 'undecided' ? festivalThemeChoice : null,
   )
-
-  useEffect(() => {
-    if (hasGuidedPlannerChoices) return
-    setDraftDurationLabel(selectedDurationLabel)
-  }, [hasGuidedPlannerChoices, selectedDurationLabel])
-
-  useEffect(() => {
-    if (hasGuidedPlannerChoices) return
-    setDraftTravelMonth(selectedTravelMonth)
-  }, [hasGuidedPlannerChoices, selectedTravelMonth])
-
-  useEffect(() => {
-    if (hasGuidedPlannerChoices) return
-    setDraftFestivalChoice(null)
-  }, [hasGuidedPlannerChoices])
 
   const maybeSubmitGuidedPlannerChoices = ({
     durationLabel = draftDurationLabel,

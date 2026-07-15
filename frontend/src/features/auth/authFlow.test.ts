@@ -1,10 +1,21 @@
+/**
+ * @file authFlow.test.ts
+ * @description Tests for authentication runtime modes and session snapshots.
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
+ */
+
 import { describe, expect, it, vi } from 'vitest'
 import type { AuthApiState } from '../../shared/api/authApi'
 import {
   adaptApiAuthSessionSnapshot,
   authRuntimeModeEnvName,
+  authSessionRefreshLeadTimeMs,
   createMockAuthSessionSnapshot,
+  getAuthSessionRefreshDelayMs,
+  getAuthTokenExpiresAtMs,
   getDefaultAuthRuntimeMode,
+  isAuthSessionRefreshDue,
   resolveAuthRuntimeMode,
 } from './authFlow'
 import {
@@ -15,6 +26,29 @@ import {
 } from './authModel'
 
 describe('auth flow orchestration helpers', () => {
+  it('schedules refresh sixty seconds before an in-memory token expiry', () => {
+    const nowMs = Date.UTC(2026, 6, 14, 0, 0, 0)
+    const expiresAtMs = getAuthTokenExpiresAtMs(900, nowMs)
+
+    expect(authSessionRefreshLeadTimeMs).toBe(60_000)
+    expect(expiresAtMs).toBe(nowMs + 900_000)
+    expect(getAuthSessionRefreshDelayMs(expiresAtMs, nowMs)).toBe(840_000)
+    expect(isAuthSessionRefreshDue(expiresAtMs, nowMs + 839_999)).toBe(false)
+    expect(isAuthSessionRefreshDue(expiresAtMs, nowMs + 840_000)).toBe(true)
+  })
+
+  it('treats expired tokens as immediately due and rejects missing expiry metadata', () => {
+    const nowMs = Date.UTC(2026, 6, 14, 0, 0, 0)
+
+    expect(getAuthTokenExpiresAtMs(0, nowMs)).toBe(nowMs)
+    expect(getAuthSessionRefreshDelayMs(nowMs - 1, nowMs)).toBe(0)
+    expect(isAuthSessionRefreshDue(nowMs - 1, nowMs)).toBe(true)
+    expect(getAuthTokenExpiresAtMs(null, nowMs)).toBeNull()
+    expect(getAuthTokenExpiresAtMs(Number.NaN, nowMs)).toBeNull()
+    expect(getAuthSessionRefreshDelayMs(null, nowMs)).toBeNull()
+    expect(isAuthSessionRefreshDue(null, nowMs)).toBe(false)
+  })
+
   it('uses Cognito as the production runtime while keeping mock and API modes explicit', () => {
     expect(authRuntimeModeEnvName).toBe('VITE_LOVV_AUTH_MODE')
     expect(resolveAuthRuntimeMode(undefined)).toBe('cognito')
@@ -152,3 +186,5 @@ describe('auth flow orchestration helpers', () => {
     })
   })
 })
+
+// EOF: authFlow.test.ts

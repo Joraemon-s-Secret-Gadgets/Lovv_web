@@ -1,16 +1,15 @@
-import type { PlanStop, RoutePathCoordinate } from '../../shared/types/app'
+/**
+ * @file plannerRouteModel.ts
+ * @description Pure helpers for validating and selecting itinerary route paths.
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
+ */
+
+import type { PlanDay, PlanRoute, PlanStop, RoutePathCoordinate } from '../../shared/types/app'
 
 type LatLng = {
   lat: number
   lng: number
-}
-
-type OpenRouteServiceFeatureCollection = {
-  features?: Array<{
-    geometry?: {
-      coordinates?: unknown
-    }
-  }>
 }
 
 export type PlanStopRoutePoint = {
@@ -90,6 +89,91 @@ export const getPlanRouteCoordinates = (
 ): RoutePathCoordinate[] =>
   getPlanStopRoutePoints(stops, nameToCoords).map((point) => point.routeCoordinate)
 
+export const applyCalculatedRouteToDay = (
+  day: PlanDay,
+  route: PlanRoute,
+  nameToCoords: Record<string, LatLng> = {},
+  routeStops: PlanStop[] = day.stops,
+): PlanDay => {
+  if (!route.segments?.length) {
+    return {
+      ...day,
+      route,
+    }
+  }
+
+  const originatingStopIndices = getPlanStopRoutePoints(routeStops, nameToCoords)
+    .slice(0, -1)
+    .map((point) => day.stops.indexOf(point.stop))
+  let updatedStops = day.stops
+
+  route.segments.slice(0, originatingStopIndices.length).forEach((segment, segmentIndex) => {
+    const durationSeconds =
+      isFiniteNumber(segment.durationSeconds) && segment.durationSeconds >= 0
+        ? segment.durationSeconds
+        : null
+    const distanceMeters =
+      isFiniteNumber(segment.distanceMeters) && segment.distanceMeters >= 0
+        ? segment.distanceMeters
+        : null
+
+    if (durationSeconds === null && distanceMeters === null) {
+      return
+    }
+
+    const stopIndex = originatingStopIndices[segmentIndex]
+    if (stopIndex < 0) {
+      return
+    }
+
+    if (updatedStops === day.stops) {
+      updatedStops = [...day.stops]
+    }
+
+    const stop = updatedStops[stopIndex]
+    updatedStops[stopIndex] = {
+      ...stop,
+      ...(durationSeconds !== null
+        ? {
+            moveDurationSeconds: durationSeconds,
+            move: `차량 ${Math.max(1, Math.ceil(durationSeconds / 60))}분`,
+          }
+        : {}),
+      ...(distanceMeters !== null ? { moveDistanceMeters: distanceMeters } : {}),
+    }
+  })
+
+  return {
+    ...day,
+    stops: updatedStops,
+    route,
+  }
+}
+
+export const resolveDisplayedRoutePath = ({
+  calculatedPath,
+  persistedPath,
+  hasUserAddedWishlistStop,
+  persistedRouteMatchesCurrent,
+  calculationFailed,
+}: {
+  calculatedPath: RoutePathCoordinate[] | null
+  persistedPath?: RoutePathCoordinate[]
+  hasUserAddedWishlistStop: boolean
+  persistedRouteMatchesCurrent: boolean
+  calculationFailed: boolean
+}) => {
+  if (calculatedPath && calculatedPath.length > 1) {
+    return calculatedPath
+  }
+
+  if (hasUserAddedWishlistStop || !persistedRouteMatchesCurrent || calculationFailed) {
+    return undefined
+  }
+
+  return persistedPath
+}
+
 export const getStraightLineDistanceMeters = (from: LatLng, to: LatLng) => {
   const deltaLat = toRadians(to.lat - from.lat)
   const deltaLng = toRadians(to.lng - from.lng)
@@ -123,53 +207,4 @@ export const formatEstimatedMoveLabel = (
   return `차량 ${Math.max(5, Math.ceil(distanceMeters / DRIVING_METERS_PER_MINUTE))}분`
 }
 
-const toRoutePathCoordinates = (coordinates: unknown): RoutePathCoordinate[] => {
-  if (!Array.isArray(coordinates)) {
-    return []
-  }
-
-  return coordinates
-    .map((coordinate) => {
-      if (!Array.isArray(coordinate) || coordinate.length < 2) {
-        return null
-      }
-
-      const [lng, lat] = coordinate
-
-      return isFiniteNumber(lng) && isFiniteNumber(lat)
-        ? ([lng, lat] as RoutePathCoordinate)
-        : null
-    })
-    .filter((coordinate): coordinate is RoutePathCoordinate => coordinate !== null)
-}
-
-export const requestOpenRouteServicePath = async (
-  coordinates: RoutePathCoordinate[],
-  apiKey: string,
-): Promise<RoutePathCoordinate[] | null> => {
-  if (!apiKey || coordinates.length < 2) {
-    return null
-  }
-
-  const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json, application/geo+json',
-      Authorization: apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      coordinates,
-      instructions: false,
-    }),
-  })
-
-  if (!response.ok) {
-    return null
-  }
-
-  const data = (await response.json()) as OpenRouteServiceFeatureCollection
-  const routeCoordinates = toRoutePathCoordinates(data.features?.[0]?.geometry?.coordinates)
-
-  return routeCoordinates.length > 1 ? routeCoordinates : null
-}
+// EOF: plannerRouteModel.ts

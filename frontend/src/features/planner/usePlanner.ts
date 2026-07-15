@@ -1,7 +1,8 @@
 /**
  * @file usePlanner.ts
  * @description Custom hook for managing the chatbot-based interactive planner, itineraries drafts, and AI generation state.
- * @lastModified 2026-06-23
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -86,11 +87,14 @@ const createRecommendationRequestId = () => {
   return `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+const createRecommendationSessionId = () => `session-${createRecommendationRequestId()}`
+
 const toRecommendationThemeLabels = (themeIds: ThemeId[]): RecommendationThemeLabel[] =>
   getThemeLabels(themeIds) as RecommendationThemeLabel[]
 
 const createRecommendationRequestPayload = ({
   rawQuery,
+  sessionId,
   country,
   tripType,
   activeThemeIds,
@@ -100,6 +104,7 @@ const createRecommendationRequestPayload = ({
   travelMonth,
 }: {
   rawQuery: string
+  sessionId: string
   country: RecommendationCreateRequestPayload['country']
   tripType: RecommendationCreateRequestPayload['tripType']
   activeThemeIds: ThemeId[]
@@ -110,6 +115,7 @@ const createRecommendationRequestPayload = ({
 }): RecommendationCreateRequestPayload => ({
   entryType: 'create',
   requestId: createRecommendationRequestId(),
+  sessionId,
   rawQuery,
   country,
   travelMonth,
@@ -133,7 +139,7 @@ const getRecommendationClarificationLabel = (option: {
   title?: string
 }) => option.label?.trim() || option.title?.trim() || option.optionId?.trim() || '선택하기'
 
-const createRecommendationClarification = (
+export const createRecommendationClarification = (
   response: RecommendationApiResponse,
 ): ChatClarification | null => {
   const options = Array.isArray(response.clarification?.options)
@@ -143,6 +149,9 @@ const createRecommendationClarification = (
           optionId: option.optionId?.trim() ?? '',
           label: getRecommendationClarificationLabel(option),
           description: option.description?.trim() || undefined,
+          helperText: option.helperText?.trim() || undefined,
+          apply: option.apply,
+          then: option.then,
         }))
     : []
   const threadId = response.threadId?.trim() || response.sessionId?.trim()
@@ -257,6 +266,7 @@ export function usePlanner({
   const [generatedPlanDestinationId, setGeneratedPlanDestinationId] = useState<string | null>(null)
   const [generatedRecommendationThreadId, setGeneratedRecommendationThreadId] = useState<string | null>(null)
   const [generatedRecommendationSessionId, setGeneratedRecommendationSessionId] = useState<string | null>(null)
+  const [plannerRecommendationSessionId, setPlannerRecommendationSessionId] = useState(createRecommendationSessionId)
   const [generatedRecommendationId, setGeneratedRecommendationId] = useState<string | null>(null)
   const [isPlannerLoading, setIsPlannerLoading] = useState(false)
   const [isSavingPlan, setIsSavingPlan] = useState(false)
@@ -461,6 +471,7 @@ export function usePlanner({
     setGeneratedPlanDestinationId(null)
     setGeneratedRecommendationThreadId(null)
     setGeneratedRecommendationSessionId(null)
+    setPlannerRecommendationSessionId(createRecommendationSessionId())
     setGeneratedRecommendationId(null)
   }, [
     plannerCityContext,
@@ -646,7 +657,7 @@ export function usePlanner({
         return nextLikes
       })
     }
-    setSavedPlanNotice('설정 정보를 확인하세요.')
+    setSavedPlanNotice('마이페이지 하단에서 확인하세요.')
     setIsSavingPlan(false)
   }
 
@@ -1031,7 +1042,7 @@ export function usePlanner({
       return null
     }
 
-    const threadId = generatedRecommendationThreadId ?? generatedRecommendationSessionId ?? currentPlanId
+    const threadId = generatedRecommendationThreadId ?? generatedRecommendationSessionId ?? plannerRecommendationSessionId
     const sessionId = generatedRecommendationSessionId ?? threadId
     const activeThemeIds = getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext)
     const travelMonth = selectedTravelMonth ?? new Date().getMonth() + 1
@@ -1076,7 +1087,6 @@ export function usePlanner({
     return targetDay?.stops[scope.stopIndex] ?? null
   }, [
     createRecommendationMutation,
-    currentPlanId,
     currentUser?.id,
     generatedPlanDestinationId,
     generatedRecommendationId,
@@ -1084,8 +1094,8 @@ export function usePlanner({
     generatedRecommendationThreadId,
     festivalThemeChoice,
     planDraft,
-    plannerCityContext?.cityId,
     plannerCityContext,
+    plannerRecommendationSessionId,
     plannerPreferenceProfile,
     rememberRecommendationSession,
     selectedDurationLabel,
@@ -1181,6 +1191,7 @@ export function usePlanner({
           const response = (await createRecommendationMutation.mutateAsync(
             createRecommendationRequestPayload({
               rawQuery: `${nextSelectedDurationLabel} ${plannerContextText}`.trim(),
+              sessionId: plannerRecommendationSessionId,
               country: plannerCityContext.country || 'KR',
               tripType: getRecommendationTripType(nextSelectedDurationLabel),
               activeThemeIds: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
@@ -1345,6 +1356,7 @@ export function usePlanner({
       const response = (await createRecommendationMutation.mutateAsync(
         createRecommendationRequestPayload({
           rawQuery: trimmedMessage,
+          sessionId: plannerRecommendationSessionId,
           country: plannerCityContext?.country || 'KR',
           tripType: getRecommendationTripType(selectedDurationLabel),
           activeThemeIds: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
@@ -1665,7 +1677,6 @@ export function usePlanner({
     return steps
   }, [
     plannerCityContext,
-    selectedPreferenceLabel,
     plannerThemeHashtags,
     hasSettledFestivalChoice,
     plannerPreferenceProfile.selectedThemeIds,
@@ -1680,9 +1691,11 @@ export function usePlanner({
     hasGuidedPlannerChoices,
     shouldShowDurationPrompt,
     shouldShowTravelMonthPrompt,
+    shouldShowFestivalPrompt,
   ])
 
   return {
+    plannerFlowKey: plannerRecommendationSessionId,
     plannerPreferenceProfile,
     setPlannerPreferenceProfile,
     chatMessages,

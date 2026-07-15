@@ -1,7 +1,8 @@
 /**
  * @file App.tsx
  * @description Main Lovv frontend route and state coordinator.
- * @lastModified 2026-06-23
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -850,6 +851,7 @@ function App() {
                 setPendingAuthRedirectPath={auth.setPendingAuthRedirectPath}
                 addWishlistRestaurant={planner.addWishlistRestaurant}
                 removeWishlistRestaurant={planner.removeWishlistRestaurant}
+                authAccessToken={auth.authAccessToken}
               />
             </ErrorBoundary>
           ) : activeView === 'mypage' ? (
@@ -884,6 +886,7 @@ function App() {
           ) : (
             <ErrorBoundary>
               <PlannerWorkspace
+                plannerFlowKey={planner.plannerFlowKey}
                 goHome={goHome}
                 plannerCityContext={planner.plannerCityContext}
                 shouldAskFestivalTheme={planner.shouldAskFestivalTheme}

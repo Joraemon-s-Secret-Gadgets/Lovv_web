@@ -1,3 +1,10 @@
+/**
+ * @file smallCityApi.ts
+ * @description Small-city API adapter with pagination and detail normalization.
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
+ */
+
 import {
   smallCityPlaceCategories,
   smallCityThemes,
@@ -13,6 +20,7 @@ import {
   createSmallCityDetail,
 } from '../../features/map-city/smallCities'
 import { log } from '../logger'
+import { normalizeKoreanTopicParticle } from '../utils/koreanParticles'
 
 export const smallCityApiEndpoints = {
   list: '/api/small-cities',
@@ -357,7 +365,7 @@ const normalizeSmallCityApiRecord = (
       latitude: record.latitude,
       longitude: record.longitude,
       themes,
-      summary,
+      summary: normalizeKoreanTopicParticle(summary, nameKo),
       detail,
       highlights,
       routeSeed,
@@ -1136,3 +1144,5 @@ export const requestGetSmallCityPlaces = async (
     return adaptSmallCityPlacesApiResponse(mockPlacesResponse, cityId)
   }
 }
+
+// EOF: smallCityApi.ts
