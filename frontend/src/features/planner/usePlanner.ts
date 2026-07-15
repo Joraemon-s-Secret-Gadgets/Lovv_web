@@ -1,7 +1,8 @@
 /**
  * @file usePlanner.ts
  * @description Custom hook for managing the chatbot-based interactive planner, itineraries drafts, and AI generation state.
- * @lastModified 2026-06-23
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -656,7 +657,7 @@ export function usePlanner({
         return nextLikes
       })
     }
-    setSavedPlanNotice('설정 정보를 확인하세요.')
+    setSavedPlanNotice('마이페이지 하단에서 확인하세요.')
     setIsSavingPlan(false)
   }
 
@@ -1093,7 +1094,6 @@ export function usePlanner({
     generatedRecommendationThreadId,
     festivalThemeChoice,
     planDraft,
-    plannerCityContext?.cityId,
     plannerCityContext,
     plannerRecommendationSessionId,
     plannerPreferenceProfile,
@@ -1677,7 +1677,6 @@ export function usePlanner({
     return steps
   }, [
     plannerCityContext,
-    selectedPreferenceLabel,
     plannerThemeHashtags,
     hasSettledFestivalChoice,
     plannerPreferenceProfile.selectedThemeIds,
@@ -1692,9 +1691,11 @@ export function usePlanner({
     hasGuidedPlannerChoices,
     shouldShowDurationPrompt,
     shouldShowTravelMonthPrompt,
+    shouldShowFestivalPrompt,
   ])
 
   return {
+    plannerFlowKey: plannerRecommendationSessionId,
     plannerPreferenceProfile,
     setPlannerPreferenceProfile,
     chatMessages,

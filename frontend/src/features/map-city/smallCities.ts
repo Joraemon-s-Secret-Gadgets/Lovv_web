@@ -1,9 +1,17 @@
+/**
+ * @file smallCities.ts
+ * @description Small-city models, normalization helpers, and planner context mapping.
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
+ */
+
 import busanImg from '../../assets/cities/busan.jpg'
 import gangneungImg from '../../assets/cities/gangneung.jpg'
 import gyeongjuImg from '../../assets/cities/gyeongju.jpg'
 import jejuImg from '../../assets/cities/jeju.jpg'
 import jeonjuImg from '../../assets/cities/jeonju.jpg'
 import onyangImg from '../../assets/cities/onyang.jpg'
+import { withKoreanTopicParticle } from '../../shared/utils/koreanParticles'
 
 const cityNameImageMap: Record<string, string> = {
   '경주': gyeongjuImg,
@@ -151,7 +159,7 @@ export const smallCityCountryOptions: {
   {
     country: 'KR',
     label: '한국',
-    description: '한국 소도시 120곳을 전체 지도에 표시합니다.',
+    description: '한국 소도시 235곳을 전체 지도에 표시합니다.',
   },
   {
     country: 'JP',
@@ -660,7 +668,7 @@ const createCity = (
     latitude,
     longitude,
     themes,
-    summary: `${countryLabel} ${seed.region}의 ${seed.nameKo}는 ${themes.slice(0, 2).join('·')} 분위기가 뚜렷한 소도시입니다.`,
+    summary: `${countryLabel} ${seed.region}의 ${withKoreanTopicParticle(seed.nameKo)} ${themes.slice(0, 2).join('·')} 분위기가 뚜렷한 소도시입니다.`,
     detail: `${seed.routeSeed.slice(0, 3).join(', ')} 흐름을 기준으로 여행 조건을 좁히기 좋은 후보입니다.`,
     highlights: seed.highlights,
     routeSeed: seed.routeSeed,
@@ -914,3 +922,5 @@ export const createSmallCityDetail = (city: SmallCity): SmallCityDetail => {
     festivalCount: getSmallCityFestivalCount(city, festivals),
   }
 }
+
+// EOF: smallCities.ts

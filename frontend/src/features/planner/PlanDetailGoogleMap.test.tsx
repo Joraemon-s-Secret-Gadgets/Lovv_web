@@ -1,3 +1,10 @@
+/**
+ * @file PlanDetailGoogleMap.test.tsx
+ * @description Tests for itinerary map markers, route paths, and fallback rendering.
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
+ */
+
 import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PlanDetailGoogleMap } from './PlanDetailGoogleMap'
@@ -31,7 +38,7 @@ describe('PlanDetailGoogleMap', () => {
     window.google = undefined
   })
 
-  it('uses OpenRouteService route path for the displayed polyline when provided', async () => {
+  it('uses the calculated route path for the displayed polyline when provided', async () => {
     const polylineConstructor = vi.fn()
     const markerConstructor = vi.fn()
     const routePath: RoutePathCoordinate[] = [
@@ -209,3 +216,5 @@ describe('PlanDetailGoogleMap', () => {
     )
   })
 })
+
+// EOF: PlanDetailGoogleMap.test.tsx

@@ -1,7 +1,8 @@
 /**
  * @file app.ts
  * @description Global type definitions for the Lovv frontend application.
- * @lastModified 2026-06-23
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
  */
 
 export type CityCoverImage = {
@@ -156,6 +157,7 @@ export type SelectedMealPlace = {
   addressName?: string
   phone?: string
   placeUrl?: string
+  imageUrl?: string
   source: 'kakao'
   lat?: number
   lng?: number

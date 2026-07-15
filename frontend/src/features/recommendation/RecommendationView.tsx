@@ -1,9 +1,17 @@
+/**
+ * @file RecommendationView.tsx
+ * @description Recommendation feed for public and personalized itinerary discovery.
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
+ */
+
 import { Compass, Heart, ImageIcon, Sparkles, TrendingUp } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { requestListPublicItineraries } from '../../shared/api/savedPlansApi'
 import { requestListPopularDestinations, type PopularDestinationApiItem } from '../../shared/api/recommendationsApi'
+import { normalizeKoreanTopicParticle } from '../../shared/utils/koreanParticles'
 
 const popularDestinationSlotCount = 6
 
@@ -42,8 +50,6 @@ const popularThemeCopy: Record<string, string> = {
   sea_coast: '바다·해안',
 }
 
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
 const toThemeCopy = (theme: string) => popularThemeCopy[theme] ?? theme
 
 const buildPopularDestinationSummary = (
@@ -52,12 +58,9 @@ const buildPopularDestinationSummary = (
   themeLabels: string[],
 ) => {
   const summary = item.summary?.trim()
-  const hasAwkwardCityParticle = summary
-    ? new RegExp(`${escapeRegExp(name)}\\s*(은|는)`).test(summary)
-    : false
 
-  if (summary && !hasAwkwardCityParticle) {
-    return summary
+  if (summary) {
+    return normalizeKoreanTopicParticle(summary, name)
   }
 
   const themeCopy = themeLabels.map(toThemeCopy).slice(0, 2).join('·')
@@ -509,3 +512,5 @@ function RankingListSkeleton({ title }: { title: string }) {
     </section>
   )
 }
+
+// EOF: RecommendationView.tsx

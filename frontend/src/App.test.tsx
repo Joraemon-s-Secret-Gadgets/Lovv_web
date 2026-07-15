@@ -1,3 +1,10 @@
+/**
+ * @file App.test.tsx
+ * @description Integration tests for the Lovv application shell and primary routes.
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
+ */
+
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -943,7 +950,7 @@ describe('MVP main entry screen', () => {
     expect(requestAuthSession).not.toHaveBeenCalled()
     expect(sessionStorage.getItem('lovv.auth.oauth.kakao')).toBeNull()
     expect(await screen.findByText('로그인 요청이 만료되었습니다.')).toBeInTheDocument()
-    expect(screen.getByRole('alert')).toHaveTextContent('이전 로그인 요청을 더 이상 사용할 수 없습니다. 다시 시도해 주세요.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('이전 로그인 요청을 더 이상 사용할 수 없습니다. 다시 시도해 주세요.')
   })
 
   it('exchanges Cognito callbacks through Hosted UI token exchange and backend bridge session', async () => {
@@ -1448,7 +1455,7 @@ describe('MVP main entry screen', () => {
     expect(googleMap).toHaveTextContent(/Google Maps (fallback|loading)/)
     expect(within(googleMap).getAllByRole('button', { name: /지도 마커:/ })).toHaveLength(40)
     expect(within(screen.getByTestId('city-map-result-list')).getAllByRole('button')).toHaveLength(10)
-    expect(within(cityMapSection).getByText('상위 10개 표시')).toBeInTheDocument()
+    expect(within(cityMapSection).getByText('1-10 / 40')).toBeInTheDocument()
     expect(within(cityMapSection).queryByText(/Open\s?Street\s?Map/)).not.toBeInTheDocument()
 
     const citySearchInput = within(cityMapSection).getByPlaceholderText('도시, 지역, 테마 검색')
@@ -2377,8 +2384,8 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '메시지 보내기' }))
 
     expect(screen.queryByRole('region', { name: '생성된 일정 요약' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'AI 일정 생성 중' })).not.toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'AI 일정 결과' })).toHaveTextContent('아직 일정이 생성되지 않았어요')
+    expect(screen.getByRole('region', { name: 'AI 일정 생성 중' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'AI 일정 결과' })).not.toBeInTheDocument()
 
     await act(async () => {
       recommendationResponse.resolve({
@@ -2420,6 +2427,7 @@ describe('MVP main entry screen', () => {
 
     expect(await screen.findByText('일정을 계속 만들기 전에 선택이 필요해요.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '전통 중심' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'AI 일정 생성 중' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '생성된 일정 요약' })).not.toBeInTheDocument()
     expect(screen.queryByText('선택 전에 보이면 안 되는 일정 요약입니다.')).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'AI 일정 결과' })).toHaveTextContent('아직 일정이 생성되지 않았어요')
@@ -3604,3 +3612,5 @@ describe('MVP main entry screen', () => {
     expect(tabPanel).toHaveAttribute('aria-labelledby', 'day-tab-1')
   })
 })
+
+// EOF: App.test.tsx

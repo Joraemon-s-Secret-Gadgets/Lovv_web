@@ -1,7 +1,8 @@
 /**
  * @file useAuth.ts
  * @description Custom hook for managing authentication state, session restoring, Cognito configuration, and saved itineraries.
- * @lastModified 2026-06-23
+ * @author JJonyeok2
+ * @lastModified 2026-07-15
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -17,7 +18,11 @@ import {
 import {
   adaptApiAuthSessionSnapshot,
   createMockAuthSessionSnapshot,
+  getAuthSessionRefreshDelayMs,
+  getAuthTokenExpiresAtMs,
   getDefaultAuthRuntimeMode,
+  isAuthSessionRefreshDue,
+  type AuthSessionSnapshot,
 } from './authFlow'
 import { getAuthExceptionNotice, type AuthExceptionNotice } from './authException'
 import {
@@ -72,6 +77,7 @@ import type {
 } from '../../shared/types/app'
 
 type PreparedAuthRedirectUrls = Partial<Record<SocialAuthProvider, string>>
+type AuthSessionRefreshResult = 'refreshed' | 'failed' | 'stale'
 
 const providerLabels: Record<SocialAuthProvider, string> = {
   google: 'Google',
@@ -170,8 +176,44 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
   )
   const [currentSocialAuthProvider, setCurrentSocialAuthProvider] =
     useState<SocialAuthProvider | null>(() => (isBackendAuthMode ? readStoredSocialAuthProvider() : null))
-  const [authAccessToken, setAuthAccessToken] = useState<string | null>(null)
+  const [authAccessToken, setAuthAccessTokenState] = useState<string | null>(null)
+  const [authAccessTokenExpiresAtMs, setAuthAccessTokenExpiresAtMs] = useState<number | null>(null)
+  const authAccessTokenRef = useRef<string | null>(null)
+  const authAccessTokenExpiresAtMsRef = useRef<number | null>(null)
+  const authSessionRefreshPromiseRef = useRef<Promise<AuthSessionRefreshResult> | null>(null)
+  const authLifecycleGenerationRef = useRef(0)
+  const isAuthMountedRef = useRef(true)
   const [isAuthSessionRestoring, setIsAuthSessionRestoring] = useState(isBackendAuthMode)
+
+  const setAuthAccessToken = useCallback((accessToken: string | null) => {
+    authAccessTokenRef.current = accessToken
+    authAccessTokenExpiresAtMsRef.current = null
+    setAuthAccessTokenState(accessToken)
+    setAuthAccessTokenExpiresAtMs(null)
+  }, [])
+
+  const commitAuthAccessToken = useCallback(
+    (accessToken: string | null, expiresInSeconds: number | null) => {
+      const expiresAtMs = accessToken
+        ? getAuthTokenExpiresAtMs(expiresInSeconds, Date.now())
+        : null
+
+      authAccessTokenRef.current = accessToken
+      authAccessTokenExpiresAtMsRef.current = expiresAtMs
+      setAuthAccessTokenState(accessToken)
+      setAuthAccessTokenExpiresAtMs(expiresAtMs)
+    },
+    [],
+  )
+
+  useEffect(() => {
+    isAuthMountedRef.current = true
+
+    return () => {
+      isAuthMountedRef.current = false
+      authLifecycleGenerationRef.current += 1
+    }
+  }, [])
 
   const [selectedPreferenceProfile, setSelectedPreferenceProfile] = useState<PreferenceProfile>(
     () => (isBackendAuthMode ? null : readStoredPreferenceProfile()) ?? getDefaultPreferenceProfile(),
@@ -341,6 +383,198 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
     [],
   )
 
+  const clearUnusableBackendAuth = useCallback(() => {
+    setAuthAccessToken(null)
+    commitCurrentUser(null)
+    setHasCompletedPreference(false)
+    clearSavedPlanUiState(true)
+  }, [clearSavedPlanUiState, commitCurrentUser, setAuthAccessToken])
+
+  const applyRefreshedAuthSession = useCallback(
+    (session: AuthSessionSnapshot) => {
+      commitAuthAccessToken(session.accessToken, session.expiresIn)
+      commitCurrentUser(session.user, readStoredSocialAuthProvider())
+      setHasCompletedPreference(session.onboardingCompleted)
+
+      if (session.preferenceProfile) {
+        setSelectedPreferenceProfile(session.preferenceProfile)
+        storePreferenceProfile(session.preferenceProfile)
+        setPlannerPreferenceProfile(session.preferenceProfile)
+        sessionStorage.setItem('lovv.planner_active_profile', JSON.stringify(session.preferenceProfile))
+      } else if (session.onboardingCompleted) {
+        const localProfile = readStoredPreferenceProfile()
+        if (localProfile) {
+          setSelectedPreferenceProfile(localProfile)
+          setPlannerPreferenceProfile(localProfile)
+          sessionStorage.setItem('lovv.planner_active_profile', JSON.stringify(localProfile))
+        }
+      }
+    },
+    [commitAuthAccessToken, commitCurrentUser],
+  )
+
+  const refreshAuthSession = useCallback((): Promise<AuthSessionRefreshResult> => {
+    if (authSessionRefreshPromiseRef.current) {
+      return authSessionRefreshPromiseRef.current
+    }
+
+    if (
+      !isBackendAuthMode ||
+      !authAccessTokenRef.current ||
+      authAccessTokenExpiresAtMsRef.current === null
+    ) {
+      return Promise.resolve('stale')
+    }
+
+    const lifecycleGeneration = authLifecycleGenerationRef.current
+    const refreshPromise: Promise<AuthSessionRefreshResult> = requestAuthSession()
+      .then((state) => {
+        if (
+          !isAuthMountedRef.current ||
+          authLifecycleGenerationRef.current !== lifecycleGeneration
+        ) {
+          return 'stale' as const
+        }
+
+        const session = adaptApiAuthSessionSnapshot(
+          state,
+          isCognitoAuthMode ? 'cognito' : 'api',
+        )
+        const refreshedExpiresAtMs = session.accessToken
+          ? getAuthTokenExpiresAtMs(session.expiresIn, Date.now())
+          : null
+
+        if (
+          !session.user ||
+          !session.accessToken ||
+          refreshedExpiresAtMs === null ||
+          refreshedExpiresAtMs <= Date.now()
+        ) {
+          log.info('AUTH', 'Session refresh returned no usable authentication')
+          clearUnusableBackendAuth()
+          return 'failed' as const
+        }
+
+        applyRefreshedAuthSession(session)
+        log.info('AUTH', 'Session refreshed', { userId: session.user.id })
+        return 'refreshed' as const
+      })
+      .catch((error) => {
+        if (
+          !isAuthMountedRef.current ||
+          authLifecycleGenerationRef.current !== lifecycleGeneration
+        ) {
+          return 'stale' as const
+        }
+
+        const expiresAtMs = authAccessTokenExpiresAtMsRef.current
+        const isTerminalRefreshFailure =
+          error instanceof AuthApiRequestError &&
+          (error.statusCode === 401 || error.statusCode === 403)
+
+        if (isTerminalRefreshFailure || (expiresAtMs !== null && Date.now() >= expiresAtMs)) {
+          log.info('AUTH', 'Session refresh failed with no usable authentication')
+          clearUnusableBackendAuth()
+        } else {
+          log.info('AUTH', 'Session refresh failed before access token expiry')
+        }
+
+        return 'failed' as const
+      })
+      .finally(() => {
+        if (authSessionRefreshPromiseRef.current === refreshPromise) {
+          authSessionRefreshPromiseRef.current = null
+        }
+      })
+
+    authSessionRefreshPromiseRef.current = refreshPromise
+    return refreshPromise
+  }, [
+    applyRefreshedAuthSession,
+    clearUnusableBackendAuth,
+    isBackendAuthMode,
+    isCognitoAuthMode,
+  ])
+
+  useEffect(() => {
+    if (
+      !isBackendAuthMode ||
+      isAuthSessionRestoring ||
+      shouldHandleAuthCallback ||
+      !currentUser ||
+      !authAccessToken ||
+      authAccessTokenExpiresAtMs === null
+    ) {
+      return undefined
+    }
+
+    let isActive = true
+    let refreshTimeoutId: number | null = null
+
+    function scheduleRefresh(delayMs: number) {
+      if (refreshTimeoutId !== null) {
+        window.clearTimeout(refreshTimeoutId)
+      }
+      refreshTimeoutId = window.setTimeout(refreshWhenDue, delayMs)
+    }
+
+    async function refreshWhenDue() {
+      if (!isActive || document.visibilityState === 'hidden') {
+        return
+      }
+
+      const expiresAtMs = authAccessTokenExpiresAtMsRef.current
+      if (!isAuthSessionRefreshDue(expiresAtMs, Date.now())) {
+        return
+      }
+
+      const accessTokenAtStart = authAccessTokenRef.current
+      const expiresAtMsAtStart = expiresAtMs
+      const result = await refreshAuthSession()
+
+      if (
+        isActive &&
+        result === 'failed' &&
+        authAccessTokenRef.current === accessTokenAtStart &&
+        authAccessTokenExpiresAtMsRef.current === expiresAtMsAtStart &&
+        expiresAtMsAtStart !== null
+      ) {
+        scheduleRefresh(Math.max(0, expiresAtMsAtStart - Date.now()))
+      }
+    }
+
+    const refreshIfVisibleAndDue = () => {
+      if (document.visibilityState !== 'hidden') {
+        void refreshWhenDue()
+      }
+    }
+
+    const refreshDelayMs = getAuthSessionRefreshDelayMs(authAccessTokenExpiresAtMs, Date.now())
+    if (refreshDelayMs !== null) {
+      scheduleRefresh(refreshDelayMs)
+    }
+
+    document.addEventListener('visibilitychange', refreshIfVisibleAndDue)
+    window.addEventListener('pageshow', refreshIfVisibleAndDue)
+
+    return () => {
+      isActive = false
+      if (refreshTimeoutId !== null) {
+        window.clearTimeout(refreshTimeoutId)
+      }
+      document.removeEventListener('visibilitychange', refreshIfVisibleAndDue)
+      window.removeEventListener('pageshow', refreshIfVisibleAndDue)
+    }
+  }, [
+    authAccessToken,
+    authAccessTokenExpiresAtMs,
+    currentUser,
+    isAuthSessionRestoring,
+    isBackendAuthMode,
+    refreshAuthSession,
+    shouldHandleAuthCallback,
+  ])
+
   useEffect(() => {
     if (authSessionQuery.status === 'success') {
       const session = authSessionQuery.data
@@ -351,7 +585,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
       })
       
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAuthAccessToken(session.accessToken)
+      commitAuthAccessToken(session.accessToken, session.expiresIn)
       commitCurrentUser(session.user, readStoredSocialAuthProvider())
       setHasCompletedPreference(session.onboardingCompleted)
 
@@ -390,7 +624,9 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
     authSessionQuery.status,
     authSessionQuery.data,
     clearSavedPlanUiState,
+    commitAuthAccessToken,
     commitCurrentUser,
+    setAuthAccessToken,
   ])
 
   useEffect(() => {
@@ -731,7 +967,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
         }
 
         setAuthFlowNotice(null)
-        setAuthAccessToken(session.accessToken)
+        commitAuthAccessToken(session.accessToken, session.expiresIn)
         commitCurrentUser(session.user, authCallbackProvider)
         setHasCompletedPreference(session.onboardingCompleted)
 
@@ -767,6 +1003,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
     authCallbackProvider,
     authLoginMutation,
     authRuntimeMode,
+    commitAuthAccessToken,
     commitCurrentUser,
     getAccountLinkErrorNotice,
     isApiAuthMode,
@@ -774,6 +1011,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
     location.search,
     navigate,
     queryClient,
+    setAuthAccessToken,
   ])
 
   const cognitoBridgeMutation = useMutation({
@@ -857,7 +1095,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
         }
 
         setAuthFlowNotice(null)
-        setAuthAccessToken(session.accessToken)
+        commitAuthAccessToken(session.accessToken, session.expiresIn)
         commitCurrentUser(session.user, tokenRequest.provider)
         setHasCompletedPreference(session.onboardingCompleted)
 
@@ -892,9 +1130,11 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
   }, [
     authRuntimeMode,
     cognitoBridgeMutation,
+    commitAuthAccessToken,
     commitCurrentUser,
     location.search,
     navigate,
+    setAuthAccessToken,
     shouldHandleCognitoAuthCallback,
   ])
 
@@ -937,7 +1177,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
           }
 
           setAuthFlowNotice(null)
-          setAuthAccessToken(session.accessToken)
+          commitAuthAccessToken(session.accessToken, session.expiresIn)
           commitCurrentUser(session.user, readStoredSocialAuthProvider())
           setHasCompletedPreference(session.onboardingCompleted)
 
@@ -970,10 +1210,12 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
     }
   }, [
     authRuntimeMode,
+    commitAuthAccessToken,
     commitCurrentUser,
     currentUser,
     location.search,
     navigate,
+    setAuthAccessToken,
     shouldHandleCognitoAuthCallback,
   ])
 
@@ -1059,6 +1301,7 @@ export function useAuth({ plannerRef }: UseAuthOptions = {}) {
 
   const signOut = async () => {
     closeSessionMenu()
+    authLifecycleGenerationRef.current += 1
 
     if (isBackendAuthMode) {
       try {
