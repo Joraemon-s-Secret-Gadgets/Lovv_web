@@ -1,4 +1,4 @@
-# TASK1 Subtasks: 세부 일정 수정 채팅 기록 누적
+# TASK1 Subtasks: 세부 일정 수정 채팅 기록 및 도시 변경 반영
 
 ## Context and Dependencies
 
@@ -50,3 +50,39 @@ npm run build
 - 동일 테스트 또는 수정 시도가 세 번 연속 실패하면 즉시 중단하고 사용자에게 원인과 대안을 보고한다.
 - 구현·리뷰가 세 번 반복되거나 범위가 API·백엔드 변경으로 확대되면 사용자 승인을 다시 받는다.
 - Subtask 1.1 완료와 검증 후 다음 top-level Task인 게시·PR 작업을 자동 시작하지 않는다. `docs/reports/TASK1_COMPLETION.md`와 `docs/specs/TASK2_SUBTASKS.md`를 작성하고 사용자 확인을 기다린다.
+
+## Subtask 1.2: 전체 도시 변경 destination 및 itinerary 반영
+
+### Purpose
+
+AgentCore 전체 도시 변경 응답의 새 destination과 itinerary를 하나의 활성 플랜 상태로 반영한다.
+
+### Target Files
+
+- `frontend/src/features/planner/usePlanner.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+
+### Local Rules
+
+- App 통합 회귀 테스트를 먼저 작성하고 현재 코드에서 실패하는지 확인한다.
+- 백엔드 응답 스키마는 변경하지 않는다.
+- `plannerCityContext`의 진입 seed는 유지하고 생성 destination override의 우선순위만 명확히 한다.
+- 새 destination이 없는 수정 응답에서는 기존 destination을 유지한다.
+
+### Acceptance Criteria
+
+- `도시 바꿔줘` 응답의 새 itinerary 장소가 상세 화면에 렌더링된다.
+- 응답의 새 destination 이름과 ID가 상세 화면에 반영된다.
+- 다음 수정 요청과 저장 payload가 새 destination ID를 사용한다.
+- 성공 메시지는 실제 상태 갱신과 모순되지 않는다.
+
+### Verification Commands
+
+```powershell
+cd frontend
+npm test -- src/App.test.tsx
+npm test
+npm run lint
+npm run build
+```

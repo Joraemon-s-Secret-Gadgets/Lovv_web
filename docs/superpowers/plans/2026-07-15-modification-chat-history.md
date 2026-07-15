@@ -1,8 +1,8 @@
-# Modification Chat History Implementation Plan
+# Modification Chat History and City Replacement Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 세부 일정 수정 챗봇에서 사용자 수정 요청과 각 처리 결과를 화면 세션 동안 순서대로 누적한다.
+**Goal:** 세부 일정 수정 챗봇에서 요청과 결과를 누적하고, 전체 도시 변경 응답의 새 itinerary와 destination을 화면·후속 요청·저장 상태에 반영한다.
 
 **Architecture:** `PlanDetailView`가 이미 소유한 `localChatMessages`를 수정 대화의 단일 로컬 기록으로 유지한다. 메시지 추가와 최종 결과 보고를 작은 helper로 통일하고 기존 수정 API, 후보 확인 UI, 일정 교체 콜백은 변경하지 않는다.
 
@@ -229,6 +229,125 @@ Confirm only the approved planner chat history behavior and its tests changed, t
 ```powershell
 git add -- frontend/src/features/planner/PlanDetailView.tsx frontend/src/features/planner/PlanDetailView.test.tsx
 git commit -m "fix(planner): preserve modification chat history"
+```
+
+### Task 1.2: Apply city replacement itinerary and destination
+
+**Files:**
+- Modify: `frontend/src/features/planner/usePlanner.ts`
+- Modify: `frontend/src/App.tsx`
+- Test: `frontend/src/App.test.tsx`
+
+**Interfaces:**
+- Consumes: `RecommendationApiResponse.destination`, `mapRecommendationToDraft(response)`, existing generated destination state
+- Produces: active generated destination override used by detail rendering, subsequent modify payloads, and save payloads
+
+- [ ] **Step 1: Add a failing App integration test**
+
+Create an initial recommendation with destination `KR-Asan` and a modification response with destination `KR-Donghae` and stop `동해 새 일정 장소`. Enter the plan detail, submit `도시 바꿔줘`, then assert:
+
+```tsx
+expect(await screen.findByText('동해 새 일정 장소')).toBeInTheDocument()
+expect(screen.getAllByText('동해시').length).toBeGreaterThan(0)
+expect(screen.queryByText('아산', { exact: true })).not.toBeInTheDocument()
+```
+
+Submit one additional stop modification and assert the request payload uses the new destination:
+
+```tsx
+expect(requestCreateRecommendation).toHaveBeenLastCalledWith(
+  expect.objectContaining({
+    entryType: 'modify',
+    destinationId: 'KR-Donghae',
+  }),
+  expect.anything(),
+)
+```
+
+- [ ] **Step 2: Run the App test and verify RED**
+
+```powershell
+npm test -- src/App.test.tsx
+```
+
+Expected: the new itinerary may render, but the new city name/ID assertions fail because modify responses do not update generated destination state and existing city context has higher precedence.
+
+- [ ] **Step 3: Capture destination from full-plan modification responses**
+
+In `requestPlanModification`, after mapping the response and only for `scope.kind === 'plan'`, normalize and store destination data when present:
+
+```tsx
+const responseDestinationId = response.destination?.cityId || response.destination?.destinationId
+const responseDestinationName = resolveSmallCityDisplayName(
+  response.destination?.name,
+  responseDestinationId,
+  generatedPlanDestinationName ?? plannerCityContext?.cityName,
+)
+
+if (scope.kind === 'plan') {
+  if (responseDestinationId) {
+    setGeneratedPlanDestinationId(responseDestinationId)
+  }
+  if (responseDestinationName) {
+    setGeneratedPlanDestinationName(responseDestinationName)
+  }
+  return modifiedDraft
+}
+```
+
+Add the referenced destination state values to the callback dependency list.
+
+- [ ] **Step 4: Make generated destination the active override**
+
+Derive `plannerBasisLabel` from a generated destination only when it differs from the original city context:
+
+```tsx
+const hasGeneratedDestinationOverride = Boolean(
+  generatedPlanDestinationName &&
+  generatedPlanDestinationName !== plannerCityContext?.cityName,
+)
+const plannerBasisLabel = hasGeneratedDestinationOverride
+  ? generatedPlanDestinationName!
+  : plannerCityContext
+    ? `${plannerCityContext.cityName} · ${plannerCityContext.region}`
+    : plannerPreferenceLabel
+```
+
+Use generated destination before city context in:
+
+```tsx
+const destinationId = generatedPlanDestinationId ?? plannerCityContext?.agentCoreId ?? plannerCityContext?.cityId ?? sourceRecommendationId
+const destinationName = generatedPlanDestinationName ?? plannerCityContext?.cityName ?? plannerBasisLabel
+```
+
+Apply the same ID precedence to saved-plan construction, `conditionsSnapshot.cityId`, and subsequent modify requests.
+
+In `App.tsx`, use:
+
+```tsx
+const activePlanDetailDestinationId = isRouteCurrentGeneratedPlan
+  ? (planner.generatedPlanDestinationId ?? planner.plannerCityContext?.cityId ?? undefined)
+  : routeSavedPlan?.destinationId ?? undefined
+```
+
+Pass `destinationName={planner.generatedPlanDestinationName ?? planner.plannerCityContext?.cityName ?? undefined}` and use the same precedence for `planDestinationName`.
+
+- [ ] **Step 5: Verify city replacement and all frontend checks**
+
+```powershell
+npm test -- src/App.test.tsx
+npm test
+npm run lint
+npm run build
+```
+
+Expected: new city itinerary, name, and follow-up destination assertions pass; all existing frontend checks exit 0.
+
+- [ ] **Step 6: Commit the combined implementation**
+
+```powershell
+git add -- frontend/src/features/planner/PlanDetailView.tsx frontend/src/features/planner/PlanDetailView.test.tsx frontend/src/features/planner/usePlanner.ts frontend/src/App.tsx frontend/src/App.test.tsx
+git commit -m "fix(planner): preserve modification history and city updates"
 ```
 
 ### Task 2: Prepare handoff for main publication and Organization PR

@@ -1,10 +1,12 @@
-# 세부 일정 수정 채팅 기록 누적 설계
+# 세부 일정 수정 채팅 기록 및 도시 변경 반영 설계
 
 ## 1. 배경
 
 일정 생성 후 세부 일정 화면의 수정 챗봇에서 수정 요청을 연속으로 제출하면 일정 변경 API와 화면 반영은 정상 동작한다. 그러나 직접 입력한 수정 요청과 처리 결과가 대화 목록에 추가되지 않아, 다음 수정 시 이전 대화가 보이지 않는다.
 
 현재 `PlanDetailView`는 플래너의 최근 메시지 최대 4개와 컴포넌트 로컬 메시지를 함께 렌더링한다. 로컬 메시지는 일정 카드의 빠른 장소 변경 동작에서만 추가되며, 수정 챗봇 입력 폼의 `handleFloatingChatSubmit` 경로에서는 추가되지 않는다. 처리 결과는 교체되는 단일 상태 문구인 `floatingChatNotice`로만 표시된다.
+
+추가 조사 결과, 전체 도시 변경 요청에서 AgentCore가 새 `destination`과 `itinerary`를 반환해도 `requestPlanModification`은 새 itinerary만 `PlanDraft`로 변환한다. 새 destination은 `generatedPlanDestinationName`과 `generatedPlanDestinationId`에 반영되지 않으며, 화면·저장 payload·후속 수정 요청은 기존 `plannerCityContext`를 우선 사용한다. 이 때문에 성공 안내가 표시되어도 도시명과 destination 기준이 이전 도시에 남는다.
 
 ## 2. 목표
 
@@ -14,6 +16,8 @@
 - 일정 변경, 후보 확인, 사용자 확인 필요, 입력 거절, API 실패 상태를 기존 동작과 일치하게 표현한다.
 - 현재 세부 일정 화면 세션 동안 챗봇을 닫았다 다시 열어도 기록을 유지한다.
 - 회귀 테스트로 두 번 이상의 연속 수정 대화가 모두 남는 것을 검증한다.
+- 전체 도시 변경 응답의 새 itinerary와 destination을 같은 상태 전환으로 반영한다.
+- 도시 변경 후 상세 화면, 일정 제목, 저장 payload와 후속 수정 요청이 새 destination을 기준으로 사용하게 한다.
 
 ## 3. 비목표
 
@@ -50,6 +54,14 @@
 - 수정 챗봇을 닫고 다시 열어도 `PlanDetailView`가 유지되는 동안 기록을 보존한다.
 - 화면이 언마운트되거나 다른 일정 상세로 전환되면 로컬 기록이 초기화될 수 있다.
 
+### R5. 전체 도시 변경 반영
+
+- `replace_plan` 요청이 새 itinerary를 반환하면 모든 일차와 장소를 새 draft로 교체한다.
+- 응답에 새 destination ID와 이름이 있으면 활성 생성 destination 상태를 함께 갱신한다.
+- 상세 화면의 도시명과 destination ID는 새 생성 destination을 기존 진입 도시 context보다 우선한다.
+- 저장 payload와 이후 modify 요청도 새 destination ID와 이름을 우선한다.
+- 성공 메시지는 itinerary와 destination 상태 갱신이 모두 예약된 뒤에만 추가한다.
+
 ## 5. 설계
 
 ### 5.1 상태 소유권
@@ -83,6 +95,12 @@
 - 실패하더라도 이전 대화와 일정 상태는 유지한다.
 - 동일 결과가 상태 알림과 말풍선으로 동시에 보일 수 있으나, 대화 기록을 제거하거나 덮어쓰지는 않는다.
 
+### 5.5 도시 변경 상태 흐름
+
+`usePlanner.requestPlanModification`이 전체 일정 후보를 만들 때 응답 destination을 정규화해 기존 `generatedPlanDestinationName`과 `generatedPlanDestinationId`에 저장한다. 이 상태는 AgentCore가 실제로 선택한 목적지를 나타내므로, `App`의 상세 화면 props와 `usePlanner`의 저장·후속 수정 payload에서는 `plannerCityContext`보다 우선한다.
+
+기존 `plannerCityContext`는 사용자가 플래너에 진입할 때 선택한 도시와 취향 seed를 계속 보존한다. 도시 변경 결과를 억지로 불완전한 `PlannerCityContext`로 변환하지 않고, 생성 결과 destination override를 명시적으로 우선하여 지도 데이터와 저장 식별자가 새 도시에 맞게 갱신되도록 한다.
+
 ## 6. 영향 파일
 
 - `frontend/src/features/planner/PlanDetailView.tsx`
@@ -92,6 +110,13 @@
   - 연속 수정 요청과 결과 누적 회귀 테스트
 - 필요 시 `frontend/e2e/lovv-v2-itinerary.e2e.ts`
   - 실제 V2 수정 흐름에서 기록 노출 검증 보강
+- `frontend/src/features/planner/usePlanner.ts`
+  - 전체 수정 응답 destination을 생성 destination 상태에 반영
+  - 저장 및 후속 수정 destination 우선순위 정정
+- `frontend/src/App.tsx`
+  - 상세 화면 destination 이름과 ID에서 생성 결과를 우선
+- `frontend/src/App.test.tsx`
+  - `도시 바꿔줘` 응답의 새 itinerary와 destination이 함께 렌더링되는 통합 회귀 테스트
 
 백엔드 파일과 API 스키마는 변경하지 않는다.
 
@@ -105,6 +130,8 @@
 - 해석 불가 또는 지원하지 않는 요청은 user 메시지와 assistant 안내를 남긴다.
 - API 실패 시 user 요청과 실패 assistant 메시지가 남고 이전 기록이 유지된다.
 - 기존 장소 후보 확인 및 적용 동작이 계속 통과한다.
+- 도시 변경 응답 후 새 도시명과 새 일정 장소가 상세 화면에 보인다.
+- 도시 변경 이후 후속 modify 요청과 저장 payload가 새 destination ID를 사용한다.
 
 ### 검증 명령
 
@@ -129,5 +156,7 @@
 - 각 요청 뒤에 성공, 후보, 확인 필요 또는 실패에 해당하는 assistant 결과가 보인다.
 - 다음 수정이 이전 수정 대화를 덮어쓰지 않는다.
 - 일정 변경과 후보 적용 기능은 기존처럼 동작한다.
+- `도시 바꿔줘` 성공 후 새 itinerary의 장소와 새 destination 이름이 즉시 보인다.
+- 이후 수정과 저장은 이전 도시가 아니라 새 destination ID를 사용한다.
 - 새 회귀 테스트가 수정 전 실패하고 수정 후 통과한다.
 - 관련 단위 테스트, 빌드 및 린트가 통과하거나 실행 불가 사유가 명확히 보고된다.
