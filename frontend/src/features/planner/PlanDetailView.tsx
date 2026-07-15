@@ -360,6 +360,12 @@ const parseRouteCoordinateKey = (coordinateKey: string): RoutePathCoordinate[] =
     })
     .filter((coordinate): coordinate is RoutePathCoordinate => coordinate !== null)
 
+type CalculatedRouteResult = {
+  key: string
+  path: RoutePathCoordinate[] | null
+  status: 'ready' | 'fallback'
+}
+
 // ---------------------------------------------------------------------------
 // PlanDetailView component
 // ---------------------------------------------------------------------------
@@ -642,12 +648,13 @@ export function PlanDetailView({
     () => (planDraft.selectedRestaurants ?? []).filter((r) => !allPlacedWishlistRestaurantIds.has(r.id) || activeMapStops.some((stop) => stop.wishlistRestaurantId === r.id)),
     [planDraft.selectedRestaurants, allPlacedWishlistRestaurantIds, activeMapStops],
   )
-  const [calculatedRouteResult, setCalculatedRouteResult] = useState<{
-    key: string
-    path: RoutePathCoordinate[] | null
-    status: 'ready' | 'fallback'
-  } | null>(null)
-  const currentCalculatedRouteResult = calculatedRouteResult?.key === activeRouteRequestKey ? calculatedRouteResult : null
+  const [calculatedRouteResultsByDay, setCalculatedRouteResultsByDay] = useState<Record<number, CalculatedRouteResult>>({})
+  const activeDayCalculatedRouteResult = activeDay
+    ? calculatedRouteResultsByDay[activeDay.day]
+    : undefined
+  const currentCalculatedRouteResult = activeDayCalculatedRouteResult?.key === activeRouteRequestKey
+    ? activeDayCalculatedRouteResult
+    : null
   const calculatedRoutePath = currentCalculatedRouteResult?.status === 'ready' ? currentCalculatedRouteResult.path : null
   const calculatedRouteStatus: 'idle' | 'loading' | 'ready' | 'fallback' =
     activeRouteCoordinates.length < 2
@@ -659,12 +666,15 @@ export function PlanDetailView({
   useEffect(() => {
     let isCancelled = false
 
-    if (!activeRouteCoordinateKey || !authAccessToken || currentCalculatedRouteResult) {
+    if (!activeDay || !activeRouteCoordinateKey || !authAccessToken || currentCalculatedRouteResult) {
       return () => {
         isCancelled = true
       }
     }
 
+    const routeDay = activeDay
+    const routeDayNumber = routeDay.day
+    const routeRequestKey = activeRouteRequestKey
     const coordinates = parseRouteCoordinateKey(activeRouteCoordinateKey)
 
     if (coordinates.length < 2) {
@@ -682,33 +692,42 @@ export function PlanDetailView({
         const routePath = route?.geometry?.coordinates
 
         if (route && routePath && routePath.length > 1) {
-          setCalculatedRouteResult({
-            key: activeRouteRequestKey,
-            path: routePath,
-            status: 'ready',
-          })
-          if (activeDay && onReplacePlanDay) {
+          setCalculatedRouteResultsByDay((currentResults) => ({
+            ...currentResults,
+            [routeDayNumber]: {
+              key: routeRequestKey,
+              path: routePath,
+              status: 'ready',
+            },
+          }))
+          if (onReplacePlanDay) {
             onReplacePlanDay(
-              activeDay.day,
-              applyCalculatedRouteToDay(activeDay, route, nameToCoords, activeMapStops),
+              routeDayNumber,
+              applyCalculatedRouteToDay(routeDay, route, nameToCoords, activeMapStops),
             )
           }
           return
         }
 
-        setCalculatedRouteResult({
-          key: activeRouteRequestKey,
-          path: null,
-          status: 'fallback',
-        })
+        setCalculatedRouteResultsByDay((currentResults) => ({
+          ...currentResults,
+          [routeDayNumber]: {
+            key: routeRequestKey,
+            path: null,
+            status: 'fallback',
+          },
+        }))
       })
       .catch(() => {
         if (!isCancelled) {
-          setCalculatedRouteResult({
-            key: activeRouteRequestKey,
-            path: null,
-            status: 'fallback',
-          })
+          setCalculatedRouteResultsByDay((currentResults) => ({
+            ...currentResults,
+            [routeDayNumber]: {
+              key: routeRequestKey,
+              path: null,
+              status: 'fallback',
+            },
+          }))
         }
       })
 
@@ -722,7 +741,7 @@ export function PlanDetailView({
     persistedPath: activeDay?.route?.geometry?.coordinates,
     hasUserAddedWishlistStop,
     persistedRouteMatchesCurrent:
-      calculatedRouteResult === null || currentCalculatedRouteResult?.status === 'ready',
+      activeDayCalculatedRouteResult === undefined || currentCalculatedRouteResult?.status === 'ready',
     calculationFailed: currentCalculatedRouteResult?.status === 'fallback',
   })
   const routeStatusLabel =
