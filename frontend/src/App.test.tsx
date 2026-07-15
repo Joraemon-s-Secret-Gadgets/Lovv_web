@@ -2800,6 +2800,7 @@ describe('MVP main entry screen', () => {
       expect.objectContaining({
         entryType: 'modify',
         destinationId: 'KR-Donghae',
+        country: 'KR',
       }),
       expect.anything(),
     )

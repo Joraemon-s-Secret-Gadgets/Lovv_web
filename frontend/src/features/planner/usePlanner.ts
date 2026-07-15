@@ -40,6 +40,7 @@ import {
   requestCloneSavedPlan,
   requestUpdateSavedPlanShareStatus,
   type SavedPlanApiCreatePayload,
+  type SavedPlanApiDestination,
 } from '../../shared/api/savedPlansApi'
 import {
   requestCreateRecommendation,
@@ -78,6 +79,38 @@ import type {
   ChatClarification,
 } from '../../shared/types/app'
 import { resolveSmallCityDisplayName, type PlannerCityContext } from '../map-city/smallCities'
+
+export type GeneratedPlanDestination = {
+  destinationId: string
+  name: string
+  country: 'KR'
+  region?: string
+}
+
+export const createGeneratedPlanDestination = (
+  destination: RecommendationApiResponse['destination'],
+): GeneratedPlanDestination | null => {
+  const destinationId = destination?.cityId?.trim() || destination?.destinationId?.trim()
+  const name = resolveSmallCityDisplayName(destination?.name, destinationId)
+
+  if (!destinationId || !name || name.toLowerCase().includes('mock')) {
+    return null
+  }
+
+  const region = destination?.region?.trim()
+
+  return {
+    destinationId,
+    name,
+    country: 'KR',
+    ...(region ? { region } : {}),
+  }
+}
+
+export const resolveSavedPlanDestination = (
+  generatedDestination: GeneratedPlanDestination | null,
+  fallbackDestination: SavedPlanApiDestination,
+): SavedPlanApiDestination => generatedDestination ?? fallbackDestination
 
 const createRecommendationRequestId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -262,8 +295,9 @@ export function usePlanner({
     createInitialChatMessages(selectedPreferenceLabel),
   )
   const [planDraft, setPlanDraft] = useState<PlanDraft>(() => createPlanDraft(selectedPreference))
-  const [generatedPlanDestinationName, setGeneratedPlanDestinationName] = useState<string | null>(null)
-  const [generatedPlanDestinationId, setGeneratedPlanDestinationId] = useState<string | null>(null)
+  const [generatedPlanDestination, setGeneratedPlanDestination] = useState<GeneratedPlanDestination | null>(null)
+  const generatedPlanDestinationName = generatedPlanDestination?.name ?? null
+  const generatedPlanDestinationId = generatedPlanDestination?.destinationId ?? null
   const [generatedRecommendationThreadId, setGeneratedRecommendationThreadId] = useState<string | null>(null)
   const [generatedRecommendationSessionId, setGeneratedRecommendationSessionId] = useState<string | null>(null)
   const [plannerRecommendationSessionId, setPlannerRecommendationSessionId] = useState(createRecommendationSessionId)
@@ -473,8 +507,7 @@ export function usePlanner({
     setChatMessages(createInitialChatMessages(nextPlannerLabel, cityContext, false))
     setPlanDraft(createPlanDraft(preference, nextPlannerContextText, nextFestivalThemeChoice, cityContext))
     setSavedPlanNotice(null)
-    setGeneratedPlanDestinationName(null)
-    setGeneratedPlanDestinationId(null)
+    setGeneratedPlanDestination(null)
     setGeneratedRecommendationThreadId(null)
     setGeneratedRecommendationSessionId(null)
     setPlannerRecommendationSessionId(createRecommendationSessionId())
@@ -491,23 +524,20 @@ export function usePlanner({
     plan: SavedPlan,
     sourceRecommendationId: string,
   ): SavedPlanApiCreatePayload => {
-    const destinationId =
-      generatedPlanDestinationId ??
-      plannerCityContext?.agentCoreId ??
-      plannerCityContext?.cityId ??
-      sourceRecommendationId
-    const destinationName = generatedPlanDestinationName ?? plannerCityContext?.cityName ?? plannerBasisLabel
+    const fallbackDestination: SavedPlanApiDestination = {
+      destinationId:
+        plannerCityContext?.agentCoreId ?? plannerCityContext?.cityId ?? sourceRecommendationId,
+      name: plannerCityContext?.cityName ?? plannerBasisLabel,
+      country: plannerCityContext?.country ?? 'KR',
+      region: plannerCityContext?.region ?? plannerBasisLabel,
+    }
+    const destination = resolveSavedPlanDestination(generatedPlanDestination, fallbackDestination)
 
     const payloadWithoutIdempotencyKey: Omit<SavedPlanApiCreatePayload, 'idempotencyKey'> = {
       sourceRecommendationId,
       title: plan.title,
       summary: plan.summary,
-      destination: {
-        destinationId,
-        name: destinationName,
-        country: plannerCityContext?.country ?? 'KR',
-        region: plannerCityContext?.region ?? plannerBasisLabel,
-      },
+      destination,
       tripType: plan.durationLabel.replace(/\s+/g, '-'),
       durationLabel: plan.durationLabel,
       themes: getThemeLabels(plannerPreferenceProfile.selectedThemeIds),
@@ -524,7 +554,7 @@ export function usePlanner({
         activeRequiredThemes: plannerConditionExtraction?.activeRequiredThemes ?? [],
         softPreferences: plannerConditionExtraction?.softPreferences ?? [],
         unsupportedConditions: plannerConditionExtraction?.unsupportedConditions ?? [],
-        cityId: generatedPlanDestinationId ?? plannerCityContext?.cityId ?? null,
+        cityId: destination.destinationId,
       },
       requestSummary: plan.conditionSummary,
       itinerary: {
@@ -1062,7 +1092,7 @@ export function usePlanner({
       actorId: currentUser?.id,
       recommendationId: generatedRecommendationId ?? undefined,
       destinationId: generatedPlanDestinationId ?? plannerCityContext?.cityId ?? undefined,
-      country: plannerCityContext?.country || 'KR',
+      country: generatedPlanDestination?.country ?? plannerCityContext?.country ?? 'KR',
       travelYear: new Date().getFullYear(),
       travelMonth,
       tripType: getRecommendationTripType(selectedDurationLabel ?? planDraft.durationLabel),
@@ -1081,18 +1111,10 @@ export function usePlanner({
     const modifiedDraft = mapRecommendationToDraft(response, { preferAlternativeItinerary })
 
     if (scope.kind === 'plan') {
-      const responseDestinationId = response.destination?.cityId || response.destination?.destinationId
-      const responseDestinationName = resolveSmallCityDisplayName(
-        response.destination?.name,
-        responseDestinationId,
-        generatedPlanDestinationName ?? plannerCityContext?.cityName,
-      )
+      const responseDestination = createGeneratedPlanDestination(response.destination)
 
-      if (responseDestinationId) {
-        setGeneratedPlanDestinationId(responseDestinationId)
-      }
-      if (responseDestinationName) {
-        setGeneratedPlanDestinationName(responseDestinationName)
+      if (responseDestination) {
+        setGeneratedPlanDestination(responseDestination)
       }
 
       return modifiedDraft
@@ -1108,8 +1130,8 @@ export function usePlanner({
   }, [
     createRecommendationMutation,
     currentUser?.id,
+    generatedPlanDestination,
     generatedPlanDestinationId,
-    generatedPlanDestinationName,
     generatedRecommendationId,
     generatedRecommendationSessionId,
     generatedRecommendationThreadId,
@@ -1261,10 +1283,10 @@ export function usePlanner({
           setPlannerConditionExtraction(nextExtraction)
           setPlanDraft(realDraft)
           setSavedPlanNotice(null)
-          const destId = response.destination?.cityId || response.destination?.destinationId
-          const destName = resolveSmallCityDisplayName(response.destination?.name, destId, plannerCityContext.cityName)
-          setGeneratedPlanDestinationName(destName ?? plannerCityContext.cityName)
-          setGeneratedPlanDestinationId(destId || plannerCityContext.cityId)
+          const responseDestination = createGeneratedPlanDestination(response.destination)
+          if (responseDestination) {
+            setGeneratedPlanDestination(responseDestination)
+          }
         } catch (err) {
           log.error('PLAN', 'Recommendation API failed for selected city duration', err)
 
@@ -1431,14 +1453,10 @@ export function usePlanner({
       setPlannerConditionExtraction(nextExtraction)
       setPlanDraft(realDraft)
       setSavedPlanNotice(null)
-      const destId = response.destination?.cityId || response.destination?.destinationId
-      const destName = resolveSmallCityDisplayName(response.destination?.name, destId)
+      const responseDestination = createGeneratedPlanDestination(response.destination)
 
-      if (destName && !String(destName).toLowerCase().includes('mock')) {
-        setGeneratedPlanDestinationName(destName)
-      }
-      if (destId) {
-        setGeneratedPlanDestinationId(destId)
+      if (responseDestination) {
+        setGeneratedPlanDestination(responseDestination)
       }
     } catch (err) {
       log.error('PLAN', 'Recommendation API failed, falling back to mock logic', err)
@@ -1465,8 +1483,12 @@ export function usePlanner({
       setPlanDraft(fallbackDraft)
       setSavedPlanNotice(null)
       if (plannerCityContext) {
-        setGeneratedPlanDestinationName(plannerCityContext.cityName)
-        setGeneratedPlanDestinationId(plannerCityContext.cityId)
+        setGeneratedPlanDestination({
+          destinationId: plannerCityContext.agentCoreId ?? plannerCityContext.cityId,
+          name: plannerCityContext.cityName,
+          country: 'KR',
+          region: plannerCityContext.region,
+        })
       }
     } finally {
       setIsPlannerLoading(false)
@@ -1563,14 +1585,10 @@ export function usePlanner({
         ),
       )
       setSavedPlanNotice(null)
-      const destId = response.destination?.cityId || response.destination?.destinationId
-      const destName = resolveSmallCityDisplayName(response.destination?.name, destId, plannerCityContext?.cityName)
+      const responseDestination = createGeneratedPlanDestination(response.destination)
 
-      if (destName && !String(destName).toLowerCase().includes('mock')) {
-        setGeneratedPlanDestinationName(destName)
-      }
-      if (destId) {
-        setGeneratedPlanDestinationId(destId)
+      if (responseDestination) {
+        setGeneratedPlanDestination(responseDestination)
       }
     } catch (err) {
       log.error('PLAN', 'Recommendation clarification failed', err)
@@ -1724,9 +1742,7 @@ export function usePlanner({
     planDraft,
     setPlanDraft,
     generatedPlanDestinationName,
-    setGeneratedPlanDestinationName,
     generatedPlanDestinationId,
-    setGeneratedPlanDestinationId,
     isPlannerLoading,
     setIsPlannerLoading,
     isSavingPlan,
