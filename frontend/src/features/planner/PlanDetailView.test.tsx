@@ -2,7 +2,7 @@
  * @file PlanDetailView.test.tsx
  * @description Integration tests for itinerary detail editing and day-specific route state.
  * @author JJonyeok2
- * @lastModified 2026-07-15
+ * @lastModified 2026-07-16
  */
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -96,7 +96,10 @@ const createCalculatedRoute = (coordinates: RoutePathCoordinate[]): PlanRoute =>
 
 type PlanModificationRequest = NonNullable<ComponentProps<typeof PlanDetailView>['onRequestPlanModification']>
 
-const renderPlanDetail = (planDraft: PlanDraft) => (
+const renderPlanDetail = (
+  planDraft: PlanDraft,
+  onReplacePlanDay?: ComponentProps<typeof PlanDetailView>['onReplacePlanDay'],
+) => (
   <MemoryRouter>
     <PlanDetailView
       isPlannerReady
@@ -112,6 +115,7 @@ const renderPlanDetail = (planDraft: PlanDraft) => (
       openMyPage={vi.fn()}
       savedPlanNotice={null}
       authAccessToken="access-token"
+      onReplacePlanDay={onReplacePlanDay}
     />
   </MemoryRouter>
 )
@@ -223,6 +227,32 @@ describe('PlanDetailView day-keyed route results', () => {
     expect(within(list as HTMLUListElement).getAllByRole('button')).toHaveLength(2)
     within(list as HTMLUListElement).getAllByRole('button').forEach((button) => {
       expect(button).toBeVisible()
+    })
+  })
+
+  it('persists an automatically calculated route without showing a day replacement notice', async () => {
+    const calculatedPath: RoutePathCoordinate[] = [
+      [128.91, 37.75],
+      [128.92, 37.76],
+      [128.93, 37.77],
+    ]
+    const onReplacePlanDay = vi.fn<NonNullable<ComponentProps<typeof PlanDetailView>['onReplacePlanDay']>>()
+    vi.mocked(requestRecommendationRoute).mockResolvedValue(createCalculatedRoute(calculatedPath))
+
+    render(renderPlanDetail(createPlanDraft([
+      createDay(
+        1,
+        [[128.91, 37.75], [128.93, 37.77]],
+        [[128.91, 37.75], [128.93, 37.77]],
+      ),
+    ]), onReplacePlanDay))
+
+    await waitFor(() => {
+      expect(onReplacePlanDay).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ day: 1 }),
+        { notify: false },
+      )
     })
   })
 

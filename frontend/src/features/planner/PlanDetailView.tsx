@@ -401,7 +401,11 @@ type PlanDetailViewProps = {
   savedPlanNotice: string | null
   chatMessages?: ChatMessage[]
   onReplacePlanStop?: (dayNumber: number, stopIndex: number, replacement: PlanStop) => void
-  onReplacePlanDay?: (dayNumber: number, replacement: PlanDay) => void
+  onReplacePlanDay?: (
+    dayNumber: number,
+    replacement: PlanDay,
+    options?: { notify?: boolean },
+  ) => void
   onReplacePlanDraft?: (replacement: PlanDraft) => void
   onRequestPlanModification?: (request: {
     rawModifyQuery: string
@@ -727,6 +731,7 @@ export function PlanDetailView({
             onReplacePlanDay(
               routeDayNumber,
               applyCalculatedRouteToDay(routeDay, route, nameToCoords, activeMapStops),
+              { notify: false },
             )
           }
           return

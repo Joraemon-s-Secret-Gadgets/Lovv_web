@@ -1033,7 +1033,11 @@ export function usePlanner({
     setSavedPlanNotice('선택한 일정 카드만 대체 후보로 바꿨어요. 저장하면 변경 내용이 반영됩니다.')
   }, [setSavedPlanNotice])
 
-  const replacePlanDay = useCallback((dayNumber: number, replacement: PlanDay) => {
+  const replacePlanDay = useCallback((
+    dayNumber: number,
+    replacement: PlanDay,
+    options?: { notify?: boolean },
+  ) => {
     setPlanDraft((currentDraft) => {
       const nextDays = applyPlanDayReplacement(currentDraft.days, dayNumber, replacement)
 
@@ -1043,7 +1047,9 @@ export function usePlanner({
         stops: nextDays.flatMap((day) => day.stops),
       })
     })
-    setSavedPlanNotice('선택한 일차만 대체 일정으로 바꿨어요.')
+    if (options?.notify !== false) {
+      setSavedPlanNotice('선택한 일차만 대체 일정으로 바꿨어요.')
+    }
   }, [setSavedPlanNotice])
 
   const replacePlanDraft = useCallback((replacement: PlanDraft) => {
