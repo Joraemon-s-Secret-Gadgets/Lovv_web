@@ -23,6 +23,11 @@ export const durationGuidePrompts = ['당일치기', '1박 2일', '2박 3일']
 
 export const travelMonthPrompts = Array.from({ length: 12 }, (_, index) => index + 1)
 
+export const plannerNaturalLanguageMaxLength = 300
+
+export const limitPlannerNaturalLanguageInput = (value: string) =>
+  value.slice(0, plannerNaturalLanguageMaxLength)
+
 // One-tap follow-up conditions shown above the planner chat input once a plan exists.
 // `label` is the chip text; `query` is the natural-language message sent to the recommender.
 export const followUpPrompts: { label: string; query: string }[] = [
@@ -126,8 +131,11 @@ export const getPlannerBaselineThemeIds = (
   profile: PreferenceProfile,
   cityContext: PlannerCityContext | null,
 ) => {
-  if (!cityContext) {
-    return profile.selectedThemeIds
+  const profileThemeIds = Array.from(new Set(profile.selectedThemeIds)).slice(0, 3)
+
+  // A selected city narrows the destination, but must not replace the traveler's saved preferences.
+  if (profileThemeIds.length > 0 || !cityContext) {
+    return profileThemeIds
   }
 
   const cityThemeIds = Array.from(
@@ -138,7 +146,7 @@ export const getPlannerBaselineThemeIds = (
     ),
   )
 
-  return cityThemeIds.length > 0 ? cityThemeIds.slice(0, 3) : profile.selectedThemeIds
+  return cityThemeIds.slice(0, 3)
 }
 
 export const hasCityFestivalContent = (cityContext: PlannerCityContext | null) =>

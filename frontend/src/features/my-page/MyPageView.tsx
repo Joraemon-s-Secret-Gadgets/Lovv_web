@@ -2,11 +2,12 @@
  * @file MyPageView.tsx
  * @description My Page view for profile, saved itineraries, reactions, and admin access.
  * @author JJonyeok2
- * @lastModified 2026-07-15
+ * @lastModified 2026-07-16
  */
 
 import { useEffect, useState } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type {
   LovvUser,
   SavedPlanLike,
@@ -21,6 +22,8 @@ const socialProviderLabels: Record<SocialAuthProvider, string> = {
   google: 'Google',
   kakao: 'Kakao',
 }
+
+const SAVED_PLANS_PAGE_SIZE = 5
 
 const resolveProviderTone = (label: string): SocialAuthProvider | null => {
   const normalizedLabel = label.toLowerCase()
@@ -112,6 +115,7 @@ export function MyPageView({
   const [genderInput, setGenderInput] = useState<string | null>(currentUser?.gender ?? null)
   const [profileSavedNotice, setProfileSavedNotice] = useState<string | null>(null)
   const [shareNotice, setShareNotice] = useState<string | null>(null)
+  const [savedPlansPage, setSavedPlansPage] = useState(1)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -119,6 +123,16 @@ export function MyPageView({
     setBirthDateInput(currentUser?.birthDate ?? '')
     setGenderInput(currentUser?.gender ?? null)
   }, [currentUser?.name, currentUser?.birthDate, currentUser?.gender])
+
+  const savedPlansPageCount = Math.max(1, Math.ceil(savedPlans.length / SAVED_PLANS_PAGE_SIZE))
+  const currentSavedPlansPage = Math.min(savedPlansPage, savedPlansPageCount)
+
+  useEffect(() => {
+    if (savedPlansPage > savedPlansPageCount) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSavedPlansPage(savedPlansPageCount)
+    }
+  }, [savedPlansPage, savedPlansPageCount])
 
   const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -140,6 +154,10 @@ export function MyPageView({
   const currentUserName = currentUser?.name?.trim() || '사용자'
   const joinDateLabel = formatJoinDate(currentUser?.createdAt)
   const reactedSavedPlanCount = savedPlans.filter((plan) => getSavedPlanLike(plan.id) !== null).length
+  const visibleSavedPlans = savedPlans.slice(
+    (currentSavedPlansPage - 1) * SAVED_PLANS_PAGE_SIZE,
+    currentSavedPlansPage * SAVED_PLANS_PAGE_SIZE,
+  )
   const currentProviderTone = resolveProviderTone(currentProviderLabel)
   const isProviderLinked = (provider: SocialAuthProvider) =>
     currentUser?.provider === provider || socialAccounts.some((account) => account.provider === provider)
@@ -303,7 +321,7 @@ export function MyPageView({
 
                         {savedPlans.length > 0 ? (
                           <ol className="mt-5 grid gap-3" aria-label="저장 일정 목록">
-                            {savedPlans.map((plan) => {
+                            {visibleSavedPlans.map((plan) => {
                               const isDeletePending = isSavedPlanDeletePending(plan.id)
                               const isSharePending = isSavedPlanSharePending?.(plan.id) ?? false
 
@@ -367,6 +385,39 @@ export function MyPageView({
                             </p>
                           </div>
                         )}
+                        {savedPlansPageCount > 1 ? (
+                          <nav
+                            aria-label="저장 일정 페이지 이동"
+                            className="mt-5 flex items-center justify-center gap-3"
+                          >
+                            <button
+                              type="button"
+                              aria-label="이전 저장 일정 페이지"
+                              disabled={currentSavedPlansPage === 1}
+                              onClick={() => setSavedPlansPage((page) => Math.max(1, page - 1))}
+                              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                            >
+                              <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.5} />
+                            </button>
+                            <span
+                              aria-live="polite"
+                              className="min-w-16 text-center text-sm font-black tabular-nums text-[#33271E]"
+                            >
+                              {currentSavedPlansPage} / {savedPlansPageCount}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label="다음 저장 일정 페이지"
+                              disabled={currentSavedPlansPage === savedPlansPageCount}
+                              onClick={() =>
+                                setSavedPlansPage((page) => Math.min(savedPlansPageCount, page + 1))
+                              }
+                              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                            >
+                              <ChevronRight aria-hidden="true" size={18} strokeWidth={2.5} />
+                            </button>
+                          </nav>
+                        ) : null}
                       </section>
 
 

@@ -151,6 +151,59 @@ const createDeferred = <T,>() => {
   return { promise, resolve, reject }
 }
 
+const createTestRecommendationResponse = (
+  payload: Parameters<typeof requestCreateRecommendation>[0],
+) => {
+  const tripType = payload.entryType === 'create' ? payload.tripType : '2d1n'
+  const dayCountByTripType: Record<string, number> = {
+    daytrip: 1,
+    '2d1n': 2,
+    '3d2n': 3,
+    '4d3n': 4,
+    '5d4n': 5,
+  }
+  const durationByTripType: Record<string, string> = {
+    daytrip: '당일치기',
+    '2d1n': '1박 2일',
+    '3d2n': '2박 3일',
+    '4d3n': '3박 4일',
+    '5d4n': '4박 5일',
+  }
+  const dayCount = dayCountByTripType[tripType] ?? 2
+  const stopTitles = [
+    '가볍게 도착하고 가까운 동네부터 보기',
+    '취향에 맞는 핵심 장소 둘러보기',
+    '무리하지 않는 마무리 동선',
+  ]
+  const timeOfDays = ['morning', 'lunch', 'dinner'] as const
+
+  return {
+    threadId: 'thread-test-create',
+    sessionId: payload.entryType === 'create' ? payload.sessionId : undefined,
+    recommendationId: 'rec-test-create',
+    itinerary: {
+      tripType,
+      title: `테스트 ${durationByTripType[tripType]} 일정`,
+      summary: '테스트 API가 생성한 일정입니다.',
+      durationLabel: durationByTripType[tripType],
+      days: Array.from({ length: dayCount }, (_, dayIndex) => ({
+        day: dayIndex + 1,
+        title: `${dayIndex + 1}일차 추천 일정`,
+        summary: `${dayIndex + 1}일차 테스트 흐름`,
+        items: stopTitles.map((title, stopIndex) => ({
+          itemId: `test-${dayIndex + 1}-${stopIndex + 1}`,
+          sortOrder: stopIndex + 1,
+          timeOfDay: timeOfDays[stopIndex],
+          title,
+          body: '테스트 방문지 설명입니다.',
+          reason: '입력한 조건을 반영했습니다.',
+          moveMinutes: stopIndex < 2 ? 12 : 0,
+        })),
+      })),
+    },
+  }
+}
+
 const themeIdsByCityPair: Record<string, string> = {
   '아산/온양 · 벳푸': 'healing_rest',
   '부산 · 오키나와': 'sea_coast',
@@ -282,7 +335,9 @@ beforeEach(() => {
   vi.stubEnv('VITE_COGNITO_LOGOUT_URI', '')
   vi.mocked(requestListSavedPlans).mockResolvedValue({ savedPlans: [], likes: {} })
   vi.mocked(requestUpdatePreference).mockImplementation(async (profile) => profile)
-  vi.mocked(requestCreateRecommendation).mockRejectedValue(new Error('fetch not available in test'))
+  vi.mocked(requestCreateRecommendation).mockImplementation(async (payload) =>
+    createTestRecommendationResponse(payload),
+  )
   vi.mocked(requestListSmallCities).mockResolvedValue(
     adaptSmallCityApiResponse(createStaticSmallCityApiResponse(smallCities)),
   )
@@ -1562,7 +1617,7 @@ describe('MVP main entry screen', () => {
 
   it('opens the AI planner from a selected map city without mutating the stored preference', async () => {
     seedUser()
-    seedPreference('부산 · 오키나와')
+    seedPreference('제주 · 닛코')
     renderApp('/map')
 
     await waitFor(() => {
@@ -1638,9 +1693,9 @@ describe('MVP main entry screen', () => {
           rawQuery: '황리단길과 첨성대를 천천히 보고 싶어요',
           destinationId: expect.any(String),
           executionMode: 'anchored_place_search',
-          activeRequiredThemes: expect.arrayContaining(['역사·전통']),
+          activeRequiredThemes: ['자연·트레킹'],
           onboardingProfile: expect.objectContaining({
-            selectedThemeIds: expect.arrayContaining(['history_tradition']),
+            selectedThemeIds: ['nature_trekking'],
           }),
           tripType: '2d1n',
           includeFestivals: false,
@@ -1655,7 +1710,7 @@ describe('MVP main entry screen', () => {
     expect(screen.getByText(/경주 · 경북 1박 2일 초안/)).toBeInTheDocument()
     expect(screen.queryByText(/경주 중심으로 알맞은 1박 2일 일정을 구성해 보겠습니다/)).not.toBeInTheDocument()
     expect(screen.queryByText('축제 조건 없음 반영')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('조건 해석 결과')).toHaveTextContent('역사·전통')
+    expect(screen.getByLabelText('조건 해석 결과')).toHaveTextContent('자연·트레킹')
     expect(screen.getByPlaceholderText('추가로 원하는 조건을 입력해 주세요')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '마이페이지에 저장' }))
@@ -2456,15 +2511,87 @@ describe('MVP main entry screen', () => {
     fireEvent.click(screen.getByRole('button', { name: '축제 제외' }))
 
     expect(input).not.toBeDisabled()
+    vi.mocked(requestCreateRecommendation).mockRejectedValueOnce(new Error('network response unavailable'))
     fireEvent.change(input, { target: { value: '전시랑 편집숍 위주로 덜 걷고 싶어요' } })
     expect(sendButton).not.toBeDisabled()
     fireEvent.click(sendButton)
     expect(input).toHaveValue('')
     expect(screen.getByText('전시랑 편집숍 위주로 덜 걷고 싶어요')).toBeInTheDocument()
-    await screen.findByText('추천 서버 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요.')
-    expect(screen.getByRole('heading', { name: '예술·감성 2박 3일 초안' })).toBeInTheDocument()
-    expect(screen.getByText('덜 걷는 일정')).toBeInTheDocument()
-    expect(screen.getByText(/전시와 편집숍 사이 이동을 줄이는 쪽/)).toBeInTheDocument()
+    await screen.findByText('일정 생성 결과를 확인하지 못했어요. 잠시 후 채팅을 다시 시작해 주세요.')
+    const failedPayload = vi.mocked(requestCreateRecommendation).mock.calls.at(-1)?.[0]
+
+    expect(screen.queryByRole('heading', { name: /초안/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Mock route')).not.toBeInTheDocument()
+
+    vi.mocked(requestCreateRecommendation).mockResolvedValueOnce({
+      threadId: 'thread-retry-1',
+      recommendationId: 'rec-retry-1',
+      destination: {
+        cityId: 'KR-Jeonju',
+        name: '전주',
+        country: 'KR',
+        region: '전북',
+      },
+      itinerary: {
+        tripType: '3d2n',
+        title: '전주 예술 여행',
+        summary: '새 요청으로 생성된 일정입니다.',
+        durationLabel: '2박 3일',
+        days: [
+          {
+            day: 1,
+            title: '전주 첫날',
+            summary: '전시와 골목을 천천히 둘러봅니다.',
+            items: [
+              {
+                itemId: 'retry-stop-1',
+                sortOrder: 1,
+                timeOfDay: 'morning',
+                title: '전주 전시 공간',
+                body: '전시를 관람합니다.',
+                reason: '예술 취향을 반영했습니다.',
+                moveMinutes: 10,
+              },
+            ],
+          },
+        ],
+      },
+    })
+
+    expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /새 일정 생성/ })).not.toBeInTheDocument()
+    const restartedInput = screen.getByRole('textbox', { name: '여행 조건 입력' })
+    const restartedSendButton = screen.getByRole('button', { name: '메시지 보내기' })
+    fireEvent.change(restartedInput, { target: { value: '전주에서 전시 중심으로 다시 추천해줘' } })
+    await waitFor(() => {
+      expect(restartedSendButton).toBeEnabled()
+    })
+    fireEvent.click(restartedSendButton)
+
+    await waitFor(() => {
+      expect(requestCreateRecommendation).toHaveBeenCalledTimes(2)
+    })
+
+    expect((await screen.findAllByText(/새 요청으로 생성된 일정입니다/)).length).toBeGreaterThan(0)
+    const newPayload = vi.mocked(requestCreateRecommendation).mock.calls.at(-1)?.[0]
+
+    if (failedPayload?.entryType !== 'create' || newPayload?.entryType !== 'create') {
+      throw new Error('Expected create recommendation payloads')
+    }
+
+    expect(newPayload.requestId).not.toBe(failedPayload.requestId)
+    expect(newPayload.sessionId).not.toBe(failedPayload.sessionId)
+    expect(newPayload).toMatchObject({
+      country: failedPayload.country,
+      travelMonth: failedPayload.travelMonth,
+      tripType: failedPayload.tripType,
+      themes: failedPayload.themes,
+      activeRequiredThemes: failedPayload.activeRequiredThemes,
+      includeFestivals: failedPayload.includeFestivals,
+      destinationId: failedPayload.destinationId,
+    })
+    expect(screen.getByRole('heading', { name: '전주 2박 3일 초안' })).toBeInTheDocument()
+    expect(screen.getByText('전주 첫날')).toBeInTheDocument()
   })
 
   it('submits a duration guide chip without storing the full chat transcript', async () => {
@@ -2875,7 +3002,7 @@ describe('MVP main entry screen', () => {
     expect(within(detailView).getByText('온천·휴양')).toBeInTheDocument()
     expect(within(detailView).getByText('2박 3일')).toBeInTheDocument()
     expect(within(detailView).queryByText('축제 포함')).not.toBeInTheDocument()
-    expect(within(detailView).getByText('덜 걷는 일정')).toBeInTheDocument()
+    expect(within(detailView).getByText('AI 추천 여행 코스')).toBeInTheDocument()
     // Day 1 is shown by default; days 2-3 live behind day tabs (no long scroll).
     expect(within(detailView).getByText('1일차 추천 일정')).toBeInTheDocument()
     expect(within(detailView).getByText('가볍게 도착하고 가까운 동네부터 보기')).toBeInTheDocument()

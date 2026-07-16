@@ -2,7 +2,7 @@
  * @file PlannerChatInterface.tsx
  * @description Chatbot interaction panel for the travel planner workspace.
  * @author JJonyeok2
- * @lastModified 2026-07-15
+ * @lastModified 2026-07-16
  */
 
 import { useState, useEffect } from 'react'
@@ -13,6 +13,8 @@ import {
   festivalThemePrompts,
   followUpPrompts,
   getTravelMonthLabel,
+  limitPlannerNaturalLanguageInput,
+  plannerNaturalLanguageMaxLength,
   travelMonthPrompts,
 } from './plannerModel'
 import { getThemeDefinition } from '../onboarding/preferenceModel'
@@ -459,26 +461,36 @@ export function PlannerChatInterface({
           onSubmit={submitChatForm}
           className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[24px] border border-white/70 bg-[#fffffa]/82 p-2 shadow-[0_18px_34px_-28px_rgba(51,39,30,0.22)] max-sm:gap-2 max-sm:p-1.5 max-sm:rounded-[20px] focus-within:border-[#F36B12]/40 focus-within:bg-white focus-within:shadow-[0_12px_24px_-10px_rgba(243,107,18,0.25)] focus-within:ring-2 focus-within:ring-[#F36B12]/10 transition-all duration-200 backdrop-blur-sm"
         >
-          <input
-            aria-label="여행 조건 입력"
-            value={chatInput}
-            onChange={(event) => setChatInput(event.target.value)}
-            disabled={!hasGuidedPlannerChoices}
-            placeholder={
-              hasGuidedPlannerChoices
-                ? isPlannerReady
-                  ? '추가로 원하는 조건을 입력해 주세요'
-                  : '동행자, 관심사, 걷는 정도를 입력해 주세요. ex) 여자친구와 함께, 힐링 여행'
-                : shouldShowFestivalPrompt
-                  ? '축제 포함 여부를 먼저 선택해 주세요'
-                : shouldShowTravelMonthPrompt
-                  ? '여행 예정 월을 먼저 선택해 주세요'
-                : shouldAskFestivalTheme
-                  ? '여행 기간, 여행 월, 축제 포함 여부를 먼저 선택해 주세요'
-                  : '여행 기간을 먼저 선택해 주세요'
-            }
-            className="min-h-12 min-w-0 rounded-[18px] border-0 bg-transparent px-4 py-2 break-keep text-sm leading-5 text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-65 transition-all focus:bg-transparent max-sm:px-2 max-sm:text-[13px] max-sm:placeholder:text-[12px]"
-          />
+          <div className="min-w-0">
+            <input
+              aria-label="여행 조건 입력"
+              aria-describedby="planner-chat-input-count"
+              value={chatInput}
+              maxLength={plannerNaturalLanguageMaxLength}
+              onChange={(event) => setChatInput(limitPlannerNaturalLanguageInput(event.target.value))}
+              disabled={!hasGuidedPlannerChoices}
+              placeholder={
+                hasGuidedPlannerChoices
+                  ? isPlannerReady
+                    ? '추가로 원하는 조건을 입력해 주세요'
+                    : '동행자, 관심사, 걷는 정도를 입력해 주세요. ex) 여자친구와 함께, 힐링 여행'
+                  : shouldShowFestivalPrompt
+                    ? '축제 포함 여부를 먼저 선택해 주세요'
+                  : shouldShowTravelMonthPrompt
+                    ? '여행 예정 월을 먼저 선택해 주세요'
+                  : shouldAskFestivalTheme
+                    ? '여행 기간, 여행 월, 축제 포함 여부를 먼저 선택해 주세요'
+                    : '여행 기간을 먼저 선택해 주세요'
+              }
+              className="min-h-12 w-full min-w-0 rounded-[18px] border-0 bg-transparent px-4 py-2 break-keep text-sm leading-5 text-[#33271E] outline-none placeholder:text-[#8A7467] disabled:cursor-not-allowed disabled:opacity-65 transition-all focus:bg-transparent max-sm:px-2 max-sm:text-[13px] max-sm:placeholder:text-[12px]"
+            />
+            <p
+              id="planner-chat-input-count"
+              className="min-h-4 px-4 text-right text-[10px] font-bold tabular-nums text-[#8A7467] max-sm:px-2"
+            >
+              {chatInput.length} / {plannerNaturalLanguageMaxLength}
+            </p>
+          </div>
           <button
             type="submit"
             aria-label="메시지 보내기"

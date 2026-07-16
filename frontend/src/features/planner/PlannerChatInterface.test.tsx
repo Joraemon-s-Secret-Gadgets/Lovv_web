@@ -47,6 +47,22 @@ const renderChat = (
 }
 
 describe('PlannerChatInterface clarification options', () => {
+  it('limits natural-language planner input to 300 characters', () => {
+    const setChatInput = vi.fn()
+
+    renderChat({ setChatInput })
+
+    const input = screen.getByRole('textbox', { name: '여행 조건 입력' })
+    const overLimitInput = '가'.repeat(301)
+
+    expect(input).toHaveAttribute('maxLength', '300')
+    expect(screen.getByText('0 / 300')).toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: overLimitInput } })
+
+    expect(setChatInput).toHaveBeenCalledWith('가'.repeat(300))
+  })
+
   it('continues guided planning without a festival choice when the destination has no festival prompt', () => {
     const submitGuidedPlannerChoices = vi.fn()
 
@@ -112,5 +128,21 @@ describe('PlannerChatInterface clarification options', () => {
       'assistant-clarify-1',
       'continue_without_festival',
     )
+  })
+
+  it('shows a retry-later notice without a dedicated generation action', () => {
+    renderChat({
+      chatMessages: [
+        {
+          id: 'assistant-new-generation-1',
+          role: 'assistant',
+          content: '일정 생성 결과를 확인하지 못했어요. 잠시 후 채팅을 다시 시작해 주세요.',
+        },
+      ],
+    })
+
+    expect(screen.getByText('일정 생성 결과를 확인하지 못했어요. 잠시 후 채팅을 다시 시작해 주세요.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /새 일정 생성/ })).not.toBeInTheDocument()
   })
 })

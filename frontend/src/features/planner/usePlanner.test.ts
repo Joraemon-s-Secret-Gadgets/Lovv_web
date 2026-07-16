@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { RecommendationApiRequestError } from '../../shared/api/recommendationsApi'
 import {
   createGeneratedPlanDestination,
   createRecommendationClarification,
+  getRecommendationFailurePresentation,
   resolveSavedPlanDestination,
 } from './usePlanner'
 
@@ -87,5 +89,20 @@ describe('createRecommendationClarification', () => {
         },
       ],
     })
+  })
+})
+
+describe('getRecommendationFailurePresentation', () => {
+  it.each([
+    [502, '일정 생성 서비스 연결이 일시적으로 불안정합니다. 잠시 후 채팅을 다시 시작해 주세요.'],
+    [503, '현재 일정 생성 요청이 많거나 서비스를 사용할 수 없습니다. 잠시 후 채팅을 다시 시작해 주세요.'],
+    [504, '일정 생성 결과를 확인하지 못했어요. 잠시 후 채팅을 다시 시작해 주세요.'],
+  ])('maps status %s to a retry-later notice without claiming conditions are retained', (status, message) => {
+    const result = getRecommendationFailurePresentation(
+      new RecommendationApiRequestError(status as number, 'AGENTCORE_UNAVAILABLE', 'failed'),
+    )
+
+    expect(result.message).toBe(message)
+    expect(result.message).not.toContain('입력한 조건')
   })
 })

@@ -102,6 +102,24 @@ describe('requestRecommendationRoute', () => {
       segments: [{}, { distanceMeters: 4200, durationSeconds: 780 }],
     })
   })
+
+  it('route 502를 추천 생성 재시도나 쿨다운 상태로 변환하지 않는다', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => ({ code: 'ROUTE_PROVIDER_UNAVAILABLE' }),
+    })
+
+    await expect(requestRecommendationRoute(
+      [[128.91, 37.75], [128.95, 37.77]],
+      { accessToken: 'access-token', fetchImpl },
+    )).rejects.toMatchObject({
+      status: 502,
+      code: 'ROUTE_PROVIDER_UNAVAILABLE',
+    })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
 })
 
 const makeItem = (overrides: Partial<RecommendationItinerary['days'][0]['items'][0]> = {}) => ({
@@ -239,7 +257,7 @@ describe('requestCreateRecommendation', () => {
           rawModifyQuery: '1일차 아침 일정 바꿔줘',
           currentOrder: [],
         },
-        { fetchImpl, retryDelayMs: 0 },
+        { fetchImpl },
       ),
     ).rejects.toMatchObject({
       name: 'RecommendationApiRequestError',
@@ -258,29 +276,23 @@ describe('requestCreateRecommendation', () => {
           rawModifyQuery: '1일차 아침 일정 바꿔줘',
           currentOrder: [],
         },
-        { fetchImpl, retryDelayMs: 0 },
+        { fetchImpl },
       ),
     ).rejects.toBeInstanceOf(RecommendationApiRequestError)
 
     expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 
-  it('retries a transient AgentCore failure once with the same session payload', async () => {
-    const fetchImpl = vi.fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 502,
-        json: async () => ({ code: 'AGENTCORE_UNAVAILABLE' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => makeResponse([makeDay(1, [makeItem()])]),
-      })
+  it.each([502, 503, 504])('does not retry a failed create request with status %s', async (status) => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status,
+      json: async () => ({ code: 'AGENTCORE_UNAVAILABLE' }),
+    })
     const payload: RecommendationCreateRequestPayload = {
       entryType: 'create',
-      requestId: 'req-retry-001',
-      sessionId: 'session-stable-retry-001',
+      requestId: `req-no-retry-${status}`,
+      sessionId: `session-no-retry-${status}`,
       rawQuery: '바다 일정',
       country: 'KR',
       travelMonth: 7,
@@ -294,11 +306,10 @@ describe('requestCreateRecommendation', () => {
       userLocation: null,
     }
 
-    await requestCreateRecommendation(payload, { fetchImpl, retryDelayMs: 0 })
+    await expect(requestCreateRecommendation(payload, { fetchImpl })).rejects.toMatchObject({ status })
 
-    expect(fetchImpl).toHaveBeenCalledTimes(2)
-    expect(fetchImpl.mock.calls[0]).toEqual(fetchImpl.mock.calls[1])
-    expect(fetchImpl.mock.calls[1]?.[1]?.body).toBe(JSON.stringify(payload))
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(fetchImpl.mock.calls[0]?.[1]?.body).toBe(JSON.stringify(payload))
   })
 
   it('reads the backend nested error envelope', async () => {

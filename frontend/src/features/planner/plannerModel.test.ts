@@ -10,9 +10,65 @@ import {
   createPlanDraft,
   durationGuidePrompts,
   getFallbackPreference,
+  getPlannerBaselineThemeIds,
 } from './plannerModel'
 import { applyWishlistSummaryToPlanDraft, removeWishlistRestaurantStops } from './plannerEditModel'
-import type { PlanDay, PlanDraft, SelectedMealPlace } from '../../shared/types/app'
+import type { PlannerCityContext } from '../map-city/smallCities'
+import type { PlanDay, PlanDraft, PreferenceProfile, SelectedMealPlace } from '../../shared/types/app'
+
+const naturePreferenceProfile: PreferenceProfile = {
+  version: 2,
+  countryTrack: 'KR',
+  selectedThemeIds: ['nature_trekking'],
+  source: 'onboarding',
+  updatedAt: '2026-07-16T00:00:00.000Z',
+}
+
+const coastalFoodCityContext: PlannerCityContext = {
+  cityId: 'kr-gangneung',
+  cityName: '강릉',
+  country: 'KR',
+  countryLabel: '한국',
+  region: '강원',
+  themes: ['바다', '미식'],
+  routeSeed: ['경포해변', '중앙시장'],
+  summary: '바다와 미식이 대표적인 소도시입니다.',
+  festivals: [],
+  festivalCount: 0,
+  hasFestivalContent: false,
+}
+
+describe('getPlannerBaselineThemeIds', () => {
+  it('도시 기본 테마보다 사용자가 선택한 자연·트레킹 테마를 우선한다', () => {
+    expect(getPlannerBaselineThemeIds(naturePreferenceProfile, coastalFoodCityContext)).toEqual([
+      'nature_trekking',
+    ])
+  })
+
+  it('사용자 테마가 여러 개면 선택 순서를 그대로 유지한다', () => {
+    expect(
+      getPlannerBaselineThemeIds(
+        {
+          ...naturePreferenceProfile,
+          selectedThemeIds: ['art_sense', 'nature_trekking'],
+        },
+        coastalFoodCityContext,
+      ),
+    ).toEqual(['art_sense', 'nature_trekking'])
+  })
+
+  it('사용자 테마가 비어 있을 때만 도시 테마를 fallback으로 사용한다', () => {
+    expect(
+      getPlannerBaselineThemeIds(
+        {
+          ...naturePreferenceProfile,
+          selectedThemeIds: [],
+        },
+        coastalFoodCityContext,
+      ),
+    ).toEqual(['sea_coast', 'food_local'])
+  })
+})
 
 // ── getExplicitDurationLabel ──────────────────────────────────────────────────
 describe('getExplicitDurationLabel', () => {

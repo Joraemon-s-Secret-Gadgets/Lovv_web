@@ -2,11 +2,11 @@
  * @file RecommendationView.tsx
  * @description Recommendation feed for public and personalized itinerary discovery.
  * @author JJonyeok2
- * @lastModified 2026-07-15
+ * @lastModified 2026-07-16
  */
 
-import { Compass, Heart, ImageIcon, Sparkles, TrendingUp } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight, Compass, Heart, ImageIcon, Sparkles, TrendingUp } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { requestListPublicItineraries } from '../../shared/api/savedPlansApi'
@@ -14,6 +14,7 @@ import { requestListPopularDestinations, type PopularDestinationApiItem } from '
 import { normalizeKoreanTopicParticle } from '../../shared/utils/koreanParticles'
 
 const popularDestinationSlotCount = 6
+const publicPlansPageSize = 6
 
 type PopularDestination = {
   key: string
@@ -116,6 +117,7 @@ type RecommendationViewProps = {
 export function RecommendationView({ onOpenDestinationOnMap }: RecommendationViewProps) {
   const navigate = useNavigate()
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<string | null>(null)
+  const [publicPlansPage, setPublicPlansPage] = useState(1)
   const {
     data: popularDestinationsData,
     isLoading: isPopularDestinationsLoading,
@@ -129,6 +131,19 @@ export function RecommendationView({ onOpenDestinationOnMap }: RecommendationVie
     queryFn: () => requestListPublicItineraries(),
   })
   const publicPlans = useMemo(() => publicItinerariesData?.savedPlans ?? [], [publicItinerariesData?.savedPlans])
+  const publicPlansPageCount = Math.max(1, Math.ceil(publicPlans.length / publicPlansPageSize))
+  const currentPublicPlansPage = Math.min(publicPlansPage, publicPlansPageCount)
+  const visiblePublicPlans = publicPlans.slice(
+    (currentPublicPlansPage - 1) * publicPlansPageSize,
+    currentPublicPlansPage * publicPlansPageSize,
+  )
+
+  useEffect(() => {
+    if (publicPlansPage > publicPlansPageCount) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPublicPlansPage(publicPlansPageCount)
+    }
+  }, [publicPlansPage, publicPlansPageCount])
   const popularDestinations = useMemo(
     () => (popularDestinationsData?.items ?? [])
       .map(normalizePopularDestination)
@@ -267,41 +282,76 @@ export function RecommendationView({ onOpenDestinationOnMap }: RecommendationVie
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {publicPlans.map((plan) => (
-              <button
-                key={plan.id}
-                type="button"
-                onClick={() => navigate(`/plans/${encodeURIComponent(plan.id)}`)}
-                className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-white/80 bg-white/50 p-6 text-left shadow-[0_8px_30px_rgb(0,0,0,0.03)] backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-[#F36B12]/30 hover:bg-white/90 hover:shadow-[0_12px_40px_rgba(51,39,30,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12]"
-              >
-                <div>
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="inline-block rounded-md bg-[#FFF2EA] px-2.5 py-0.5 text-[10px] font-black text-[#F36B12]">
-                      {plan.durationLabel}
-                    </span>
-                    <span className="text-[10px] font-bold text-[#7A5A45]">{plan.themeTag}</span>
+          <div>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {visiblePublicPlans.map((plan) => (
+                <button
+                  key={plan.id}
+                  type="button"
+                  onClick={() => navigate(`/plans/${encodeURIComponent(plan.id)}`)}
+                  className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-white/80 bg-white/50 p-6 text-left shadow-[0_8px_30px_rgb(0,0,0,0.03)] backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-[#F36B12]/30 hover:bg-white/90 hover:shadow-[0_12px_40px_rgba(51,39,30,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F36B12]"
+                >
+                  <div>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <span className="inline-block rounded-md bg-[#FFF2EA] px-2.5 py-0.5 text-[10px] font-black text-[#F36B12]">
+                        {plan.durationLabel}
+                      </span>
+                      <span className="text-[10px] font-bold text-[#7A5A45]">{plan.themeTag}</span>
+                    </div>
+                    <h3 className="truncate text-lg font-black text-[#33271E] transition-colors group-hover:text-[#F36B12]">
+                      {plan.title}
+                    </h3>
+                    <p className="mt-1 truncate text-xs font-semibold text-[#7A5A45]">{plan.cityPair}</p>
+                    <p className="mt-3 line-clamp-3 break-keep text-xs font-medium leading-relaxed text-[#6E5A50]">
+                      {plan.summary}
+                    </p>
                   </div>
-                  <h3 className="truncate text-lg font-black text-[#33271E] transition-colors group-hover:text-[#F36B12]">
-                    {plan.title}
-                  </h3>
-                  <p className="mt-1 truncate text-xs font-semibold text-[#7A5A45]">{plan.cityPair}</p>
-                  <p className="mt-3 line-clamp-3 break-keep text-xs font-medium leading-relaxed text-[#6E5A50]">
-                    {plan.summary}
-                  </p>
-                </div>
 
-                <div className="mt-6 flex items-center justify-between border-t border-[#F4EBE3] pt-4">
-                  <span className="text-[11px] font-bold text-[#7A5A45]/80">
-                    작성자: {plan.ownerId ? `${plan.ownerId.slice(0, 4)}***` : '여행자'}
-                  </span>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#F36B12]">
-                    <Heart className={`size-3.5 ${plan.isLiked ? 'fill-[#F36B12]' : ''}`} />
-                    <span>반응 {plan.likeCount ?? 0}</span>
+                  <div className="mt-6 flex items-center justify-between border-t border-[#F4EBE3] pt-4">
+                    <span className="text-[11px] font-bold text-[#7A5A45]/80">
+                      작성자: {plan.ownerId ? `${plan.ownerId.slice(0, 4)}***` : '여행자'}
+                    </span>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#F36B12]">
+                      <Heart className={`size-3.5 ${plan.isLiked ? 'fill-[#F36B12]' : ''}`} />
+                      <span>반응 {plan.likeCount ?? 0}</span>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))}
+            </div>
+            {publicPlansPageCount > 1 ? (
+              <nav
+                aria-label="게시 일정 페이지 이동"
+                className="mt-8 flex items-center justify-center gap-3"
+              >
+                <button
+                  type="button"
+                  aria-label="이전 게시 일정 페이지"
+                  disabled={currentPublicPlansPage === 1}
+                  onClick={() => setPublicPlansPage((page) => Math.max(1, page - 1))}
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                >
+                  <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.5} />
+                </button>
+                <span
+                  aria-live="polite"
+                  className="min-w-16 text-center text-sm font-black tabular-nums text-[#33271E]"
+                >
+                  {currentPublicPlansPage} / {publicPlansPageCount}
+                </span>
+                <button
+                  type="button"
+                  aria-label="다음 게시 일정 페이지"
+                  disabled={currentPublicPlansPage === publicPlansPageCount}
+                  onClick={() =>
+                    setPublicPlansPage((page) => Math.min(publicPlansPageCount, page + 1))
+                  }
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[#F3B489] bg-[#fffffa] text-[#33271E] transition hover:border-[#F36B12] hover:bg-[#FFE0CA] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#33271E]"
+                >
+                  <ChevronRight aria-hidden="true" size={18} strokeWidth={2.5} />
+                </button>
+              </nav>
+            ) : null}
           </div>
         )}
       </section>
