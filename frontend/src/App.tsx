@@ -910,7 +910,6 @@ function App() {
                 canSubmitChatInput={planner.canSubmitChatInput}
                 submitChatForm={planner.submitChatForm}
                 selectClarificationOption={planner.selectClarificationOption}
-                startNewRecommendation={planner.startNewRecommendation}
                 currentPlanTitle={planner.currentPlanTitle}
                 plannerPreferenceProfile={planner.plannerPreferenceProfile}
                 openPlanDetailView={openPlanDetailView}

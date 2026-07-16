@@ -2517,7 +2517,7 @@ describe('MVP main entry screen', () => {
     fireEvent.click(sendButton)
     expect(input).toHaveValue('')
     expect(screen.getByText('전시랑 편집숍 위주로 덜 걷고 싶어요')).toBeInTheDocument()
-    await screen.findByText('일정 생성 결과를 확인하지 못했어요. 입력한 조건은 그대로 보관했어요. 새 일정으로 다시 생성해 주세요.')
+    await screen.findByText('일정 생성 결과를 확인하지 못했어요. 잠시 후 채팅을 다시 시작해 주세요.')
     const failedPayload = vi.mocked(requestCreateRecommendation).mock.calls.at(-1)?.[0]
 
     expect(screen.queryByRole('heading', { name: /초안/ })).not.toBeInTheDocument()
@@ -2559,7 +2559,18 @@ describe('MVP main entry screen', () => {
     })
 
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '새 일정 생성' }))
+    expect(screen.queryByRole('button', { name: /새 일정 생성/ })).not.toBeInTheDocument()
+    const restartedInput = screen.getByRole('textbox', { name: '여행 조건 입력' })
+    const restartedSendButton = screen.getByRole('button', { name: '메시지 보내기' })
+    fireEvent.change(restartedInput, { target: { value: '전주에서 전시 중심으로 다시 추천해줘' } })
+    await waitFor(() => {
+      expect(restartedSendButton).toBeEnabled()
+    })
+    fireEvent.click(restartedSendButton)
+
+    await waitFor(() => {
+      expect(requestCreateRecommendation).toHaveBeenCalledTimes(2)
+    })
 
     expect((await screen.findAllByText(/새 요청으로 생성된 일정입니다/)).length).toBeGreaterThan(0)
     const newPayload = vi.mocked(requestCreateRecommendation).mock.calls.at(-1)?.[0]
@@ -2579,7 +2590,6 @@ describe('MVP main entry screen', () => {
       includeFestivals: failedPayload.includeFestivals,
       destinationId: failedPayload.destinationId,
     })
-    expect(screen.queryByRole('button', { name: '새 일정 생성' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '전주 2박 3일 초안' })).toBeInTheDocument()
     expect(screen.getByText('전주 첫날')).toBeInTheDocument()
   })

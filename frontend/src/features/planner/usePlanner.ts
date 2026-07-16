@@ -89,14 +89,8 @@ export type GeneratedPlanDestination = {
   region?: string
 }
 
-type SubmitChatMessageOptions = {
-  kind: 'new-generation'
-  sessionId: string
-}
-
 export type RecommendationFailurePresentation = {
   message: string
-  cooldownMs: number
 }
 
 export const getRecommendationFailurePresentation = (
@@ -106,28 +100,24 @@ export const getRecommendationFailurePresentation = (
 
   if (status === 502) {
     return {
-      message: '일정 생성 서비스 연결이 일시적으로 불안정합니다. 입력한 조건은 그대로 보관했어요. 잠시 후 새 일정으로 생성해 주세요.',
-      cooldownMs: 5_000,
+      message: '일정 생성 서비스 연결이 일시적으로 불안정합니다. 잠시 후 채팅을 다시 시작해 주세요.',
     }
   }
 
   if (status === 503) {
     return {
-      message: '현재 일정 생성 요청이 많거나 서비스를 사용할 수 없습니다. 입력한 조건은 그대로 보관했어요. 잠시 후 새 일정으로 생성해 주세요.',
-      cooldownMs: 10_000,
+      message: '현재 일정 생성 요청이 많거나 서비스를 사용할 수 없습니다. 잠시 후 채팅을 다시 시작해 주세요.',
     }
   }
 
   if (status === 504) {
     return {
-      message: '일정 생성 결과를 확인하지 못했어요. 입력한 조건은 그대로 보관했어요. 잠시 후 새 일정으로 생성해 주세요.',
-      cooldownMs: 60_000,
+      message: '일정 생성 결과를 확인하지 못했어요. 잠시 후 채팅을 다시 시작해 주세요.',
     }
   }
 
   return {
-    message: '일정 생성 결과를 확인하지 못했어요. 입력한 조건은 그대로 보관했어요. 새 일정으로 다시 생성해 주세요.',
-    cooldownMs: 0,
+    message: '일정 생성 결과를 확인하지 못했어요. 잠시 후 채팅을 다시 시작해 주세요.',
   }
 }
 
@@ -1198,10 +1188,7 @@ export function usePlanner({
     selectedTravelMonth,
   ])
 
-  const submitChatMessage = async (
-    message: string,
-    options?: SubmitChatMessageOptions,
-  ) => {
+  const submitChatMessage = async (message: string) => {
     const trimmedMessage = limitPlannerNaturalLanguageInput(message.trim())
 
     if (!trimmedMessage) {
@@ -1358,10 +1345,12 @@ export function usePlanner({
               id: createMessageId('assistant', currentMessages.length),
               role: 'assistant',
               content: failure.message,
-              canStartNewRecommendation: true,
-              newRecommendationAvailableAt: Date.now() + failure.cooldownMs,
             },
           ])
+          setPlannerRecommendationSessionId(createRecommendationSessionId())
+          setGeneratedRecommendationThreadId(null)
+          setGeneratedRecommendationSessionId(null)
+          setGeneratedRecommendationId(null)
           setPlannerConditionExtraction(null)
           setHasGeneratedRecommendation(false)
           setSavedPlanNotice(null)
@@ -1434,19 +1423,14 @@ export function usePlanner({
       return
     }
 
-    const isNewGeneration = options?.kind === 'new-generation'
-    const nextPlannerContextText = isNewGeneration
-      ? plannerContextText
-      : `${plannerContextText} ${trimmedMessage}`.trim()
-    const nextExtraction = isNewGeneration && plannerConditionExtraction
-      ? plannerConditionExtraction
-      : createMockConditionExtraction(
-        trimmedMessage,
-        getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
-      )
+    const nextPlannerContextText = `${plannerContextText} ${trimmedMessage}`.trim()
+    const nextExtraction = createMockConditionExtraction(
+      trimmedMessage,
+      getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
+    )
     const recommendationPayload = createRecommendationRequestPayload({
-      rawQuery: isNewGeneration ? plannerContextText : trimmedMessage,
-      sessionId: options?.sessionId ?? plannerRecommendationSessionId,
+      rawQuery: trimmedMessage,
+      sessionId: plannerRecommendationSessionId,
       country: plannerCityContext?.country || 'KR',
       tripType: getRecommendationTripType(selectedDurationLabel),
       activeThemeIds: getPlannerBaselineThemeIds(plannerPreferenceProfile, plannerCityContext),
@@ -1461,10 +1445,7 @@ export function usePlanner({
 
     setChatMessages((currentMessages) => [
       ...currentMessages
-        .filter((existingMessage) => existingMessage.id !== assistantLoadingMessageId)
-        .map((existingMessage) => existingMessage.canStartNewRecommendation
-          ? { ...existingMessage, canStartNewRecommendation: false }
-          : existingMessage),
+        .filter((existingMessage) => existingMessage.id !== assistantLoadingMessageId),
       {
         id: userMessageId,
         role: 'user' as const,
@@ -1549,11 +1530,13 @@ export function usePlanner({
           id: createMessageId('assistant', currentMessages.length),
           role: 'assistant',
           content: failure.message,
-          canStartNewRecommendation: true,
-          newRecommendationAvailableAt: Date.now() + failure.cooldownMs,
         },
       ])
 
+      setPlannerRecommendationSessionId(createRecommendationSessionId())
+      setGeneratedRecommendationThreadId(null)
+      setGeneratedRecommendationSessionId(null)
+      setGeneratedRecommendationId(null)
       setPlannerContextText(nextPlannerContextText)
       setPlannerConditionExtraction(nextExtraction)
       setHasGeneratedRecommendation(false)
@@ -1561,30 +1544,6 @@ export function usePlanner({
     } finally {
       setIsPlannerLoading(false)
     }
-  }
-
-  const startNewRecommendation = () => {
-    const recoveryMessage = [...chatMessages]
-      .reverse()
-      .find((message) => message.canStartNewRecommendation)
-
-    if (
-      !recoveryMessage ||
-      isPlannerLoading ||
-      Date.now() < (recoveryMessage.newRecommendationAvailableAt ?? 0)
-    ) {
-      return
-    }
-
-    const nextSessionId = createRecommendationSessionId()
-    setPlannerRecommendationSessionId(nextSessionId)
-    setGeneratedRecommendationThreadId(null)
-    setGeneratedRecommendationSessionId(null)
-    setGeneratedRecommendationId(null)
-    void submitChatMessage('새 일정 생성', {
-      kind: 'new-generation',
-      sessionId: nextSessionId,
-    })
   }
 
   const selectClarificationOption = async (messageId: string, optionId: string) => {
@@ -1886,7 +1845,6 @@ export function usePlanner({
     addWishlistRestaurant,
     removeWishlistRestaurant,
     submitChatMessage,
-    startNewRecommendation,
     submitGuidedPlannerChoices,
     selectClarificationOption,
     submitChatForm,

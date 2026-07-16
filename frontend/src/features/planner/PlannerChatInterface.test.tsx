@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { PlannerChatInterface } from './PlannerChatInterface'
 import type { ChatMessage, MockConditionExtraction, PlanDraft } from '../../shared/types/app'
 
@@ -38,7 +38,6 @@ const renderChat = (
     isPlannerLoading: false,
     shouldAskFestivalTheme: false,
     onSelectClarificationOption: vi.fn(),
-    startNewRecommendation: vi.fn(),
     ...overrides,
   }
 
@@ -46,10 +45,6 @@ const renderChat = (
 
   return props
 }
-
-afterEach(() => {
-  vi.useRealTimers()
-})
 
 describe('PlannerChatInterface clarification options', () => {
   it('limits natural-language planner input to 300 characters', () => {
@@ -135,58 +130,19 @@ describe('PlannerChatInterface clarification options', () => {
     )
   })
 
-  it('offers a new generation action without presenting it as a retry', () => {
-    const startNewRecommendation = vi.fn()
-
+  it('shows a retry-later notice without a dedicated generation action', () => {
     renderChat({
-      startNewRecommendation,
       chatMessages: [
         {
           id: 'assistant-new-generation-1',
           role: 'assistant',
-          content: '일정 생성 결과를 확인하지 못했어요.',
-          canStartNewRecommendation: true,
-          newRecommendationAvailableAt: 0,
+          content: '일정 생성 결과를 확인하지 못했어요. 잠시 후 채팅을 다시 시작해 주세요.',
         },
       ],
     })
 
+    expect(screen.getByText('일정 생성 결과를 확인하지 못했어요. 잠시 후 채팅을 다시 시작해 주세요.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '새 일정 생성' }))
-
-    expect(startNewRecommendation).toHaveBeenCalledTimes(1)
-  })
-
-  it('announces and enforces the 504 cooldown before enabling a new generation', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-16T00:00:00Z'))
-    const startNewRecommendation = vi.fn()
-
-    renderChat({
-      startNewRecommendation,
-      chatMessages: [
-        {
-          id: 'assistant-timeout-1',
-          role: 'assistant',
-          content: '일정 생성 결과를 확인하지 못했어요.',
-          canStartNewRecommendation: true,
-          newRecommendationAvailableAt: Date.now() + 60_000,
-        },
-      ],
-    })
-
-    const coolingButton = screen.getByRole('button', { name: '새 일정 생성 (60초)' })
-    expect(coolingButton).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent('60초 후 새 일정 생성 버튼을 사용할 수 있습니다.')
-
-    act(() => {
-      vi.advanceTimersByTime(60_000)
-    })
-
-    const enabledButton = screen.getByRole('button', { name: '새 일정 생성' })
-    expect(enabledButton).toBeEnabled()
-    expect(screen.getByRole('status')).toHaveTextContent('새 일정 생성 버튼을 사용할 수 있습니다.')
-    fireEvent.click(enabledButton)
-    expect(startNewRecommendation).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: /새 일정 생성/ })).not.toBeInTheDocument()
   })
 })

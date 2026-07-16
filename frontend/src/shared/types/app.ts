@@ -104,8 +104,6 @@ export type ChatMessage = {
   role: 'assistant' | 'user'
   content: string
   clarification?: ChatClarification
-  canStartNewRecommendation?: boolean
-  newRecommendationAvailableAt?: number
 }
 
 export type PlannerStepStatus = 'completed' | 'active' | 'pending'
